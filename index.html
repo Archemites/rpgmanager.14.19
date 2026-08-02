@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mesa de RPG — Protótipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<!-- Stylesheets -->
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/crt-effects.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/modals.css">
+</head>
+<body>
+<div id="app">
+  <div id="sidebarWrap">
+  <div id="sidebar">
+    <div>
+      <h1>MESA://RPG v0.1</h1>
+      <div class="hint">&gt; SISTEMA DE MESA TÁTICA — grid livre, mapa importável e tokens.</div>
+    </div>
+
+    <div class="section">
+      <h2>Jogadores</h2>
+      <button class="full" id="openPlayerBtn">🖥️ Abrir tela do jogador</button>
+      <button class="full" id="updatePlayerBtn" style="margin-top:10px;" title="Envia o estado atual (mapa, tokens, névoa, paredes) para a tela do jogador. Necessário depois de trocar de cena — a troca fica retida até você confirmar aqui.">🔄 Atualizar tela do jogador</button>
+      <button class="full" id="openGlossaryBtn" style="margin-top:10px;">📖 Glossário de efeitos</button>
+      <button class="full" id="openDiceBtn" style="margin-top:10px;">🎲 Rolar dados</button>
+    </div>
+
+    <input type="file" id="mapFileInput" accept="image/*" title="Importar imagem do mapa" aria-label="Importar imagem do mapa">
+
+    <div class="section" id="tokenListSection">
+      <h2>Tokens (<span id="tokenCount">0</span>)</h2>
+      <button class="full" id="addTokenBtn" style="margin-bottom:10px;">+ Adicionar token</button>
+      <div class="row" style="margin-bottom:10px;">
+        <label for="tokenSortSelect">Ordenar por</label>
+        <select id="tokenSortSelect" class="token-sort-select">
+          <option value="added">Data de adição</option>
+          <option value="name">Nome</option>
+        </select>
+      </div>
+      <div id="tokenList"></div>
+    </div>
+
+    <div class="section" id="partySection">
+      <h2>Party (<span id="partyCount">0</span>)</h2>
+      <div id="partyList"></div>
+    </div>
+
+    <div class="section" id="objectListSection">
+      <h2>Objetos (<span id="objectCount">0</span>)</h2>
+      <button class="full" id="addObjectBtn" style="margin-bottom:10px;">+ Adicionar objeto</button>
+      <div id="objectList"></div>
+    </div>
+  </div>
+  <div id="sidebarResizer"></div>
+  </div>
+
+  <div id="viewport">
+    <button id="helpBtn" title="Ajuda">?</button>
+
+    <div id="rightToolsBar">
+      <button id="topFogBtn" title="Desenhar oclusão de névoa">▓ Névoa</button>
+      <button id="topClearFogBtn" class="secondary" title="Limpar toda a névoa">Limpar névoa</button>
+      <button id="topWallBtn" title="Desenhar parede: clique e arraste para criar um segmento (segure Shift para travar em ângulos de 45°); botão direito sobre uma parede a remove. Visível só para o mestre — bloqueia a visão dos jogadores.">🧱 Parede</button>
+      <button id="topClearWallsBtn" class="secondary" title="Remover todas as paredes">Limpar paredes</button>
+      <button id="topMeasureBtn" title="Medir distâncias: clique num token para a seta acompanhar o mouse até o 2º clique; clique em ponto vazio e arraste (some ao soltar)">📏 Medir</button>
+      <button id="topFxBtn" title="Efeitos visuais: clique num ponto do mapa e escolha um efeito (explosão, fogo, fumaça...). Puramente cosmético — não move tokens, paredes ou névoa. Visível para mestre e jogador.">🎆 Efeitos</button>
+      <button id="topMoveBtn" title="Mover tokens sem selecioná-los: arraste qualquer token livremente sem trocar qual está selecionado (útil para não perder o token ativo que revela a névoa)">✋ Mover</button>
+      <button id="topTokenShrinkBtn" class="secondary" title="Diminuir o token selecionado">🔽 Token −</button>
+      <button id="topTokenGrowBtn" class="secondary" title="Aumentar o token selecionado">🔼 Token +</button>
+      <button id="topObjectShrinkBtn" class="secondary" title="Diminuir o objeto selecionado">🔽 Objeto −</button>
+      <button id="topObjectGrowBtn" class="secondary" title="Aumentar o objeto selecionado">🔼 Objeto +</button>
+    </div>
+
+    <div id="topBar">
+      <span>Zoom: <b id="zoomLabel">100%</b></span>
+      <span>Grid: <b id="gridLabel">48px</b></span>
+      <span>Mapa: <b id="mapLabel">nenhum</b></span>
+    </div>
+
+    <div id="topTools">
+      <button id="topImportBtn" title="Importar imagem do mapa">📁 Importar mapa</button>
+      <button id="topSlidersBtn" title="Ajustar mapa e grid">☰ Ajustes</button>
+    </div>
+    <canvas id="canvas"></canvas>
+    <div id="effectTooltip"></div>
+    <div id="notePostit">
+      <div id="notePostitHeader">
+        <span>Anotação</span>
+        <button id="notePostitClose" title="Fechar">✕</button>
+      </div>
+      <textarea id="notePostitText" placeholder="Escreva sua anotação..."></textarea>
+    </div>
+    <div id="zoomControls">
+      <button id="zoomOut" title="Diminuir zoom">−</button>
+      <button id="zoomReset" title="Resetar visão">⟳</button>
+      <button id="zoomIn" title="Aumentar zoom">+</button>
+    </div>
+    <button id="startCombatBtn">⚔ Iniciar combate</button>
+    <div id="combatControls">
+      <button id="nextTurnBtn">⤴ Próximo turno</button>
+    </div>
+    <div id="combatBar">
+      <button class="secondary" id="stopCombatBtn">Encerrar</button>
+      <div id="combatBar-track">
+        <div id="combatBar-tokens"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sceneSidebarResizer"></div>
+  <div id="sceneSidebar">
+    <h2>Cenas</h2>
+    <button class="full" id="addSceneBtn" style="margin-bottom:10px;">+ Nova cena</button>
+    <div id="sceneList"></div>
+  </div>
+</div>
+
+<!-- Token modal -->
+<div id="modalOverlay" class="modal-overlay">
+  <div id="tokenModal" class="modal-dialog">
+    <h3 id="modalTitle">Novo token</h3>
+    <div class="field">
+      <label for="tokenNameInput">Nome do personagem</label>
+      <input type="text" id="tokenNameInput" placeholder="Ex: Aragorn">
+    </div>
+    <div class="field">
+      <label>Foto</label>
+      <div id="photoPreviewWrap">
+        <img id="photoPreview" class="empty" alt="Prévia da foto do token">
+        <label class="modal-file-label" for="tokenPhotoInput">📷 Escolher foto</label>
+        <input type="file" id="tokenPhotoInput" accept="image/*" title="Escolher foto do token" aria-label="Escolher foto do token">
+      </div>
+      <button class="secondary" id="removePhotoBtn" style="margin-top:8px; display:none;">Remover foto</button>
+    </div>
+    <div class="field">
+      <label for="tokenColorInput">Cor</label>
+      <div class="row">
+        <input type="color" id="tokenColorInput" value="#e04b4b">
+        <div class="token-swatch-row" id="modalSwatchRow" style="flex:1; margin-top:0;"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label class="checkbox-row" for="tokenIsPlayerInput">
+        <input type="checkbox" id="tokenIsPlayerInput">
+        <span>Token de jogador (Party)</span>
+      </label>
+    </div>
+    <div class="field">
+      <label>Visão (cone)</label>
+      <div class="top-slider-row" style="margin:0;">
+        <label for="tokenVisionAngleInput" style="min-width:70px;">Ângulo</label>
+        <input type="range" id="tokenVisionAngleInput" min="20" max="360" step="5" value="120">
+        <span id="tokenVisionAngleVal" style="min-width:44px;">120°</span>
+      </div>
+      <div class="top-slider-row" style="margin:6px 0 0;">
+        <label for="tokenVisionMultInput" style="min-width:70px;">Alcance</label>
+        <input type="range" id="tokenVisionMultInput" min="0" max="300" step="10" value="100">
+        <span id="tokenVisionMultVal" style="min-width:44px;">100%</span>
+      </div>
+      <div class="hint" style="margin:6px 0 0;">&gt; Só tokens de jogador revelam a névoa para a party.</div>
+    </div>
+    <div id="modalActions">
+      <button class="secondary" id="cancelTokenBtn">Cancelar</button>
+      <button id="saveTokenBtn">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Object modal (map props/scenery — whole image is the shape, no crop) -->
+<div id="objectOverlay" class="modal-overlay">
+  <div id="objectModal" class="modal-dialog">
+    <h3 id="objectModalTitle">Novo objeto</h3>
+    <div class="field">
+      <label for="objectNameInput">Nome (opcional)</label>
+      <input type="text" id="objectNameInput" placeholder="Ex: Carro, Baú, Barril">
+    </div>
+    <div class="field">
+      <label>Imagem</label>
+      <div id="objectImagePreviewWrap">
+        <img id="objectImagePreview" class="empty" alt="Prévia do objeto">
+        <label class="modal-file-label" for="objectImageInput">📷 Escolher imagem</label>
+        <input type="file" id="objectImageInput" accept="image/*" title="Escolher imagem do objeto" aria-label="Escolher imagem do objeto">
+      </div>
+    </div>
+    <div id="modalActions">
+      <button class="secondary" id="objectCancelBtn">Cancelar</button>
+      <button id="objectSaveBtn">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Crop editor modal -->
+<div id="cropOverlay" class="modal-overlay">
+  <div id="cropModal" class="modal-dialog">
+    <h3>Recortar foto</h3>
+    <div id="cropCanvasWrap">
+      <canvas id="cropCanvas"></canvas>
+    </div>
+    <div class="crop-hint">Arraste para posicionar, use o slider para o zoom.</div>
+    <div id="cropZoomRow">
+      <label for="cropZoomSlider">Zoom</label>
+      <input type="range" id="cropZoomSlider" min="1" max="4" step="0.01" value="1">
+    </div>
+    <div id="modalActions">
+      <button class="secondary" id="cropCancelBtn">Cancelar</button>
+      <button id="cropApplyBtn">Aplicar recorte</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm delete modal -->
+<div id="confirmOverlay" class="modal-overlay">
+  <div id="confirmModal" class="modal-dialog">
+    <h3>Excluir token</h3>
+    <p>Tem certeza que deseja excluir <b id="confirmTokenName">este token</b>? Essa ação não pode ser desfeita.</p>
+    <div id="confirmActions">
+      <button class="secondary" id="confirmCancelBtn">Cancelar</button>
+      <button id="confirmDeleteBtn">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm delete scene modal -->
+<div id="confirmSceneOverlay" class="modal-overlay">
+  <div id="confirmSceneModal" class="modal-dialog">
+    <h3>Excluir cena</h3>
+    <p>Excluir <b id="confirmSceneName">esta cena</b>? Não pode ser desfeito.</p>
+    <div id="confirmActions">
+      <button class="secondary" id="confirmSceneCancelBtn">Cancelar</button>
+      <button id="confirmSceneDeleteBtn">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bar editor modal -->
+<div id="barOverlay" class="modal-overlay">
+  <div id="barModal" class="modal-dialog">
+    <h3 id="barModalTitle">Nova barra</h3>
+    <div class="field">
+      <label for="barNameInput">Nome da barra</label>
+      <input type="text" id="barNameInput" placeholder="Ex: Vida, Mana, Sanidade">
+    </div>
+    <div class="two-col">
+      <div class="field">
+        <label for="barCurrentInput">Atual</label>
+        <input type="number" id="barCurrentInput" value="10" min="0">
+      </div>
+      <div class="field">
+        <label for="barMaxInput">Máximo</label>
+        <input type="number" id="barMaxInput" value="10" min="1">
+      </div>
+    </div>
+    <div class="field">
+      <label for="barColorInput">Cor</label>
+      <div class="row">
+        <input type="color" id="barColorInput" value="#e04b4b">
+        <div class="token-swatch-row" id="barSwatchRow" style="flex:1; margin-top:0;"></div>
+      </div>
+    </div>
+    <div id="barDisplayFields">
+      <div class="field">
+        <label for="barDisplaySelect">Exibição no mapa</label>
+        <select id="barDisplaySelect" class="token-sort-select" style="max-width:none; width:100%;">
+          <option value="horizontal">Horizontal</option>
+          <option value="vertical">Vertical</option>
+          <option value="radial">Radial (anel)</option>
+        </select>
+      </div>
+      <div class="field" id="barSideField">
+        <label for="barSideSelect">Lado</label>
+        <select id="barSideSelect" class="token-sort-select" style="max-width:none; width:100%;">
+          <option value="left">Esquerda</option>
+          <option value="right">Direita</option>
+        </select>
+      </div>
+      <div class="field" id="barDirectionField">
+        <label for="barDirectionSelect">Orientação</label>
+        <select id="barDirectionSelect" class="token-sort-select" style="max-width:none; width:100%;">
+          <option value="ltr">Esquerda → Direita</option>
+          <option value="rtl">Direita → Esquerda</option>
+        </select>
+      </div>
+    </div>
+    <div id="modalActions">
+      <button class="secondary" id="barCancelBtn">Cancelar</button>
+      <button id="barSaveBtn">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Glossary modal -->
+<div id="glossaryOverlay" class="modal-overlay">
+  <div id="glossaryModal" class="modal-dialog">
+    <h3>Glossário de efeitos</h3>
+    <div class="hint" style="margin:0;">&gt; Anotações do mestre — nome, descrição, cor e ícone opcional.</div>
+    <div id="glossaryColumns">
+    <div id="glossaryList"></div>
+    <div id="glossaryForm">
+      <h4 id="glossaryFormTitle">Novo efeito</h4>
+      <div class="field">
+        <label for="glossaryNameInput">Nome</label>
+        <input type="text" id="glossaryNameInput" placeholder="Ex: Envenenado">
+      </div>
+      <div class="field">
+        <label for="glossaryDescInput">Descrição</label>
+        <textarea id="glossaryDescInput" rows="3" placeholder="Ex: Perde 1d4 de vida no início de cada turno."></textarea>
+      </div>
+      <div class="two-col">
+        <div class="field">
+          <label for="glossaryColorInput">Cor</label>
+          <div class="row">
+            <input type="color" id="glossaryColorInput" value="#4be08f">
+            <div class="token-swatch-row" id="glossarySwatchRow" style="flex:1; margin-top:0;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label for="glossaryIconInput">Ícone (opcional)</label>
+        <input type="text" id="glossaryIconInput" maxlength="4" placeholder="Ex: ☠️ 🔥 💤" style="max-width:120px;">
+      </div>
+      <div id="glossaryFormActions">
+        <button class="secondary" id="glossaryClearBtn">Limpar</button>
+        <button id="glossarySaveBtn">Adicionar</button>
+      </div>
+    </div>
+    </div>
+    <div id="glossaryActions">
+      <button class="secondary" id="glossaryCloseBtn">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Dice roller modal -->
+<div id="diceOverlay" class="modal-overlay">
+  <div id="diceModal" class="modal-dialog">
+    <h3>Rolar dados</h3>
+    <div class="hint" style="margin:0;">&gt; Escolha um dado, ajuste quantidade/modificador e role.</div>
+    <div id="diceFaceRow">
+      <button class="dice-face-btn" data-faces="4">d4</button>
+      <button class="dice-face-btn" data-faces="6">d6</button>
+      <button class="dice-face-btn" data-faces="8">d8</button>
+      <button class="dice-face-btn" data-faces="10">d10</button>
+      <button class="dice-face-btn" data-faces="12">d12</button>
+      <button class="dice-face-btn" data-faces="20">d20</button>
+      <button class="dice-face-btn" data-faces="100">d100</button>
+    </div>
+    <div class="two-col">
+      <div class="field">
+        <label for="diceCountInput">Quantidade</label>
+        <input type="number" id="diceCountInput" value="1" min="1" max="20">
+      </div>
+      <div class="field">
+        <label for="diceModInput">Modificador</label>
+        <input type="number" id="diceModInput" value="0">
+      </div>
+    </div>
+    <button class="full" id="diceRollBtn">Rolar</button>
+    <div id="diceResult"></div>
+    <div id="diceHistory"></div>
+    <div id="diceActions">
+      <button class="secondary" id="diceClearHistoryBtn">Limpar histórico</button>
+      <button class="secondary" id="diceCloseBtn">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Effects picker modal -->
+<div id="effectsPickerOverlay" class="modal-overlay">
+  <div id="effectsPickerModal" class="modal-dialog">
+    <h3 id="effectsPickerTitle">Efeitos</h3>
+    <input type="text" id="effectsSearchInput" placeholder="🔍 Buscar efeito...">
+    <div id="effectsPickerList"></div>
+    <div id="effectsPickerActions">
+      <button class="secondary" id="effectsPickerCloseBtn">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Help modal -->
+<div id="helpOverlay" class="modal-overlay">
+  <div id="helpModal" class="modal-dialog">
+    <h3>Ajuda da Mesa de RPG</h3>
+    <h4>Jogadores</h4>
+    <div class="help-section">
+      <p>Abre uma janela só com o mapa e os tokens, sincronizada em tempo real. Arraste-a para o segundo monitor.</p>
+    </div>
+    <h4>Mapa</h4>
+    <div class="help-section">
+      <p><b>Importar imagem:</b> Clique para carregar um mapa em qualquer formato de imagem.</p>
+      <p><b>Tamanho do mapa:</b> Redimensione o mapa de 10% a 400%.</p>
+    </div>
+    <h4>Grid</h4>
+    <div class="help-section">
+      <p><b>Mostrar grid:</b> Ativa/desativa a visualização da grade de células.</p>
+      <p><b>Tamanho da célula:</b> Ajuste o tamanho da célula de 16 a 128 pixels.</p>
+      <p><b>Cor:</b> Altere a cor da grade usando o seletor de cores.</p>
+    </div>
+    <h4>Névoa de Guerra & Visão</h4>
+    <div class="help-section">
+      <p><b>O que é:</b> A névoa representa a área <b>fora da visão</b> dos jogadores (não necessariamente escuridão). Onde há névoa, os jogadores só enxergam o que estiver dentro do cone de visão de um token de jogador.</p>
+      <p><b>Desenhar oclusão:</b> Ative "▓ Névoa" e arraste no mapa para criar um retângulo de névoa.</p>
+      <p><b>No mestre:</b> A névoa aparece bem discreta (pouco obstrutiva) para você enxergar o mapa por baixo; os cones de visão dos tokens de jogador são desenhados por cima.</p>
+      <p><b>No jogador:</b> A névoa é opaca, e cada token de jogador "abre" um cone de visão que revela o mapa e os tokens ali dentro.</p>
+      <p><b>Iluminação (Ajustes):</b> Controle global que define o alcance da visão. Quanto maior, mais fundo os tokens enxergam dentro da névoa.</p>
+      <p><b>Orientação:</b> Selecione um token e arraste a alça amarela ao redor dele — ou use as setas ← → do teclado (Shift = passos maiores) — para girá-lo 360°. A imagem não gira, só a direção do cone.</p>
+      <p><b>Cone por token:</b> No editor do token, ajuste o <b>ângulo</b> do cone (padrão 120°, até 360°) e o <b>alcance</b> individual (multiplicador da iluminação).</p>
+      <p><b>Só jogadores revelam:</b> Apenas tokens marcados como jogador (Party) revelam a névoa; inimigos têm orientação/cone visíveis só para o mestre.</p>
+      <p><b>Remover:</b> Botão direito sobre um retângulo de névoa o remove. "Limpar" remove toda a névoa.</p>
+      <p><b>Paredes:</b> Ative "🧱 Parede" e clique e arraste para criar um segmento de parede — segure <b>Shift</b> para travar o ângulo em 0°, 45°, 90°... (linhas retas). Paredes bloqueiam a visão dos jogadores (a luz do cone não atravessa) e são visíveis só para o mestre. Botão direito sobre uma parede a remove; "Limpar paredes" remove todas.</p>
+    </div>
+    <h4>Medição de Distância</h4>
+    <div class="help-section">
+      <p><b>Ativar ferramenta:</b> Clique no botão "📏 Medir" para ativar o modo de medição.</p>
+      <p><b>Medir entre tokens:</b> Com a ferramenta ativa, clique em um token (ficará destacado com amarelo), depois clique em outro token. Uma linha verde mostrará a distância entre eles em metros (cada quadrado da grid = 1 metro).</p>
+      <p><b>Medir no mapa:</b> Alternativamente, clique e arraste em qualquer área sem tokens para criar uma linha de medição manual.</p>
+      <p><b>Limpar medição:</b> Clique em uma área vazia, clique no mesmo token novamente, ou clique no botão "📏 Medir" para desativar.</p>
+    </div>
+    <h4>Tokens</h4>
+    <div class="help-section">
+      <p><b>Adicionar token:</b> Cria um novo token no centro da visão.</p>
+      <p><b>Scroll:</b> Zoom in/out (ancorado no cursor).</p>
+      <p><b>Botão do meio:</b> Arrasta o mapa (pan).</p>
+      <p><b>Botão esquerdo:</b> Arrasta tokens pelo mapa.</p>
+      <p><b>Botão direito:</b> Remove um token.</p>
+      <p><b>Clique na lista:</b> Clique em um token na lista lateral para editar nome, foto e cor.</p>
+      <p><b>Token de jogador:</b> Marque a caixa "Token de jogador (Party)" ao criar/editar para adicioná-lo à Party.</p>
+    </div>
+    <h4>Party</h4>
+    <div class="help-section">
+      <p><b>O que é:</b> Tokens marcados como jogador aparecem no painel Party. Todos começam com uma barra de Vida.</p>
+      <p><b>Barras universais:</b> As barras (Vida, Mana, Sanidade…) são compartilhadas por toda a party — se você criar uma barra, todos os membros passam a tê-la. Use "+ Nova barra universal" no topo do painel.</p>
+      <p><b>Editar/Remover barra:</b> Os ícones ✎ e ✕ nos chips do topo editam o nome/cor ou removem a barra de todos.</p>
+      <p><b>Valores por membro:</b> Cada membro tem seu próprio atual/máximo. Clique no ✎ da barra dentro do card do membro para ajustar só os valores dele.</p>
+      <p><b>Barras ativas no mapa:</b> Marque a caixa ao lado de uma barra no topo do painel para exibi-la no mapa. No máximo 2 podem estar ativas ao mesmo tempo.</p>
+      <p><b>Exibição:</b> No editor da barra, escolha o modo: <b>Horizontal</b> (acima do token), <b>Vertical</b> (à esquerda ou direita, com orientação para cima/baixo) ou <b>Radial</b> (anel de progresso ao redor do token). Vertical e horizontal permitem inverter a orientação (→ ou ←).</p>
+      <p><b>No mapa:</b> As barras ativas aparecem em cada token de jogador, sincronizadas com a tela do jogador.</p>
+    </div>
+    <h4>Combate</h4>
+    <div class="help-section">
+      <p><b>Iniciar combate:</b> Começa o rastreamento de turno. Os tokens aparecem na barra de combate na ordem atual.</p>
+      <p><b>Próximo turno:</b> Avança o turno para o próximo token na ordem.</p>
+      <p><b>Reordenar:</b> Arraste tokens na barra de combate para mudar a ordem de iniciativa.</p>
+      <p><b>Encerrar:</b> Para o rastreamento de combate.</p>
+    </div>
+    <h4>Controles de Câmera</h4>
+    <div class="help-section">
+      <p><b>Botões de zoom:</b> Use os botões no canto inferior direito para aumentar, diminuir ou resetar o zoom.</p>
+      <p><b>Wheel zoom:</b> Use a roda do mouse no mapa para fazer zoom (ancorado no cursor).</p>
+      <p><b>Pan:</b> Mantenha o botão do meio pressionado e arraste para mover a câmera.</p>
+    </div>
+    <div id="modalActions">
+      <button class="secondary" id="closeHelpBtn">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div id="settingsOverlay" class="modal-overlay">
+  <div id="settingsModal" class="modal-dialog">
+    <h3>Ajustes</h3>
+    <div class="top-panel-group">
+      <div class="top-panel-title">Tema de Mesa</div>
+      <div class="theme-picker" id="themePicker">
+        <button class="theme-swatch" data-theme="cyberpunk" title="Cyberpunk (verde CRT)"><span class="theme-swatch-name">Cyberpunk</span></button>
+        <button class="theme-swatch" data-theme="dnd" title="D&D (âmbar/pergaminho)"><span class="theme-swatch-name">D&amp;D</span></button>
+        <button class="theme-swatch" data-theme="cthulhu" title="Call of Cthulhu (teal mórbido)"><span class="theme-swatch-name">Cthulhu</span></button>
+        <button class="theme-swatch" data-theme="black" title="Neutro preto"><span class="theme-swatch-name">Neutro Preto</span></button>
+        <button class="theme-swatch" data-theme="cream" title="Neutro branco creme"><span class="theme-swatch-name">Creme</span></button>
+      </div>
+    </div>
+    <div class="top-panel-group">
+      <div class="top-panel-title">Mapa</div>
+      <div class="top-slider-row">
+        <label for="topMapScale">Tamanho</label>
+        <input type="range" id="topMapScale" min="10" max="400" value="100" disabled>
+        <span id="topMapScaleVal">100%</span>
+      </div>
+      <div class="top-slider-row">
+        <label for="topMapBgColor">Cor de fundo</label>
+        <input type="color" id="topMapBgColor" value="#03140a">
+      </div>
+      <button id="topRemoveMapBtn" class="secondary full" disabled>Remover mapa</button>
+    </div>
+    <div class="top-panel-group">
+      <div class="top-panel-title">Grid</div>
+      <div class="top-slider-row">
+        <label for="topGridSize">Tamanho</label>
+        <input type="range" id="topGridSize" min="16" max="128" value="48">
+        <span id="topGridSizeVal">48px</span>
+      </div>
+      <div class="top-slider-row">
+        <label for="topGridToggle">Mostrar</label>
+        <input type="checkbox" id="topGridToggle" checked>
+        <span class="top-panel-spacer"></span>
+        <label for="topGridColor">Cor</label>
+        <input type="color" id="topGridColor" value="#45ff78">
+      </div>
+    </div>
+    <div class="top-panel-group">
+      <div class="top-panel-title">Tokens</div>
+      <div class="top-slider-row">
+        <label for="topSnapToGrid">Encaixar na grade</label>
+        <input type="checkbox" id="topSnapToGrid">
+      </div>
+      <div class="hint" style="margin:6px 0 0;">&gt; Ao mover, o token trava no centro da célula da grade mais próxima.</div>
+    </div>
+    <div class="top-panel-group">
+      <div class="top-panel-title">Visão / Iluminação</div>
+      <div class="top-slider-row">
+        <label for="topLighting">Iluminação</label>
+        <input type="range" id="topLighting" min="0" max="300" value="100">
+        <span id="topLightingVal">100%</span>
+      </div>
+      <div class="hint" style="margin:6px 0 0;">&gt; Maior iluminação = tokens enxergam mais fundo na névoa.</div>
+      <div class="top-slider-row" style="margin-top:10px;">
+        <label for="topWallMethod">Oclusão de paredes</label>
+        <select id="topWallMethod" class="token-sort-select">
+          <option value="cell">Por célula (rápido)</option>
+          <option value="raycast">Silhueta precisa (raycasting)</option>
+        </select>
+      </div>
+      <div class="hint" style="margin:6px 0 0;">&gt; "Por célula" bloqueia a névoa em blocos de grid — leve. "Silhueta precisa" desenha a sombra exata da parede — mais fiel, um pouco mais pesado.</div>
+    </div>
+    <div class="top-panel-group">
+      <div class="top-panel-title">Sessão</div>
+      <div class="hint" style="margin:0 0 6px;">&gt; Backup local com tudo: cenas, tokens, mapas, fotos e ajustes.</div>
+      <button class="secondary full" id="exportSessionBtn">💾 Exportar sessão (backup)</button>
+      <button class="secondary full" id="importSessionBtn" style="margin-top:6px;">📂 Importar sessão</button>
+      <input type="file" id="importSessionInput" accept="application/json,.json" style="display:none;">
+    </div>
+    <div id="modalActions">
+      <button class="secondary" id="openEventLogBtn">📜 Log de Eventos</button>
+      <button class="secondary" id="closeSettingsBtn">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- FX size/duration popup (right-click while the Efeitos tool is active) -->
+<div id="fxSettingsOverlay" class="modal-overlay">
+  <div id="fxSettingsModal" class="modal-dialog">
+    <h3>Ajustar efeito</h3>
+    <div class="top-slider-row">
+      <label for="fxSizeSlider">Tamanho</label>
+      <input type="range" id="fxSizeSlider" min="25" max="300" value="100">
+      <span id="fxSizeVal">100%</span>
+    </div>
+    <div class="top-slider-row">
+      <label for="fxDurationSlider">Duração</label>
+      <input type="range" id="fxDurationSlider" min="25" max="300" value="100">
+      <span id="fxDurationVal">100%</span>
+    </div>
+    <div class="hint" style="margin:6px 0 0;">&gt; Vale para o próximo efeito colocado (e os seguintes, até ajustar de novo).</div>
+    <div id="modalActions">
+      <button class="secondary" id="closeFxSettingsBtn">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Note editor modal (token annotations + background annotations) -->
+<div id="noteOverlay" class="modal-overlay">
+  <div id="noteModal" class="modal-dialog">
+    <h3 id="noteModalTitle">Anotação</h3>
+    <div class="field">
+      <textarea id="noteTextInput" rows="8" placeholder="Escreva sua anotação..."></textarea>
+    </div>
+    <div id="modalActions">
+      <button class="secondary" id="noteDeleteBtn" style="display:none;">Excluir</button>
+      <button class="secondary" id="noteCancelBtn">Cancelar</button>
+      <button id="noteSaveBtn">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Event log / version history modal -->
+<div id="eventLogOverlay" class="modal-overlay">
+  <div id="eventLogModal" class="modal-dialog">
+    <h3>Log de Eventos</h3>
+    <div class="tab-row">
+      <button class="tab-btn active" id="eventLogTabBtn" data-tab="eventLog">Log de Eventos</button>
+      <button class="tab-btn" id="versionHistoryTabBtn" data-tab="versionHistory">Histórico de Versões</button>
+    </div>
+    <div id="eventLogList" class="tab-pane active"></div>
+    <div id="versionHistoryList" class="tab-pane"></div>
+    <div id="modalActions">
+      <button class="secondary" id="closeEventLogBtn">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shared modules (both windows) -->
+<script src="js/shared/camera.js"></script>
+<script src="js/shared/photo-cache.js"></script>
+<script src="js/shared/object-cache.js"></script>
+<script src="js/shared/bars.js"></script>
+<script src="js/shared/scene-render.js"></script>
+<script src="js/shared/vision-math.js"></script>
+<script src="js/shared/fx-trail.js"></script>
+
+<!-- GM modules -->
+<script src="js/gm/state.js"></script>
+<script src="js/gm/history.js"></script>
+<script src="js/gm/scenes.js"></script>
+<script src="js/gm/sync.js"></script>
+<script src="js/gm/hit-test.js"></script>
+<script src="js/gm/vision-preview.js"></script>
+<script src="js/gm/draw.js"></script>
+<script src="js/gm/map-grid-lighting.js"></script>
+<script src="js/gm/token-modal.js"></script>
+<script src="js/gm/crop-editor.js"></script>
+<script src="js/gm/context-menu.js"></script>
+<script src="js/gm/note-modal.js"></script>
+<script src="js/gm/note-postit.js"></script>
+<script src="js/gm/token-list.js"></script>
+<script src="js/gm/objects.js"></script>
+<script src="js/gm/effects-picker.js"></script>
+<script src="js/gm/glossary.js"></script>
+<script src="js/gm/dice-roller.js"></script>
+<script src="js/gm/bar-editor.js"></script>
+<script src="js/gm/party.js"></script>
+<script src="js/gm/combat.js"></script>
+<script src="js/gm/tools.js"></script>
+<script src="js/gm/fx-settings.js"></script>
+<script src="js/gm/session-io.js"></script>
+<script src="js/gm/theme.js"></script>
+<script src="js/gm/mouse.js"></script>
+<script src="js/gm/hotkeys.js"></script>
+
+<!-- Features -->
+<script src="js/features/measure.js"></script>
+
+<!-- GM init (loads absolute last) -->
+<script src="js/gm/init.js"></script>
+
+</body>
+</html>

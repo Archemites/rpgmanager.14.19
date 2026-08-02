@@ -1,0 +1,100 @@
+/* ============================================================
+   Player view styles
+   ============================================================ */
+
+#viewport { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+
+/* Player canvas pointer-events setup */
+#canvas { display: block; width: 100%; height: 100%; cursor: default; }
+
+/* Player combat bar (read-only) */
+#combatBar {
+  pointer-events: none;
+}
+
+#combatBar .combat-token {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+
+#combatBar .combat-token .dot {
+  display: block;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--panel-border);
+  box-shadow: 0 0 8px rgba(0,0,0,0.5);
+  flex-shrink: 0;
+}
+
+#combatBar .combat-token.current .dot {
+  border-color: var(--danger);
+  box-shadow: 0 0 12px rgba(var(--danger-rgb),0.8), inset 0 0 6px rgba(var(--danger-rgb),0.3);
+}
+
+#combatBar .combat-token .name {
+  font-size: 10px;
+  color: var(--text-dim);
+  max-width: 48px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+#combatBar .combat-token.current .name { color: var(--danger); text-shadow: 0 0 6px rgba(var(--danger-rgb),0.6); }
+
+/* ============================================================
+   Fullscreen prompt + toggle (js/player/fullscreen.js)
+   ============================================================ */
+
+#fsPrompt {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.82);
+  cursor: pointer;
+  user-select: none;
+}
+
+#fsPrompt.hidden { display: none; }
+
+#fsPrompt .fs-box {
+  text-align: center;
+  color: var(--accent, #6ef2a0);
+  text-shadow: 0 0 12px rgba(0,0,0,0.9);
+}
+
+#fsPrompt .fs-icon { font-size: 64px; line-height: 1; margin-bottom: 16px; }
+#fsPrompt .fs-title { font-size: 22px; letter-spacing: 3px; }
+#fsPrompt .fs-hint { margin-top: 10px; font-size: 13px; color: var(--text-dim); letter-spacing: 1px; }
+
+#fsBtn {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 8999;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-dim);
+  background: rgba(0,0,0,0.45);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  opacity: 0.25;
+  transition: opacity 0.2s;
+}
+
+#fsBtn:hover { opacity: 1; color: var(--accent, #6ef2a0); }

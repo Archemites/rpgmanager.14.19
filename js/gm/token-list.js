@@ -1,0 +1,137 @@
+/* ============================================================
+   GM sidebar token list: render, sort, effect badges, delete confirmation.
+   ============================================================ */
+
+(() => {
+  'use strict';
+
+  const state = window.RPG.state;
+
+  const tokenList = document.getElementById('tokenList');
+  const tokenCount = document.getElementById('tokenCount');
+
+  // ---------- Token list sorting ----------
+  const tokenSortSelect = document.getElementById('tokenSortSelect');
+  let tokenSortMode = 'added';
+  tokenSortSelect.addEventListener('change', () => {
+    tokenSortMode = tokenSortSelect.value;
+    renderTokenList();
+  });
+
+  function getSortedTokens() {
+    const list = state.tokens.slice();
+    if (tokenSortMode === 'name') {
+      list.sort((a, b) => (a.name || `Token ${a.id}`).localeCompare(b.name || `Token ${b.id}`, 'pt-BR', { sensitivity: 'base' }));
+    } else {
+      list.sort((a, b) => (a.createdAt || a.id) - (b.createdAt || b.id));
+    }
+    return list;
+  }
+
+  // ---------- Delete confirmation ----------
+  const confirmOverlay = document.getElementById('confirmOverlay');
+  const confirmTokenName = document.getElementById('confirmTokenName');
+  const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+  const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+  let pendingDeleteId = null;
+
+  function askRemoveToken(t) {
+    pendingDeleteId = t.id;
+    confirmTokenName.textContent = t.name || `Token ${t.id}`;
+    confirmOverlay.classList.add('open');
+  }
+
+  function closeConfirm() {
+    confirmOverlay.classList.remove('open');
+    pendingDeleteId = null;
+  }
+
+  confirmCancelBtn.addEventListener('click', closeConfirm);
+  confirmOverlay.addEventListener('click', (e) => { if (e.target === confirmOverlay) closeConfirm(); });
+  confirmDeleteBtn.addEventListener('click', () => {
+    if (pendingDeleteId !== null) window.RPG.removeToken(pendingDeleteId);
+    closeConfirm();
+  });
+
+  function renderTokenList() {
+    tokenCount.textContent = state.tokens.length;
+    tokenList.innerHTML = '';
+    for (const t of getSortedTokens()) {
+      const item = document.createElement('div');
+      item.className = 'token-item';
+      if (t.id === state.selectedTokenId) item.classList.add('selected');
+
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      dot.style.background = t.color;
+      if (t.photoDataUrl) {
+        dot.style.backgroundImage = `url(${t.photoDataUrl})`;
+      }
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = t.name || `Token ${t.id}`;
+      nameSpan.style.flex = '1';
+      nameSpan.style.overflow = 'hidden';
+      nameSpan.style.textOverflow = 'ellipsis';
+      nameSpan.style.whiteSpace = 'nowrap';
+
+      const badges = buildEffectBadges(t);
+
+      const effectsBtn = document.createElement('button');
+      effectsBtn.className = 'icon-btn effects-btn';
+      effectsBtn.textContent = '✨';
+      effectsBtn.title = 'Aplicar efeitos';
+      effectsBtn.addEventListener('click', (e) => { e.stopPropagation(); window.RPG.openEffectsPicker(t); });
+
+      const noteBtn = document.createElement('button');
+      noteBtn.className = 'icon-btn note-btn' + (t.note ? ' has-note' : '');
+      noteBtn.textContent = '📝';
+      noteBtn.title = 'Anotações';
+      noteBtn.addEventListener('click', (e) => { e.stopPropagation(); window.RPG.openTokenNote(t); });
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'icon-btn edit-btn';
+      editBtn.textContent = '✎';
+      editBtn.title = 'Editar token';
+      editBtn.addEventListener('click', () => window.RPG.openModalForEdit(t));
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'icon-btn remove-btn';
+      removeBtn.textContent = '✕';
+      removeBtn.title = 'Excluir token';
+      removeBtn.addEventListener('click', () => askRemoveToken(t));
+
+      item.appendChild(dot);
+      item.appendChild(nameSpan);
+      if (badges) item.appendChild(badges);
+      item.appendChild(effectsBtn);
+      item.appendChild(noteBtn);
+      item.appendChild(editBtn);
+      item.appendChild(removeBtn);
+      item.addEventListener('mouseenter', () => { state.selectedTokenId = t.id; window.RPG.draw(); });
+      tokenList.appendChild(item);
+    }
+  }
+
+  // small colored icon chips shown next to a token name for its applied effects
+  function buildEffectBadges(token) {
+    if (!token.effects || token.effects.length === 0) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'effect-badges';
+    for (const id of token.effects) {
+      const eff = state.glossary.find(e => e.id === id);
+      if (!eff) continue;
+      const badge = document.createElement('span');
+      badge.className = 'effect-badge';
+      badge.style.background = eff.color;
+      badge.title = eff.name + (eff.desc ? ' — ' + eff.desc : '');
+      badge.textContent = eff.icon || eff.name.slice(0, 1).toUpperCase();
+      wrap.appendChild(badge);
+    }
+    return wrap.children.length ? wrap : null;
+  }
+
+  // ---------- Expose to window.RPG ----------
+  window.RPG.renderTokenList = renderTokenList;
+  window.RPG.getSortedTokens = getSortedTokens;
+})();

@@ -1,0 +1,3726 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mesa de RPG — Protótipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #020804;
+    --panel: #041008;
+    --panel-border: #1e5c32;
+    --text: #45ff78;
+    --text-dim: #2a9c4e;
+    --accent: #45ff78;
+    --accent-hover: #7dffa5;
+    --danger: #ff9f45;
+    --glow: 0 0 4px rgba(69,255,120,0.55), 0 0 11px rgba(69,255,120,0.22);
+    --glow-strong: 0 0 6px rgba(69,255,120,0.9), 0 0 18px rgba(69,255,120,0.45), 0 0 40px rgba(69,255,120,0.18);
+    --border-glow: 0 0 6px rgba(69,255,120,0.25), inset 0 0 8px rgba(69,255,120,0.07);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "VT323", "IBM Plex Mono", Consolas, "Lucida Console", monospace;
+    font-size: 17px;
+    overflow: hidden;
+    text-shadow: var(--glow);
+  }
+  #app { display: flex; height: 100vh; width: 100vw; }
+  #sidebarWrap { display: flex; flex-shrink: 0; height: 100%; }
+  #sidebarResizer {
+    width: 6px;
+    flex-shrink: 0;
+    cursor: col-resize;
+    background: var(--panel-border);
+    position: relative;
+    z-index: 5;
+  }
+  #sidebarResizer:hover, #sidebarResizer.dragging {
+    background: var(--accent);
+    box-shadow: 0 0 10px rgba(69,255,120,0.5);
+  }
+
+  /* ---------- CRT overlay: scanlines + vignette + flicker ---------- */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(0,0,0,0)    0px,
+        rgba(0,0,0,0)    2px,
+        rgba(0,0,0,0.28) 3px,
+        rgba(0,0,0,0)    4px
+      ),
+      repeating-linear-gradient(
+        to right,
+        rgba(255,0,80,0.025)  0px,
+        rgba(0,255,120,0.02)  1px,
+        rgba(0,120,255,0.025) 2px,
+        rgba(0,0,0,0)         3px
+      );
+    animation: scan-drift 9s linear infinite;
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center,
+      rgba(0,0,0,0) 55%,
+      rgba(0,10,4,0.35) 85%,
+      rgba(0,8,3,0.75) 100%);
+    animation: crt-flicker 4s steps(60) infinite;
+  }
+  @keyframes scan-drift {
+    from { background-position: 0 0, 0 0; }
+    to   { background-position: 0 4px, 0 0; }
+  }
+  @keyframes crt-flicker {
+    0%, 100% { opacity: 1; }
+    3%  { opacity: 0.92; }
+    7%  { opacity: 1; }
+    9%  { opacity: 0.96; }
+    11% { opacity: 1; }
+    43% { opacity: 0.97; }
+    47% { opacity: 1; }
+    81% { opacity: 0.94; }
+    83% { opacity: 1; }
+  }
+
+  /* ---------- Sidebar ---------- */
+  #sidebar {
+    width: 300px;
+    min-width: 220px;
+    max-width: 600px;
+    flex-shrink: 0;
+    background:
+      linear-gradient(rgba(69,255,120,0.03), rgba(69,255,120,0.0) 40%),
+      var(--panel);
+    box-shadow: var(--border-glow);
+    padding: 16px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  #sidebar::-webkit-scrollbar { width: 8px; }
+  #sidebar::-webkit-scrollbar-thumb { background: var(--panel-border); }
+  #sidebar h1 {
+    font-size: 15px;
+    margin: 0 0 4px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    text-shadow: var(--glow-strong);
+  }
+  #sidebar h1::after { content: "_"; animation: cursor-blink 1.1s steps(1) infinite; }
+  @keyframes cursor-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+  #sidebar h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--text-dim);
+    margin: 0 0 8px 0;
+  }
+  #sidebar h2::before { content: "▓▒░ "; }
+  .section {
+    background: rgba(69,255,120,0.025);
+    border: 1px solid var(--panel-border);
+    border-radius: 0;
+    box-shadow: var(--border-glow);
+    padding: 12px;
+    min-width: 0;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    min-width: 0;
+  }
+  .row:last-child { margin-bottom: 0; }
+  label { font-size: 12px; color: var(--text-dim); flex-shrink: 0; }
+  input[type="range"] { flex: 1; min-width: 0; margin: 0 8px; accent-color: var(--accent); }
+  input[type="number"] {
+    width: 60px;
+    flex-shrink: 0;
+    background: #000;
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    border-radius: 0;
+    padding: 4px 6px;
+    font-size: 13px;
+    font-family: inherit;
+    text-shadow: var(--glow);
+  }
+  input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 8px rgba(69,255,120,0.4);
+  }
+  input[type="color"] {
+    width: 36px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--panel-border);
+    border-radius: 0;
+    background: none;
+    cursor: pointer;
+  }
+  button {
+    background: rgba(69,255,120,0.12);
+    color: var(--text);
+    border: 1px solid var(--accent);
+    border-radius: 0;
+    padding: 8px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-family: inherit;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-shadow: var(--glow);
+    box-shadow: 0 0 8px rgba(69,255,120,0.2), inset 0 0 10px rgba(69,255,120,0.06);
+    transition: background 0.08s, box-shadow 0.08s;
+  }
+  button:hover {
+    background: rgba(69,255,120,0.28);
+    box-shadow: 0 0 16px rgba(69,255,120,0.55), inset 0 0 14px rgba(69,255,120,0.15);
+  }
+  button:active { background: var(--accent); color: #001a08; text-shadow: none; }
+  button.secondary {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--text-dim);
+    box-shadow: none;
+  }
+  button.secondary:hover {
+    background: rgba(69,255,120,0.08);
+    color: var(--text);
+    border-color: var(--accent);
+  }
+  button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  .full { width: 100%; }
+  .file-label {
+    display: block;
+    text-align: center;
+    border: 1px dashed var(--panel-border);
+    border-radius: 0;
+    padding: 10px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .file-label:hover {
+    border-color: var(--accent);
+    color: var(--text);
+    box-shadow: 0 0 12px rgba(69,255,120,0.3), inset 0 0 12px rgba(69,255,120,0.08);
+  }
+  #mapFileInput { display: none; }
+
+  .token-swatch-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .swatch {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+  }
+  .swatch:hover { box-shadow: 0 0 10px rgba(69,255,120,0.5); }
+  .swatch.selected { border-color: var(--accent); box-shadow: 0 0 10px rgba(69,255,120,0.7); }
+
+  #tokenListSection {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  #tokenList {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 120px;
+    max-height: 300px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    min-width: 0;
+    border: 1px solid var(--panel-border);
+    background: rgba(0,0,0,0.4);
+    padding: 6px;
+  }
+  #tokenList::-webkit-scrollbar { width: 8px; }
+  #tokenList::-webkit-scrollbar-thumb { background: var(--panel-border); }
+  #tokenList:empty::before {
+    content: "Nenhum token no mapa.";
+    display: block;
+    color: var(--text-dim);
+    font-size: 12px;
+    text-align: center;
+    padding: 16px 8px;
+    opacity: 0.7;
+  }
+  .token-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #000;
+    border: 1px solid var(--panel-border);
+    border-radius: 0;
+    padding: 6px 8px;
+    font-size: 12px;
+    min-width: 0;
+    flex-shrink: 0;
+  }
+  .token-item:hover { border-color: var(--accent); box-shadow: 0 0 8px rgba(69,255,120,0.25); }
+  .token-item .dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 6px currentColor; background-size: cover; background-position: center; }
+  .token-item input[type="text"] {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 12px;
+    min-width: 0;
+  }
+  .token-item input[type="text"]:focus { outline: none; }
+  .token-item .icon-btn {
+    background: transparent;
+    color: var(--text-dim);
+    border: none;
+    padding: 2px 6px;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .token-item .edit-btn:hover { color: var(--accent); }
+  .token-item .remove-btn:hover { color: var(--danger); }
+
+  .token-sort-select {
+    background: #000;
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    border-radius: 0;
+    padding: 4px 6px;
+    font-size: 12px;
+    font-family: inherit;
+    text-shadow: var(--glow);
+    cursor: pointer;
+    flex: 1;
+    min-width: 0;
+    max-width: 160px;
+  }
+  .token-sort-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 8px rgba(69,255,120,0.4);
+  }
+
+  /* ---------- Checkbox row (modal) ---------- */
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    color: var(--text);
+    font-size: 13px;
+  }
+  .checkbox-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Party panel ---------- */
+  #partyList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #partyList:empty::before {
+    content: "Marque um token como jogador para vê-lo aqui.";
+    display: block;
+    color: var(--text-dim);
+    font-size: 12px;
+    text-align: center;
+    padding: 8px;
+    opacity: 0.7;
+    line-height: 1.5;
+  }
+  .party-member {
+    border: 1px solid var(--panel-border);
+    background: rgba(0,0,0,0.4);
+    padding: 8px;
+  }
+  .party-member-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    min-width: 0;
+  }
+  .party-member-head .dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 6px currentColor;
+    background-size: cover;
+    background-position: center;
+  }
+  .party-member-head .pm-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+  }
+  .party-bar {
+    margin-bottom: 6px;
+  }
+  .party-bar-labelrow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 3px;
+    min-width: 0;
+  }
+  .party-bar-labelrow .pb-name {
+    flex: 1;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .party-bar-labelrow .pb-val {
+    font-size: 12px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .party-bar-labelrow .icon-btn {
+    background: transparent;
+    color: var(--text-dim);
+    border: none;
+    padding: 0 3px;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .party-bar-labelrow .icon-btn:hover { color: var(--danger); }
+  .party-bar-track {
+    height: 10px;
+    border: 1px solid var(--panel-border);
+    background: #000;
+    position: relative;
+    overflow: hidden;
+  }
+  .party-bar-fill {
+    height: 100%;
+    transition: width 0.2s;
+  }
+  .add-bar-btn {
+    width: 100%;
+    margin-top: 4px;
+    font-size: 11px;
+    padding: 5px;
+  }
+
+  /* universal bar definitions toolbar */
+  .party-toolbar {
+    border: 1px dashed var(--panel-border);
+    background: rgba(69,255,120,0.04);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .party-toolbar-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+  }
+  .bar-def-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #000;
+    border: 1px solid var(--panel-border);
+    padding: 4px 6px;
+    min-width: 0;
+  }
+  .bar-active-cb {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+    margin: 0;
+  }
+  .bar-active-cb:disabled { cursor: not-allowed; opacity: 0.4; }
+  .bar-def-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 4px currentColor;
+  }
+  .bar-def-mode {
+    font-size: 10px;
+    color: var(--text-dim);
+    border: 1px solid var(--panel-border);
+    padding: 0 4px;
+    flex-shrink: 0;
+    line-height: 1.4;
+  }
+  .bar-def-name {
+    flex: 1;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bar-def-chip .icon-btn {
+    background: transparent;
+    color: var(--text-dim);
+    border: none;
+    padding: 0 3px;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .bar-def-chip .icon-btn:hover { color: var(--accent); }
+  .party-nobars {
+    font-size: 11px;
+    color: var(--text-dim);
+    opacity: 0.7;
+    padding: 4px 0;
+  }
+
+  /* ---------- Bar editor modal ---------- */
+  #barOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 160;
+  }
+  #barOverlay.open { display: flex; }
+  #barModal {
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 0;
+    box-shadow: 0 0 24px rgba(69,255,120,0.35), inset 0 0 20px rgba(69,255,120,0.05);
+    padding: 20px;
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  #barModal h3 {
+    margin: 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    text-shadow: var(--glow-strong);
+  }
+  #barModal h3::before { content: "█ "; }
+  #barModal .field label { display: block; margin-bottom: 6px; }
+  #barModal input[type="text"], #barModal input[type="number"] {
+    width: 100%;
+    background: #000;
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    border-radius: 0;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    text-shadow: var(--glow);
+  }
+  #barModal input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(69,255,120,0.35);
+  }
+  #barModal .two-col { display: flex; gap: 10px; }
+  #barModal .two-col .field { flex: 1; min-width: 0; }
+
+  /* ---------- Effects glossary modal ---------- */
+  #glossaryOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 165;
+  }
+  #glossaryOverlay.open { display: flex; }
+  #glossaryModal {
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 0;
+    box-shadow: 0 0 24px rgba(69,255,120,0.35), inset 0 0 20px rgba(69,255,120,0.05);
+    padding: 20px;
+    width: 720px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+  }
+  #glossaryColumns { display: flex; gap: 14px; align-items: stretch; }
+  #glossaryColumns > #glossaryList { flex: 1; min-width: 0; }
+  #glossaryColumns > #glossaryForm { width: 300px; flex-shrink: 0; }
+  @media (max-width: 640px) {
+    #glossaryColumns { flex-direction: column; }
+    #glossaryColumns > #glossaryForm { width: auto; }
+  }
+  #glossaryModal h3 {
+    margin: 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    text-shadow: var(--glow-strong);
+  }
+  #glossaryModal h3::before { content: "█ "; }
+  #glossaryModal h4 {
+    margin: 0 0 4px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+  }
+  #glossaryModal .field label { display: block; margin-bottom: 6px; }
+  #glossaryModal input[type="text"],
+  #glossaryModal textarea {
+    width: 100%;
+    background: #000;
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    border-radius: 0;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    text-shadow: var(--glow);
+    resize: vertical;
+  }
+  #glossaryModal input:focus,
+  #glossaryModal textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(69,255,120,0.35);
+  }
+  #glossaryModal .two-col { display: flex; gap: 10px; }
+  #glossaryModal .two-col .field { flex: 1; min-width: 0; }
+  #glossaryList {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 420px;
+    overflow-y: auto;
+    border: 1px solid var(--panel-border);
+    background: rgba(0,0,0,0.4);
+    padding: 6px;
+  }
+  #glossaryList::-webkit-scrollbar { width: 8px; }
+  #glossaryList::-webkit-scrollbar-thumb { background: var(--panel-border); }
+  #glossaryList .empty-hint {
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 10px 4px;
+    text-align: center;
+  }
+  .glossary-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--panel-border);
+    background: rgba(0,0,0,0.35);
+    border-left-width: 4px;
+  }
+  .glossary-item .gi-icon {
+    font-size: 20px;
+    line-height: 1.2;
+    flex-shrink: 0;
+    min-width: 22px;
+    text-align: center;
+  }
+  .glossary-item .gi-body { flex: 1; min-width: 0; }
+  .glossary-item .gi-name {
+    font-size: 15px;
+    text-shadow: var(--glow);
+    word-break: break-word;
+  }
+  .glossary-item .gi-desc {
+    font-size: 13px;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-top: 2px;
+  }
+  .glossary-item .gi-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+  .glossary-item .gi-actions button {
+    font-size: 12px;
+    padding: 2px 8px;
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .glossary-item .gi-actions button:hover { border-color: var(--accent); }
+  .glossary-item .gi-actions .gi-del:hover { border-color: var(--danger); color: var(--danger); }
+  #glossaryForm {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border: 1px dashed var(--panel-border);
+    padding: 12px;
+  }
+  #glossaryFormActions, #glossaryActions { display: flex; gap: 10px; }
+  #glossaryFormActions button, #glossaryActions button { flex: 1; }
+
+  /* ---------- Token effect badges + effects button ---------- */
+  .token-item .effects-btn:hover { color: var(--accent); }
+  .effect-badges { display: flex; gap: 3px; flex-shrink: 0; max-width: 96px; overflow: hidden; }
+  .effect-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1;
+    color: #000;
+    box-shadow: 0 0 4px currentColor;
+  }
+
+  /* ---------- Apply-effects picker modal ---------- */
+  #effectsPickerOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 170;
+  }
+  #effectsPickerOverlay.open { display: flex; }
+  #effectsPickerModal {
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 0;
+    box-shadow: 0 0 24px rgba(69,255,120,0.35), inset 0 0 20px rgba(69,255,120,0.05);
+    padding: 20px;
+    width: 420px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  #effectsPickerModal h3 {
+    margin: 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    text-shadow: var(--glow-strong);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #effectsPickerModal h3::before { content: "█ "; }
+  #effectsSearchInput {
+    width: 100%;
+    background: #000;
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    border-radius: 0;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    text-shadow: var(--glow);
+  }
+  #effectsSearchInput:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(69,255,120,0.35);
+  }
+  #effectsPickerList {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 360px;
+    overflow-y: auto;
+    border: 1px solid var(--panel-border);
+    background: rgba(0,0,0,0.4);
+    padding: 6px;
+  }
+  #effectsPickerList::-webkit-scrollbar { width: 8px; }
+  #effectsPickerList::-webkit-scrollbar-thumb { background: var(--panel-border); }
+  #effectsPickerList .empty-hint {
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 10px 4px;
+    text-align: center;
+  }
+  .effects-pick-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 9px;
+    border: 1px solid var(--panel-border);
+    border-left-width: 4px;
+    background: rgba(0,0,0,0.35);
+    cursor: pointer;
+  }
+  .effects-pick-row:hover { border-color: var(--accent); }
+  .effects-pick-row input[type="checkbox"] { margin-top: 3px; flex-shrink: 0; accent-color: var(--accent); }
+  .effects-pick-row .ep-icon { font-size: 18px; line-height: 1.2; flex-shrink: 0; }
+  .effects-pick-row .ep-body { flex: 1; min-width: 0; }
+  .effects-pick-row .ep-name { font-size: 15px; text-shadow: var(--glow); word-break: break-word; }
+  .effects-pick-row .ep-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-top: 2px;
+  }
+  #effectsPickerActions { display: flex; }
+  #effectsPickerActions button { flex: 1; }
+
+  /* ---------- Confirm delete modal ---------- */
+  #confirmOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 150;
+  }
+  #confirmOverlay.open { display: flex; }
+  #confirmModal {
+    background: var(--panel);
+    border: 1px solid var(--danger);
+    border-radius: 0;
+    box-shadow: 0 0 24px rgba(255,159,69,0.35), inset 0 0 20px rgba(255,159,69,0.05);
+    padding: 20px;
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  #confirmModal h3 {
+    margin: 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--danger);
+    text-shadow: 0 0 6px rgba(255,159,69,0.9), 0 0 18px rgba(255,159,69,0.45);
+  }
+  #confirmModal h3::before { content: "⚠ "; }
+  #confirmModal p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  #confirmModal #confirmActions {
+    display: flex;
+    gap: 8px;
+  }
+  #confirmModal #confirmActions button { flex: 1; }
+  #confirmDeleteBtn {
+    background: rgba(255,159,69,0.14);
+    border-color: var(--danger);
+    color: var(--danger);
+    box-shadow: 0 0 10px rgba(255,159,69,0.35), inset 0 0 10px rgba(255,159,69,0.08);
+  }
+  #confirmDeleteBtn:hover {
+    background: rgba(255,159,69,0.3);
+    box-shadow: 0 0 18px rgba(255,159,69,0.6), inset 0 0 14px rgba(255,159,69,0.15);
+  }
+
+  .hint { font-size: 10px; color: var(--text-dim); line-height: 1.6; }
+
+  /* ---------- Help modal ---------- */
+  #helpOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  #helpOverlay.open { display: flex; }
+  #helpModal {
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 0;
+    box-shadow: 0 0 24px rgba(69,255,120,0.35), inset 0 0 20px rgba(69,255,120,0.05);
+    padding: 20px;
+    width: 500px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+  }
+  #helpModal h3 {
+    margin: 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    text-shadow: var(--glow-strong);
+  }
+  #helpModal h3::before { content: "█ "; }
+  #helpModal h4 {
+    margin: 12px 0 6px 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    text-shadow: var(--glow);
+  }
+  #helpModal p {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  #helpModal .help-section {
+    background: rgba(69,255,120,0.05);
+    border-left: 2px solid var(--panel-border);
+    padding: 8px 12px;
+    margin: 8px 0;
+  }
+  #closeHelpBtn {
+    align-self: flex-end;
+  }
+  #helpBtn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 20;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border-radius: 50%;
+    background: rgba(2,10,5,0.88);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #helpBtn:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 14px rgba(69,255,120,0.5), inset 0 0 10px rgba(69,255,120,0.15);
+  }
+
+  /* ---------- Canvas area ---------- */
+  #viewport {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 60px rgba(69,255,120,0.05);
+  }
+  #canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: default;
+  }
+  #canvas.panning { cursor: grabbing; }
+  #canvas.over-token { cursor: grab; }
+  #canvas.fog-mode { cursor: crosshair; }
+  #fogModeBtn.active {
+    background: rgba(69,255,120,0.35);
+    box-shadow: 0 0 18px rgba(69,255,120,0.6), inset 0 0 14px rgba(69,255,120,0.2);
+  }
+  #topBar {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(2,10,5,0.88);
+    border: 1px solid var(--panel-border);
+    border-radius: 0;
+    box-shadow: var(--border-glow);
+    padding: 6px 14px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-dim);
+    z-index: 10;
+    pointer-events: none;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  #topBar b { color: var(--text); text-shadow: var(--glow-strong); }
+  #zoomControls {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    display: flex;
+    gap: 6px;
+    z-index: 10;
+  }
+  #zoomControls button {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    background: rgba(2,10,5,0.88);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-size: 16px;
+  }
+  #zoomControls button:hover { border-color: var(--accent); }
+
+  /* ---------- Top toolbar ---------- */
+  #topLeftTools {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 15;
+    display: flex;
+    gap: 6px;
+  }
+  #topLeftTools button { padding: 6px 12px; font-size: 11px; white-space: nowrap; }
+  #topFogBtn.active {
+    background: rgba(69,255,120,0.35);
+    box-shadow: 0 0 18px rgba(69,255,120,0.6), inset 0 0 14px rgba(69,255,120,0.2);
+  }
+  #topTools {
+    position: absolute;
+    top: 12px;
+    right: 52px;
+    z-index: 15;
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+  }
+  #topTools button {
+    padding: 6px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  #topSlidersPanel {
+    display: none;
+    position: absolute;
+    top: 40px;
+    right: 0;
+    background: rgba(2,10,5,0.94);
+    border: 1px solid var(--panel-border);
+    box-shadow: var(--border-glow);
+    padding: 14px;
+    width: 260px;
+  }
+  #topSlidersPanel.open { display: block; }
+  .top-panel-group { margin-bottom: 14px; }
+  .top-panel-group:last-child { margin-bottom: 0; }
+  .top-panel-title {
+    font-size: 12px;
+    color: var(--text);
+    text-shadow: var(--glow-strong);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .top-panel-title::before { content: "▸ "; color: var(--accent); }
+  .top-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .top-slider-row:last-child { margin-bottom: 0; }
+  .top-panel-group > button { margin-top: 4px; }
+  .top-slider-row label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .top-slider-row input[type="range"] { flex: 1; min-width: 0; margin: 0; accent-color: var(--accent); }
+  .top-slider-row input[type="color"] { flex-shrink: 0; }
+  .top-panel-spacer { flex: 1; }
+  .top-slider-row span {
+    font-size: 11px;
+    color: var(--text);
+    text-shadow: var(--glow-strong);
+    width: 44px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Combat ---------- */
+  #startCombatBtn {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    padding: 10px 22px;
+    font-size: 14px;
+    background: rgba(255,159,69,0.14);
+    border-color: var(--danger);
+    color: var(--danger);
+    box-shadow: 0 0 10px rgba(255,159,69,0.35), inset 0 0 10px rgba(255,159,69,0.08);
+  }
+  #startCombatBtn:hover {
+    background: rgba(255,159,69,0.3);
+    box-shadow: 0 0 18px rgba(255,159,69,0.6), inset 0 0 14px rgba(255,159,69,0.15);
+  }
+  #startCombatBtn.active {
+    background: var(--danger);
+    color: #200a00;
+    text-shadow: none;
+  }
+  #combatControls {
+    position: absolute;
+    bottom: 80px;
+    left: 12px;
+    display: none;
+    gap: 8px;
+    z-index: 11;
+  }
+  #combatControls.open { display: flex; }
+  #nextTurnBtn {
+    font-size: 12px;
+    padding: 8px 14px;
+    background: rgba(255,159,69,0.14);
+    border-color: var(--danger);
+    color: var(--danger);
+    box-shadow: 0 0 10px rgba(255,159,69,0.35), inset 0 0 10px rgba(255,159,69,0.08);
+  }
+  #nextTurnBtn:hover {
+    background: rgba(255,159,69,0.3);
+    box-shadow: 0 0 18px rgba(255,159,69,0.6), inset 0 0 14px rgba(255,159,69,0.15);
+  }
+
+  #effectTooltip {
+    position: absolute;
+    background: rgba(2, 10, 5, 0.95);
+    border: 1px solid var(--accent);
+    border-radius: 0;
+    padding: 8px 12px;
+    font-size: 13px;
+    z-index: 50;
+    pointer-events: none;
+    display: none;
+    box-shadow: 0 0 16px rgba(69,255,120,0.4);
+    max-width: 280px;
+    word-wrap: break-word;
+  }
+  #effectTooltip.show { display: block; }
+  #effectTooltip .eff-name { color: var(--accent); font-weight: bold; margin-bottom: 4px; }
+  #effectTooltip .eff-desc { color: var(--text-dim); font-size: 12px; }
+
+  #combatBar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: none;
+    align-items: center;
+    padding: 0 12px;
+    background: rgba(2,10,5,0.92);
+    border-top: 1px solid rgba(69,255,120,0.2);
+    box-shadow: 0 0 8px rgba(0,0,0,0.3);
+    z-index: 11;
+    height: 80px;
+  }
+  #combatBar.open { display: flex; }
+  #combatBar-track {
+    flex: 1;
+    position: relative;
+    height: 1px;
+    background: linear-gradient(to right, rgba(69,255,120,0.1), rgba(69,255,120,0.15), rgba(69,255,120,0.1));
+    margin: 0 8px;
+  }
+  #combatBar-tokens {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 60px;
+  }
+  #combatBar .combat-token {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: grab;
+    user-select: none;
+    transition: left 0.6s ease-out;
+  }
+  #combatBar .combat-token.dragging {
+    cursor: grabbing;
+    transition: none;
+  }
+  #combatBar .combat-token .dot {
+    display: block;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid var(--panel-border);
+    box-shadow: 0 0 8px rgba(0,0,0,0.5);
+    flex-shrink: 0;
+  }
+  #combatBar .combat-token.current .dot {
+    border-color: var(--danger);
+    box-shadow: 0 0 12px rgba(255,159,69,0.8), inset 0 0 6px rgba(255,159,69,0.3);
+  }
+  #combatBar .combat-token .name {
+    font-size: 10px;
+    color: var(--text-dim);
+    max-width: 48px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+  }
+  #combatBar .combat-token.current .name { color: var(--danger); text-shadow: 0 0 6px rgba(255,159,69,0.6); }
+  #stopCombatBtn {
+    flex-shrink: 0;
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+
+  /* ---------- Token modal ---------- */
+  #modalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  #modalOverlay.open { display: flex; }
+  #tokenModal {
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 0;
+    box-shadow: 0 0 24px rgba(69,255,120,0.35), inset 0 0 20px rgba(69,255,120,0.05);
+    padding: 20px;
+    width: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  #tokenModal h3 {
+    margin: 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    text-shadow: var(--glow-strong);
+  }
+  #tokenModal h3::before { content: "█ "; }
+  #tokenModal .field label {
+    display: block;
+    margin-bottom: 6px;
+  }
+  #tokenModal input[type="text"] {
+    width: 100%;
+    background: #000;
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    border-radius: 0;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    text-shadow: var(--glow);
+    caret-color: var(--accent);
+  }
+  #tokenModal input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(69,255,120,0.35);
+  }
+  #photoPreviewWrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  #photoPreview {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #000;
+    border: 1px solid var(--panel-border);
+    box-shadow: 0 0 10px rgba(69,255,120,0.2);
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  #photoPreview.empty { display: flex; }
+  .modal-file-label {
+    flex: 1;
+    text-align: center;
+    border: 1px dashed var(--panel-border);
+    border-radius: 0;
+    padding: 8px;
+    font-size: 11px;
+    cursor: pointer;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .modal-file-label:hover {
+    border-color: var(--accent);
+    color: var(--text);
+    box-shadow: 0 0 12px rgba(69,255,120,0.3);
+  }
+  #tokenPhotoInput { display: none; }
+  #removePhotoBtn {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+  #modalActions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  #modalActions button { flex: 1; }
+
+  /* ---------- Crop editor (secondary modal) ---------- */
+  #cropOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+  }
+  #cropOverlay.open { display: flex; }
+  #cropModal {
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 0;
+    box-shadow: 0 0 24px rgba(69,255,120,0.35), inset 0 0 20px rgba(69,255,120,0.05);
+    padding: 20px;
+    width: 380px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  #cropModal h3 {
+    margin: 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    text-shadow: var(--glow-strong);
+  }
+  #cropModal h3::before { content: "█ "; }
+  #cropCanvasWrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 0;
+    border: 1px solid var(--panel-border);
+    overflow: hidden;
+    background: #000;
+    cursor: grab;
+  }
+  #cropCanvasWrap.dragging { cursor: grabbing; }
+  #cropCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
+  #cropZoomRow { display: flex; align-items: center; gap: 8px; }
+  #cropZoomRow label { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+  #cropZoomRow input[type="range"] { flex: 1; margin: 0; accent-color: var(--accent); }
+  .crop-hint { font-size: 11px; color: var(--text-dim); text-align: center; }
+
+  /* ---------- VT323 size compensation (pixel font is thin when small) ---------- */
+  #sidebar h1 { font-size: 24px; }
+  #sidebar h2 { font-size: 16px; }
+  label, .token-item, #cropZoomRow label { font-size: 16px; }
+  button, .file-label, .modal-file-label { font-size: 17px; }
+  input[type="number"], #tokenModal input[type="text"] { font-size: 17px; }
+  .hint, .crop-hint { font-size: 14px; }
+  #topBar { font-size: 15px; }
+  #tokenModal h3, #cropModal h3, #helpModal h3 { font-size: 19px; }
+  #helpModal h4 { font-size: 16px; }
+  #helpModal p { font-size: 14px; }
+  #zoomControls button { font-size: 20px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebarWrap">
+  <div id="sidebar">
+    <div>
+      <h1>MESA://RPG v0.1</h1>
+      <div class="hint">&gt; SISTEMA DE MESA TÁTICA — grid livre, mapa importável e tokens.</div>
+    </div>
+
+    <div class="section">
+      <h2>Jogadores</h2>
+      <button class="full" id="openPlayerBtn">🖥️ Abrir tela do jogador</button>
+      <button class="full" id="openGlossaryBtn" style="margin-top:10px;">📖 Glossário de efeitos</button>
+    </div>
+
+    <input type="file" id="mapFileInput" accept="image/*">
+
+    <div class="section" id="tokenListSection">
+      <h2>Tokens (<span id="tokenCount">0</span>)</h2>
+      <button class="full" id="addTokenBtn" style="margin-bottom:10px;">+ Adicionar token</button>
+      <div class="row" style="margin-bottom:10px;">
+        <label for="tokenSortSelect">Ordenar por</label>
+        <select id="tokenSortSelect" class="token-sort-select">
+          <option value="added">Data de adição</option>
+          <option value="name">Nome</option>
+        </select>
+      </div>
+      <div id="tokenList"></div>
+    </div>
+
+    <div class="section" id="partySection">
+      <h2>Party (<span id="partyCount">0</span>)</h2>
+      <div id="partyList"></div>
+    </div>
+  </div>
+  <div id="sidebarResizer"></div>
+  </div>
+
+  <div id="viewport">
+    <button id="helpBtn" title="Ajuda">?</button>
+
+    <div id="topLeftTools">
+      <button id="topFogBtn" title="Desenhar oclusão de névoa">▓ Névoa</button>
+      <button id="topClearFogBtn" class="secondary" title="Limpar toda a névoa">Limpar</button>
+    </div>
+
+    <div id="topBar">
+      <span>Zoom: <b id="zoomLabel">100%</b></span>
+      <span>Grid: <b id="gridLabel">48px</b></span>
+      <span>Mapa: <b id="mapLabel">nenhum</b></span>
+    </div>
+
+    <div id="topTools">
+      <button id="topImportBtn" title="Importar imagem do mapa">📁 Importar mapa</button>
+      <button id="topSlidersBtn" title="Ajustar mapa e grid">☰ Ajustes</button>
+      <div id="topSlidersPanel">
+        <div class="top-panel-group">
+          <div class="top-panel-title">Mapa</div>
+          <div class="top-slider-row">
+            <label for="topMapScale">Tamanho</label>
+            <input type="range" id="topMapScale" min="10" max="400" value="100" disabled>
+            <span id="topMapScaleVal">100%</span>
+          </div>
+          <button id="topRemoveMapBtn" class="secondary full" disabled>Remover mapa</button>
+        </div>
+        <div class="top-panel-group">
+          <div class="top-panel-title">Grid</div>
+          <div class="top-slider-row">
+            <label for="topGridSize">Tamanho</label>
+            <input type="range" id="topGridSize" min="16" max="128" value="48">
+            <span id="topGridSizeVal">48px</span>
+          </div>
+          <div class="top-slider-row">
+            <label for="topGridToggle">Mostrar</label>
+            <input type="checkbox" id="topGridToggle" checked>
+            <span class="top-panel-spacer"></span>
+            <label for="topGridColor">Cor</label>
+            <input type="color" id="topGridColor" value="#45ff78">
+          </div>
+        </div>
+      </div>
+    </div>
+    <canvas id="canvas"></canvas>
+    <div id="effectTooltip"></div>
+    <div id="zoomControls">
+      <button id="zoomOut" title="Diminuir zoom">−</button>
+      <button id="zoomReset" title="Resetar visão">⟳</button>
+      <button id="zoomIn" title="Aumentar zoom">+</button>
+    </div>
+    <button id="startCombatBtn">⚔ Iniciar combate</button>
+    <div id="combatControls">
+      <button id="nextTurnBtn">⤴ Próximo turno</button>
+    </div>
+    <div id="combatBar">
+      <button class="secondary" id="stopCombatBtn">Encerrar</button>
+      <div id="combatBar-track">
+        <div id="combatBar-tokens"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modalOverlay">
+  <div id="tokenModal">
+    <h3 id="modalTitle">Novo token</h3>
+
+    <div class="field">
+      <label for="tokenNameInput">Nome do personagem</label>
+      <input type="text" id="tokenNameInput" placeholder="Ex: Aragorn">
+    </div>
+
+    <div class="field">
+      <label>Foto</label>
+      <div id="photoPreviewWrap">
+        <img id="photoPreview" class="empty">
+        <label class="modal-file-label" for="tokenPhotoInput">📷 Escolher foto</label>
+        <input type="file" id="tokenPhotoInput" accept="image/*">
+      </div>
+      <button class="secondary" id="removePhotoBtn" style="margin-top:8px; display:none;">Remover foto</button>
+    </div>
+
+    <div class="field">
+      <label for="tokenColorInput">Cor</label>
+      <div class="row">
+        <input type="color" id="tokenColorInput" value="#e04b4b">
+        <div class="token-swatch-row" id="modalSwatchRow" style="flex:1; margin-top:0;"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="checkbox-row" for="tokenIsPlayerInput">
+        <input type="checkbox" id="tokenIsPlayerInput">
+        <span>Token de jogador (Party)</span>
+      </label>
+    </div>
+
+    <div id="modalActions">
+      <button class="secondary" id="cancelTokenBtn">Cancelar</button>
+      <button id="saveTokenBtn">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="cropOverlay">
+  <div id="cropModal">
+    <h3>Recortar foto</h3>
+    <div id="cropCanvasWrap">
+      <canvas id="cropCanvas"></canvas>
+    </div>
+    <div class="crop-hint">Arraste para posicionar, use o slider para o zoom.</div>
+    <div id="cropZoomRow">
+      <label for="cropZoomSlider">Zoom</label>
+      <input type="range" id="cropZoomSlider" min="1" max="4" step="0.01" value="1">
+    </div>
+    <div id="modalActions">
+      <button class="secondary" id="cropCancelBtn">Cancelar</button>
+      <button id="cropApplyBtn">Aplicar recorte</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirmOverlay">
+  <div id="confirmModal">
+    <h3>Excluir token</h3>
+    <p>Tem certeza que deseja excluir <b id="confirmTokenName">este token</b>? Essa ação não pode ser desfeita.</p>
+    <div id="confirmActions">
+      <button class="secondary" id="confirmCancelBtn">Cancelar</button>
+      <button id="confirmDeleteBtn">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<div id="barOverlay">
+  <div id="barModal">
+    <h3 id="barModalTitle">Nova barra</h3>
+    <div class="field">
+      <label for="barNameInput">Nome da barra</label>
+      <input type="text" id="barNameInput" placeholder="Ex: Vida, Mana, Sanidade">
+    </div>
+    <div class="two-col">
+      <div class="field">
+        <label for="barCurrentInput">Atual</label>
+        <input type="number" id="barCurrentInput" value="10" min="0">
+      </div>
+      <div class="field">
+        <label for="barMaxInput">Máximo</label>
+        <input type="number" id="barMaxInput" value="10" min="1">
+      </div>
+    </div>
+    <div class="field">
+      <label for="barColorInput">Cor</label>
+      <div class="row">
+        <input type="color" id="barColorInput" value="#e04b4b">
+        <div class="token-swatch-row" id="barSwatchRow" style="flex:1; margin-top:0;"></div>
+      </div>
+    </div>
+
+    <div id="barDisplayFields">
+      <div class="field">
+        <label for="barDisplaySelect">Exibição no mapa</label>
+        <select id="barDisplaySelect" class="token-sort-select" style="max-width:none; width:100%;">
+          <option value="horizontal">Horizontal</option>
+          <option value="vertical">Vertical</option>
+          <option value="radial">Radial (anel)</option>
+        </select>
+      </div>
+
+      <div class="field" id="barSideField">
+        <label for="barSideSelect">Lado</label>
+        <select id="barSideSelect" class="token-sort-select" style="max-width:none; width:100%;">
+          <option value="left">Esquerda</option>
+          <option value="right">Direita</option>
+        </select>
+      </div>
+
+      <div class="field" id="barDirectionField">
+        <label for="barDirectionSelect">Orientação</label>
+        <select id="barDirectionSelect" class="token-sort-select" style="max-width:none; width:100%;">
+          <option value="ltr">Esquerda → Direita</option>
+          <option value="rtl">Direita → Esquerda</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="modalActions">
+      <button class="secondary" id="barCancelBtn">Cancelar</button>
+      <button id="barSaveBtn">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="glossaryOverlay">
+  <div id="glossaryModal">
+    <h3>Glossário de efeitos</h3>
+    <div class="hint" style="margin:0;">&gt; Anotações do mestre — nome, descrição, cor e ícone opcional.</div>
+
+    <div id="glossaryColumns">
+    <div id="glossaryList"></div>
+
+    <div id="glossaryForm">
+      <h4 id="glossaryFormTitle">Novo efeito</h4>
+      <div class="field">
+        <label for="glossaryNameInput">Nome</label>
+        <input type="text" id="glossaryNameInput" placeholder="Ex: Envenenado">
+      </div>
+      <div class="field">
+        <label for="glossaryDescInput">Descrição</label>
+        <textarea id="glossaryDescInput" rows="3" placeholder="Ex: Perde 1d4 de vida no início de cada turno."></textarea>
+      </div>
+      <div class="two-col">
+        <div class="field">
+          <label for="glossaryColorInput">Cor</label>
+          <div class="row">
+            <input type="color" id="glossaryColorInput" value="#4be08f">
+            <div class="token-swatch-row" id="glossarySwatchRow" style="flex:1; margin-top:0;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label for="glossaryIconInput">Ícone (opcional)</label>
+        <input type="text" id="glossaryIconInput" maxlength="4" placeholder="Ex: ☠️ 🔥 💤" style="max-width:120px;">
+      </div>
+      <div id="glossaryFormActions">
+        <button class="secondary" id="glossaryClearBtn">Limpar</button>
+        <button id="glossarySaveBtn">Adicionar</button>
+      </div>
+    </div>
+    </div>
+
+    <div id="glossaryActions">
+      <button class="secondary" id="glossaryCloseBtn">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div id="effectsPickerOverlay">
+  <div id="effectsPickerModal">
+    <h3 id="effectsPickerTitle">Efeitos</h3>
+    <input type="text" id="effectsSearchInput" placeholder="🔍 Buscar efeito...">
+    <div id="effectsPickerList"></div>
+    <div id="effectsPickerActions">
+      <button class="secondary" id="effectsPickerCloseBtn">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div id="helpOverlay">
+  <div id="helpModal">
+    <h3>Ajuda da Mesa de RPG</h3>
+
+    <h4>Jogadores</h4>
+    <div class="help-section">
+      <p>Abre uma janela só com o mapa e os tokens, sincronizada em tempo real. Arraste-a para o segundo monitor.</p>
+    </div>
+
+    <h4>Mapa</h4>
+    <div class="help-section">
+      <p><b>Importar imagem:</b> Clique para carregar um mapa em qualquer formato de imagem.</p>
+      <p><b>Tamanho do mapa:</b> Redimensione o mapa de 10% a 400%.</p>
+    </div>
+
+    <h4>Grid</h4>
+    <div class="help-section">
+      <p><b>Mostrar grid:</b> Ativa/desativa a visualização da grade de células.</p>
+      <p><b>Tamanho da célula:</b> Ajuste o tamanho da célula de 16 a 128 pixels.</p>
+      <p><b>Cor:</b> Altere a cor da grade usando o seletor de cores.</p>
+    </div>
+
+    <h4>Névoa de Guerra</h4>
+    <div class="help-section">
+      <p><b>Desenhar oclusão:</b> Ativa o modo de desenho. Com o modo ativo, arraste no mapa para criar um retângulo preto que oculta a área para os jogadores.</p>
+      <p><b>No mestre:</b> Os retângulos aparecem semi-transparentes para você ver através.</p>
+      <p><b>Remover:</b> Clique com o botão direito sobre um retângulo para removê-lo.</p>
+      <p><b>Limpar tudo:</b> Remove todos os retângulos de oclusão de uma vez.</p>
+    </div>
+
+    <h4>Tokens</h4>
+    <div class="help-section">
+      <p><b>Adicionar token:</b> Cria um novo token no centro da visão.</p>
+      <p><b>Scroll:</b> Zoom in/out (ancorado no cursor).</p>
+      <p><b>Botão do meio:</b> Arrasta o mapa (pan).</p>
+      <p><b>Botão esquerdo:</b> Arrasta tokens pelo mapa.</p>
+      <p><b>Botão direito:</b> Remove um token.</p>
+      <p><b>Duplo clique:</b> Abre o editor do token (nome, foto, cor).</p>
+      <p><b>Clique na lista:</b> Clique em um token na lista lateral para editar.</p>
+      <p><b>Token de jogador:</b> Marque a caixa "Token de jogador (Party)" ao criar/editar para adicioná-lo à Party.</p>
+    </div>
+
+    <h4>Party</h4>
+    <div class="help-section">
+      <p><b>O que é:</b> Tokens marcados como jogador aparecem no painel Party. Todos começam com uma barra de Vida.</p>
+      <p><b>Barras universais:</b> As barras (Vida, Mana, Sanidade…) são compartilhadas por toda a party — se você criar uma barra, todos os membros passam a tê-la. Use "+ Nova barra universal" no topo do painel.</p>
+      <p><b>Editar/Remover barra:</b> Os ícones ✎ e ✕ nos chips do topo editam o nome/cor ou removem a barra de todos.</p>
+      <p><b>Valores por membro:</b> Cada membro tem seu próprio atual/máximo. Clique no ✎ da barra dentro do card do membro para ajustar só os valores dele.</p>
+      <p><b>Barras ativas no mapa:</b> Marque a caixa ao lado de uma barra no topo do painel para exibi-la no mapa. No máximo 2 podem estar ativas ao mesmo tempo.</p>
+      <p><b>Exibição:</b> No editor da barra, escolha o modo: <b>Horizontal</b> (acima do token), <b>Vertical</b> (à esquerda ou direita, com orientação para cima/baixo) ou <b>Radial</b> (anel de progresso ao redor do token). Vertical e horizontal permitem inverter a orientação (→ ou ←).</p>
+      <p><b>No mapa:</b> As barras ativas aparecem em cada token de jogador, sincronizadas com a tela do jogador.</p>
+    </div>
+
+    <h4>Combate</h4>
+    <div class="help-section">
+      <p><b>Iniciar combate:</b> Começa o rastreamento de turno. Os tokens aparecem na barra de combate na ordem atual.</p>
+      <p><b>Próximo turno:</b> Avança o turno para o próximo token na ordem.</p>
+      <p><b>Reordenar:</b> Arraste tokens na barra de combate para mudar a ordem de iniciativa.</p>
+      <p><b>Encerrar:</b> Para o rastreamento de combate.</p>
+    </div>
+
+    <h4>Controles de Câmera</h4>
+    <div class="help-section">
+      <p><b>Botões de zoom:</b> Use os botões no canto inferior direito para aumentar, diminuir ou resetar o zoom.</p>
+      <p><b>Wheel zoom:</b> Use a roda do mouse no mapa para fazer zoom (ancorado no cursor).</p>
+      <p><b>Pan:</b> Mantenha o botão do meio pressionado e arraste para mover a câmera.</p>
+    </div>
+
+    <div id="modalActions">
+      <button class="secondary" id="closeHelpBtn">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ============================================================
+  // Camera model: world coords → screen coords
+  //   screenX = (worldX - cam.x) * cam.zoom
+  //   screenY = (worldY - cam.y) * cam.zoom
+  // cam.x/cam.y = world point at the top-left corner of the screen.
+  // All drawing happens on ONE canvas sized to the viewport;
+  // the camera is applied via ctx.setTransform. No CSS transforms.
+  // ============================================================
+
+  const viewport = document.getElementById('viewport');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  const MIN_ZOOM = 0.1;
+  const MAX_ZOOM = 6;
+  const BASE_TOKEN_RADIUS = 20;
+  const MAX_ACTIVE_BARS = 2;   // how many party bars can render on the map at once
+
+  const cam = { x: 0, y: 0, zoom: 1 };
+
+  const state = {
+    grid: { show: true, size: 48, color: '#45ff78' },
+    map: { img: null, scalePct: 100, dataUrl: null },  // image is centered on world origin (0,0)
+    tokens: [],                          // {id, x, y, r, color, label, isPlayer, barValues:{barId:{current,max}}}
+    fog: [],                             // {id, x, y, w, h} rects hiding the map, world coords
+    // Party bars are UNIVERSAL: one shared definition list; every party member has all of them.
+    // Each member keeps its own current/max per bar in token.barValues.
+    // {id, name, color, defaultMax, active, display:'horizontal'|'vertical'|'radial', side:'left'|'right', direction:'ltr'|'rtl'}
+    // Only up to MAX_ACTIVE_BARS bars with active:true render on the map.
+    partyBars: [
+      { id: 'bar-vida', name: 'Vida', color: '#e04b4b', defaultMax: 10, active: true, display: 'horizontal', side: 'left', direction: 'ltr' },
+    ],
+    // Effects glossary — GM-only reference notes. {id, name, desc, color, icon} (icon = optional emoji)
+    glossary: [],
+    nextId: 1,
+    nextFogId: 1,
+    nextBarId: 1,
+    nextEffectId: 1,
+    selectedTokenId: null,
+    fogMode: false,
+    combat: { active: false, order: [] },  // order: array of token ids, leftmost = current turn
+  };
+
+  // ---------- Player window sync ----------
+  let playerWin = null;
+
+  // includeMap: send the (heavy) map image too — only on map changes / player connect
+  function sendState(includeMap) {
+    if (!playerWin || playerWin.closed) return;
+    const map = { scalePct: state.map.scalePct };
+    if (includeMap) map.dataUrl = state.map.dataUrl; // string or null (null = remove map)
+    playerWin.postMessage({
+      type: 'rpg-state',
+      grid: state.grid,
+      tokens: state.tokens,
+      fog: state.fog,
+      map,
+      combat: state.combat,
+      partyBars: state.partyBars,
+    }, '*');
+  }
+
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'rpg-player-ready') sendState(true);
+  });
+
+  document.getElementById('openPlayerBtn').addEventListener('click', () => {
+    if (playerWin && !playerWin.closed) { playerWin.focus(); return; }
+    playerWin = window.open('player.html', 'rpg-player', 'width=1024,height=768');
+  });
+
+  // Interaction state
+  const drag = {
+    mode: null,          // 'pan' | 'token' | null
+    tokenId: null,
+    offsetX: 0, offsetY: 0,      // token grab offset (world units)
+    startScreenX: 0, startScreenY: 0,
+    camStartX: 0, camStartY: 0,
+  };
+
+  const fogDraw = {
+    active: false,
+    startX: 0, startY: 0,   // world coords
+    curX: 0, curY: 0,
+  };
+
+  // ---------- Elements ----------
+  const mapFileInput = document.getElementById('mapFileInput');
+  const mapScale = document.getElementById('topMapScale');
+  const mapScaleVal = document.getElementById('topMapScaleVal');
+  const removeMapBtn = document.getElementById('topRemoveMapBtn');
+  const mapLabel = document.getElementById('mapLabel');
+
+  const gridToggle = document.getElementById('topGridToggle');
+  const gridSize = document.getElementById('topGridSize');
+  const gridSizeVal = document.getElementById('topGridSizeVal');
+  const gridColor = document.getElementById('topGridColor');
+  const gridLabel = document.getElementById('gridLabel');
+
+  const addTokenBtn = document.getElementById('addTokenBtn');
+  const tokenList = document.getElementById('tokenList');
+  const tokenCount = document.getElementById('tokenCount');
+
+  const modalOverlay = document.getElementById('modalOverlay');
+  const modalTitle = document.getElementById('modalTitle');
+  const tokenNameInput = document.getElementById('tokenNameInput');
+  const tokenPhotoInput = document.getElementById('tokenPhotoInput');
+  const photoPreview = document.getElementById('photoPreview');
+  const removePhotoBtn = document.getElementById('removePhotoBtn');
+  const tokenColorInput = document.getElementById('tokenColorInput');
+  const modalSwatchRow = document.getElementById('modalSwatchRow');
+  const cancelTokenBtn = document.getElementById('cancelTokenBtn');
+  const saveTokenBtn = document.getElementById('saveTokenBtn');
+
+  const zoomLabel = document.getElementById('zoomLabel');
+  const zoomInBtn = document.getElementById('zoomIn');
+  const zoomOutBtn = document.getElementById('zoomOut');
+  const zoomResetBtn = document.getElementById('zoomReset');
+
+  // ---------- Canvas sizing (handles devicePixelRatio) ----------
+  let dpr = 1;
+  function resizeCanvas() {
+    dpr = window.devicePixelRatio || 1;
+    const w = viewport.clientWidth;
+    const h = viewport.clientHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    draw();
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  // ---------- Sidebar resize (drag handle) ----------
+  const sidebar = document.getElementById('sidebar');
+  const sidebarResizer = document.getElementById('sidebarResizer');
+  const SIDEBAR_MIN = 220;
+  const SIDEBAR_MAX = 600;
+  let sidebarResizing = false;
+
+  sidebarResizer.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    sidebarResizing = true;
+    sidebarResizer.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!sidebarResizing) return;
+    const rect = sidebar.getBoundingClientRect();
+    const w = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, e.clientX - rect.left));
+    sidebar.style.width = w + 'px';
+    resizeCanvas();
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!sidebarResizing) return;
+    sidebarResizing = false;
+    sidebarResizer.classList.remove('dragging');
+    document.body.style.cursor = '';
+  });
+
+  // ---------- Coordinate conversion ----------
+  function screenToWorld(sx, sy) {
+    return { x: sx / cam.zoom + cam.x, y: sy / cam.zoom + cam.y };
+  }
+  function eventScreenPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  // ---------- Zoom (always anchored to a screen point) ----------
+  function zoomAt(screenX, screenY, factor) {
+    const before = screenToWorld(screenX, screenY);
+    cam.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, cam.zoom * factor));
+    // keep the world point under (screenX, screenY) fixed
+    cam.x = before.x - screenX / cam.zoom;
+    cam.y = before.y - screenY / cam.zoom;
+    updateHud();
+    draw();
+  }
+
+  function centerView() {
+    cam.zoom = 1;
+    cam.x = -viewport.clientWidth / 2;
+    cam.y = -viewport.clientHeight / 2;
+    updateHud();
+    draw();
+  }
+
+  function updateHud() {
+    zoomLabel.textContent = Math.round(cam.zoom * 100) + '%';
+    gridLabel.textContent = state.grid.size + 'px';
+  }
+
+  // ---------- Drawing ----------
+  function draw() {
+    effectDotHitboxes.length = 0;  // reset for this frame
+    const w = canvas.width, h = canvas.height;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    // background
+    ctx.fillStyle = '#03140a';
+    ctx.fillRect(0, 0, w, h);
+
+    // camera transform (world → device pixels)
+    const s = cam.zoom * dpr;
+    ctx.setTransform(s, 0, 0, s, -cam.x * s, -cam.y * s);
+
+    // visible world bounds
+    const wl = cam.x;
+    const wt = cam.y;
+    const wr = cam.x + (w / dpr) / cam.zoom;
+    const wb = cam.y + (h / dpr) / cam.zoom;
+
+    // map image centered on world origin
+    if (state.map.img) {
+      const img = state.map.img;
+      const scale = state.map.scalePct / 100;
+      const mw = img.naturalWidth * scale;
+      const mh = img.naturalHeight * scale;
+      ctx.drawImage(img, -mw / 2, -mh / 2, mw, mh);
+    }
+
+    // grid (only visible lines)
+    if (state.grid.show) {
+      const g = state.grid.size;
+      ctx.strokeStyle = state.grid.color;
+      ctx.globalAlpha = 0.3;
+      ctx.lineWidth = 1 / cam.zoom;
+      ctx.beginPath();
+      const x0 = Math.floor(wl / g) * g;
+      const y0 = Math.floor(wt / g) * g;
+      for (let x = x0; x <= wr; x += g) {
+        ctx.moveTo(x, wt);
+        ctx.lineTo(x, wb);
+      }
+      for (let y = y0; y <= wb; y += g) {
+        ctx.moveTo(wl, y);
+        ctx.lineTo(wr, y);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // tokens
+    for (const t of state.tokens) {
+      const photo = getTokenPhotoImg(t);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+      if (photo) {
+        ctx.clip();
+        ctx.drawImage(photo, t.x - t.r, t.y - t.r, t.r * 2, t.r * 2);
+      } else {
+        ctx.fillStyle = t.color;
+        ctx.fill();
+      }
+      ctx.restore();
+
+      const isCurrentTurn = state.combat.active && state.combat.order[0] === t.id;
+
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+      ctx.lineWidth = (isCurrentTurn ? 4 : (t.id === state.selectedTokenId ? 3 : 2)) / cam.zoom;
+      ctx.strokeStyle = isCurrentTurn ? '#ff9f45' : (t.id === state.selectedTokenId ? '#ffffff' : (photo ? t.color : 'rgba(0,0,0,0.5)'));
+      ctx.stroke();
+
+      if (!photo && t.name) {
+        ctx.font = `${Math.max(12, t.r * 0.7)}px "VT323", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = contrastColor(t.color);
+        ctx.fillText(t.name.slice(0, 2).toUpperCase(), t.x, t.y);
+      }
+
+      // applied effects — a column of white dots at the token's top-right,
+      // offset so they never overlap (or get hidden behind) its status bars
+      if (t.effects && t.effects.length > 0) {
+        drawEffectDots(t);
+      }
+
+      if (t.name) {
+        ctx.font = `${Math.max(14, t.r * 0.6)}px "VT323", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const labelY = t.y + t.r + 4 / cam.zoom;
+        ctx.lineWidth = 3 / cam.zoom;
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+        ctx.strokeText(t.name, t.x, labelY);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(t.name, t.x, labelY);
+      }
+
+      drawTokenBars(t);
+    }
+
+    // fog of war rects — semi-transparent on the master so the GM can still see through
+    ctx.fillStyle = 'rgba(0,0,0,0.72)';
+    ctx.strokeStyle = 'rgba(69,255,120,0.6)';
+    ctx.lineWidth = 1 / cam.zoom;
+    for (const f of state.fog) {
+      ctx.fillRect(f.x, f.y, f.w, f.h);
+      ctx.strokeRect(f.x, f.y, f.w, f.h);
+    }
+
+    // in-progress fog rect being drawn
+    if (fogDraw.active) {
+      const rx = Math.min(fogDraw.startX, fogDraw.curX);
+      const ry = Math.min(fogDraw.startY, fogDraw.curY);
+      const rw = Math.abs(fogDraw.curX - fogDraw.startX);
+      const rh = Math.abs(fogDraw.curY - fogDraw.startY);
+      ctx.fillStyle = 'rgba(69,255,120,0.18)';
+      ctx.strokeStyle = 'rgba(69,255,120,0.9)';
+      ctx.setLineDash([6 / cam.zoom, 4 / cam.zoom]);
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeRect(rx, ry, rw, rh);
+      ctx.setLineDash([]);
+    }
+  }
+
+  // cache decoded <img> elements per token photo dataUrl
+  const photoImgCache = new Map();
+
+  // track effect dot positions for tooltip hit-testing
+  const effectDotHitboxes = [];  // {cx, cy, r, effectId}
+  function getTokenPhotoImg(t) {
+    if (!t.photoDataUrl) return null;
+    let img = photoImgCache.get(t.photoDataUrl);
+    if (!img) {
+      img = new Image();
+      img.onload = () => draw();
+      img.src = t.photoDataUrl;
+      photoImgCache.set(t.photoDataUrl, img);
+    }
+    return img.complete && img.naturalWidth ? img : null;
+  }
+
+  function contrastColor(hex) {
+    const c = hex.replace('#', '');
+    const r = parseInt(c.substring(0, 2), 16);
+    const g = parseInt(c.substring(2, 4), 16);
+    const b = parseInt(c.substring(4, 6), 16);
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#000000' : '#ffffff';
+  }
+
+  // mini status bars for a player token; only "active" universal bars render, each in its own display mode
+  function drawTokenBars(t) {
+    if (!t.isPlayer || !state.partyBars) return;
+    const vals = t.barValues || {};
+    const activeBars = state.partyBars.filter(d => d.active).slice(0, MAX_ACTIVE_BARS);
+    if (activeBars.length === 0) return;
+
+    const barPct = (def) => {
+      const v = vals[def.id] || { current: def.defaultMax, max: def.defaultMax };
+      return v.max > 0 ? Math.max(0, Math.min(1, v.current / v.max)) : 0;
+    };
+
+    // group by display mode so multiples of the same mode stack correctly
+    let horizIdx = 0, vertLeftIdx = 0, vertRightIdx = 0, radialIdx = 0;
+    for (const def of activeBars) {
+      const pct = barPct(def);
+      if (def.display === 'radial') {
+        drawRadialBar(t, def, pct, radialIdx++);
+      } else if (def.display === 'vertical') {
+        const onLeft = def.side === 'left';
+        drawVerticalBar(t, def, pct, onLeft ? vertLeftIdx++ : vertRightIdx++, onLeft);
+      } else {
+        drawHorizontalBar(t, def, pct, horizIdx++);
+      }
+    }
+  }
+
+  // how far the token's status bars extend past its radius on each side (world units).
+  // used to keep the effect dots clear of them.
+  function tokenBarExtents(t) {
+    const ext = { top: 0, right: 0 };
+    if (!t.isPlayer || !state.partyBars) return ext;
+    const activeBars = state.partyBars.filter(d => d.active).slice(0, MAX_ACTIVE_BARS);
+    let horiz = 0, vertRight = 0, radial = 0;
+    for (const def of activeBars) {
+      if (def.display === 'radial') radial++;
+      else if (def.display === 'vertical') { if (def.side !== 'left') vertRight++; }
+      else horiz++;
+    }
+    // horizontal bars stack above the token
+    if (horiz > 0) {
+      const barH = 5 / cam.zoom, gap = 2 / cam.zoom;
+      ext.top = Math.max(ext.top, 2 / cam.zoom + horiz * (barH + gap));
+    }
+    // right-side vertical bars extend to the right
+    if (vertRight > 0) {
+      const barW = 5 / cam.zoom, gap = 2 / cam.zoom;
+      ext.right = Math.max(ext.right, 2 / cam.zoom + vertRight * (barW + gap));
+    }
+    // radial rings grow the effective radius in every direction
+    if (radial > 0) {
+      const ringGap = 4 / cam.zoom, ringW = 3 / cam.zoom;
+      const ring = 4 / cam.zoom + radial * (ringW + ringGap);
+      ext.top = Math.max(ext.top, ring);
+      ext.right = Math.max(ext.right, ring);
+    }
+    return ext;
+  }
+
+  // status dots stacked at the token's top-right corner, clear of its bars, colored by effect
+  function drawEffectDots(t) {
+    const dotR = Math.max(2.5 / cam.zoom, t.r * 0.16);
+    const gap = dotR * 0.9;
+    const ext = tokenBarExtents(t);
+    const pad = 3 / cam.zoom;
+    // anchor just outside the top-right of the token (past any bars there)
+    const cx = t.x + t.r + ext.right + dotR + pad;
+    let cy = t.y - t.r - ext.top - dotR - pad;
+    for (const id of t.effects) {
+      const eff = state.glossary.find(e => e.id === id);
+      if (!eff) continue;
+      ctx.beginPath();
+      ctx.arc(cx, cy, dotR, 0, Math.PI * 2);
+      ctx.fillStyle = eff.color;
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+      ctx.lineWidth = 1 / cam.zoom;
+      ctx.fill();
+      ctx.stroke();
+      // track for hit-testing
+      effectDotHitboxes.push({ cx, cy, r: dotR, effectId: id });
+      cy += dotR * 2 + gap; // stack downward
+    }
+  }
+
+  function drawHorizontalBar(t, def, pct, idx) {
+    const barW = t.r * 2;
+    const barH = 5 / cam.zoom;
+    const gap = 2 / cam.zoom;
+    const x = t.x - t.r;
+    const y = t.y - t.r - 2 / cam.zoom - (idx + 1) * (barH + gap);
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(x, y, barW, barH);
+    ctx.fillStyle = def.color;
+    if (def.direction === 'rtl') {
+      ctx.fillRect(x + barW * (1 - pct), y, barW * pct, barH); // empties toward the left
+    } else {
+      ctx.fillRect(x, y, barW * pct, barH);
+    }
+    ctx.lineWidth = 1 / cam.zoom;
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.strokeRect(x, y, barW, barH);
+  }
+
+  function drawVerticalBar(t, def, pct, idx, onLeft) {
+    const barH = t.r * 2;
+    const barW = 5 / cam.zoom;
+    const gap = 2 / cam.zoom;
+    const x = onLeft
+      ? (t.x - t.r - 2 / cam.zoom - (idx + 1) * (barW + gap))
+      : (t.x + t.r + 2 / cam.zoom + idx * (barW + gap));
+    const y = t.y - t.r;
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(x, y, barW, barH);
+    ctx.fillStyle = def.color;
+    // direction ltr = fills from bottom up; rtl = fills from top down
+    if (def.direction === 'rtl') {
+      ctx.fillRect(x, y, barW, barH * pct);
+    } else {
+      ctx.fillRect(x, y + barH * (1 - pct), barW, barH * pct);
+    }
+    ctx.lineWidth = 1 / cam.zoom;
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.strokeRect(x, y, barW, barH);
+  }
+
+  function drawRadialBar(t, def, pct, idx) {
+    const ringGap = 4 / cam.zoom;
+    const ringW = 3 / cam.zoom;
+    const radius = t.r + 4 / cam.zoom + idx * (ringW + ringGap);
+    const start = -Math.PI / 2; // 12 o'clock
+    // track
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
+    ctx.lineWidth = ringW;
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.stroke();
+    // progress arc (clockwise)
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, radius, start, start + Math.PI * 2 * pct);
+    ctx.lineWidth = ringW;
+    ctx.strokeStyle = def.color;
+    ctx.stroke();
+  }
+
+  // ---------- Hit testing ----------
+  function tokenAt(wx, wy) {
+    for (let i = state.tokens.length - 1; i >= 0; i--) {
+      const t = state.tokens[i];
+      const dx = wx - t.x, dy = wy - t.y;
+      if (dx * dx + dy * dy <= t.r * t.r) return t;
+    }
+    return null;
+  }
+
+  function fogRectAt(wx, wy) {
+    for (let i = state.fog.length - 1; i >= 0; i--) {
+      const f = state.fog[i];
+      if (wx >= f.x && wx <= f.x + f.w && wy >= f.y && wy <= f.y + f.h) return f;
+    }
+    return null;
+  }
+
+  function effectDotAt(wx, wy) {
+    for (let i = effectDotHitboxes.length - 1; i >= 0; i--) {
+      const dot = effectDotHitboxes[i];
+      const dx = wx - dot.cx, dy = wy - dot.cy;
+      if (dx * dx + dy * dy <= dot.r * dot.r) return dot;
+    }
+    return null;
+  }
+
+  // ---------- Mouse: pan (middle), tokens (left), remove (right) ----------
+  canvas.addEventListener('mousedown', (e) => {
+    const sp = eventScreenPos(e);
+
+    if (e.button === 1) {
+      // middle button → pan
+      e.preventDefault();
+      drag.mode = 'pan';
+      drag.startScreenX = sp.x;
+      drag.startScreenY = sp.y;
+      drag.camStartX = cam.x;
+      drag.camStartY = cam.y;
+      canvas.classList.add('panning');
+      return;
+    }
+
+    const wp = screenToWorld(sp.x, sp.y);
+
+    if (state.fogMode) {
+      if (e.button === 2) {
+        const f = fogRectAt(wp.x, wp.y);
+        if (f) {
+          state.fog = state.fog.filter(r => r.id !== f.id);
+          draw();
+          sendState();
+        }
+        return;
+      }
+      if (e.button === 0) {
+        fogDraw.active = true;
+        fogDraw.startX = fogDraw.curX = wp.x;
+        fogDraw.startY = fogDraw.curY = wp.y;
+      }
+      return;
+    }
+
+    const hit = tokenAt(wp.x, wp.y);
+
+    if (e.button === 2) {
+      if (hit) removeToken(hit.id);
+      return;
+    }
+
+    if (e.button === 0 && hit) {
+      drag.mode = 'token';
+      drag.tokenId = hit.id;
+      drag.offsetX = wp.x - hit.x;
+      drag.offsetY = wp.y - hit.y;
+      state.selectedTokenId = hit.id;
+      renderTokenList();
+      draw();
+    }
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    const sp = eventScreenPos(e);
+
+    if (fogDraw.active) {
+      const wp = screenToWorld(sp.x, sp.y);
+      fogDraw.curX = wp.x;
+      fogDraw.curY = wp.y;
+      draw();
+      return;
+    }
+
+    if (drag.mode === 'pan') {
+      cam.x = drag.camStartX - (sp.x - drag.startScreenX) / cam.zoom;
+      cam.y = drag.camStartY - (sp.y - drag.startScreenY) / cam.zoom;
+      draw();
+      return;
+    }
+
+    if (drag.mode === 'token') {
+      const wp = screenToWorld(sp.x, sp.y);
+      const t = state.tokens.find(t => t.id === drag.tokenId);
+      if (t) {
+        t.x = wp.x - drag.offsetX;
+        t.y = wp.y - drag.offsetY;
+        draw();
+        sendState();
+      }
+      return;
+    }
+
+    // hover cursor feedback
+    const wp = screenToWorld(sp.x, sp.y);
+    canvas.classList.toggle('over-token', !state.fogMode && !!tokenAt(wp.x, wp.y));
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (fogDraw.active) {
+      fogDraw.active = false;
+      const rx = Math.min(fogDraw.startX, fogDraw.curX);
+      const ry = Math.min(fogDraw.startY, fogDraw.curY);
+      const rw = Math.abs(fogDraw.curX - fogDraw.startX);
+      const rh = Math.abs(fogDraw.curY - fogDraw.startY);
+      if (rw > 4 && rh > 4) {
+        state.fog.push({ id: state.nextFogId++, x: rx, y: ry, w: rw, h: rh });
+        sendState();
+      }
+      draw();
+    }
+    drag.mode = null;
+    drag.tokenId = null;
+    canvas.classList.remove('panning');
+  });
+
+  canvas.addEventListener('dblclick', (e) => {
+    if (state.fogMode) return;
+    const sp = eventScreenPos(e);
+    const wp = screenToWorld(sp.x, sp.y);
+    const hit = tokenAt(wp.x, wp.y);
+    if (hit) openModalForEdit(hit);
+  });
+
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  canvas.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
+
+  // effect dot tooltip
+  const effectTooltip = document.getElementById('effectTooltip');
+  canvas.addEventListener('mousemove', (e) => {
+    const sp = eventScreenPos(e);
+    const wp = screenToWorld(sp.x, sp.y);
+    const dot = effectDotAt(wp.x, wp.y);
+    if (dot) {
+      const eff = state.glossary.find(e => e.id === dot.effectId);
+      if (eff) {
+        effectTooltip.innerHTML = `<div class="eff-name">${eff.name}</div>` +
+          (eff.desc ? `<div class="eff-desc">${eff.desc.split('\n').join('<br>')}</div>` : '');
+        effectTooltip.classList.add('show');
+        effectTooltip.style.left = (sp.x + 12) + 'px';
+        effectTooltip.style.top = (sp.y + 12) + 'px';
+      }
+    } else {
+      effectTooltip.classList.remove('show');
+    }
+  });
+  canvas.addEventListener('mouseleave', () => {
+    effectTooltip.classList.remove('show');
+  });
+
+  // ---------- Scroll wheel = zoom, anchored at cursor ----------
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const sp = eventScreenPos(e);
+    const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+    zoomAt(sp.x, sp.y, factor);
+  }, { passive: false });
+
+  // ---------- Zoom buttons ----------
+  function viewportCenter() {
+    return { x: viewport.clientWidth / 2, y: viewport.clientHeight / 2 };
+  }
+  zoomInBtn.addEventListener('click', () => {
+    const c = viewportCenter();
+    zoomAt(c.x, c.y, 1.25);
+  });
+  zoomOutBtn.addEventListener('click', () => {
+    const c = viewportCenter();
+    zoomAt(c.x, c.y, 1 / 1.25);
+  });
+  zoomResetBtn.addEventListener('click', centerView);
+
+  // ---------- Map import ----------
+  mapFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
+      const img = new Image();
+      img.onload = () => {
+        state.map.img = img;
+        state.map.dataUrl = dataUrl;
+        state.map.scalePct = 100;
+        mapScale.value = 100;
+        mapScaleVal.textContent = '100%';
+        mapScale.disabled = false;
+        removeMapBtn.disabled = false;
+        mapLabel.textContent = file.name;
+        draw();
+        sendState(true);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  removeMapBtn.addEventListener('click', () => {
+    state.map.img = null;
+    state.map.dataUrl = null;
+    mapScale.disabled = true;
+    removeMapBtn.disabled = true;
+    mapLabel.textContent = 'nenhum';
+    mapFileInput.value = '';
+    draw();
+    sendState(true);
+  });
+
+  function setMapScale(val) {
+    const v = Math.min(400, Math.max(10, val || 100));
+    state.map.scalePct = v;
+    mapScale.value = v;
+    mapScaleVal.textContent = v + '%';
+    draw();
+    sendState();
+  }
+  mapScale.addEventListener('input', () => setMapScale(Number(mapScale.value)));
+
+  // ---------- Grid controls ----------
+  gridToggle.addEventListener('change', () => {
+    state.grid.show = gridToggle.checked;
+    draw();
+    sendState();
+  });
+  function setGridSize(val) {
+    const v = Math.min(128, Math.max(16, val || 48));
+    state.grid.size = v;
+    gridSize.value = v;
+    gridSizeVal.textContent = v + 'px';
+    updateHud();
+    draw();
+    sendState();
+  }
+  gridSize.addEventListener('input', () => setGridSize(Number(gridSize.value)));
+  gridColor.addEventListener('input', () => {
+    state.grid.color = gridColor.value;
+    draw();
+    sendState();
+  });
+
+  // ---------- Tokens ----------
+  const PRESET_COLORS = ['#e04b4b','#4b8ee0','#4be08f','#e0c94b','#a04be0','#e08a4b','#4be0d8','#e04ba0','#ffffff','#333333'];
+  PRESET_COLORS.forEach(c => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch';
+    sw.style.background = c;
+    sw.addEventListener('click', () => {
+      tokenColorInput.value = c;
+      modalSwatchRow.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+      sw.classList.add('selected');
+    });
+    modalSwatchRow.appendChild(sw);
+  });
+
+  // ---------- Token modal ----------
+  let modalMode = 'create'; // 'create' | 'edit'
+  let modalEditingId = null;
+  let modalPhotoDataUrl = null;
+
+  function updatePhotoPreview() {
+    if (modalPhotoDataUrl) {
+      photoPreview.src = modalPhotoDataUrl;
+      photoPreview.classList.remove('empty');
+      removePhotoBtn.style.display = '';
+    } else {
+      photoPreview.removeAttribute('src');
+      photoPreview.classList.add('empty');
+      removePhotoBtn.style.display = 'none';
+    }
+  }
+
+  const tokenIsPlayerInput = document.getElementById('tokenIsPlayerInput');
+
+  function openModalForCreate() {
+    modalMode = 'create';
+    modalEditingId = null;
+    modalPhotoDataUrl = null;
+    tokenNameInput.value = '';
+    tokenColorInput.value = PRESET_COLORS[state.tokens.length % PRESET_COLORS.length];
+    tokenIsPlayerInput.checked = false;
+    modalTitle.textContent = 'Novo token';
+    saveTokenBtn.textContent = 'Adicionar';
+    updatePhotoPreview();
+    modalOverlay.classList.add('open');
+    tokenNameInput.focus();
+  }
+
+  function openModalForEdit(t) {
+    modalMode = 'edit';
+    modalEditingId = t.id;
+    modalPhotoDataUrl = t.photoDataUrl || null;
+    tokenNameInput.value = t.name || '';
+    tokenColorInput.value = t.color;
+    tokenIsPlayerInput.checked = !!t.isPlayer;
+    modalTitle.textContent = 'Editar token';
+    saveTokenBtn.textContent = 'Salvar';
+    updatePhotoPreview();
+    modalOverlay.classList.add('open');
+    tokenNameInput.focus();
+  }
+
+  function closeModal() {
+    modalOverlay.classList.remove('open');
+  }
+
+  const fogModeBtn = document.getElementById('topFogBtn');
+  const clearFogBtn = document.getElementById('topClearFogBtn');
+
+  function toggleFogMode() {
+    state.fogMode = !state.fogMode;
+    fogModeBtn.classList.toggle('active', state.fogMode);
+    canvas.classList.toggle('fog-mode', state.fogMode);
+    canvas.classList.remove('over-token');
+  }
+  fogModeBtn.addEventListener('click', toggleFogMode);
+
+  clearFogBtn.addEventListener('click', () => {
+    if (state.fog.length === 0) return;
+    state.fog = [];
+    draw();
+    sendState();
+  });
+
+  // ---------- Top toolbar tools ----------
+  const topImportBtn = document.getElementById('topImportBtn');
+  const topSlidersBtn = document.getElementById('topSlidersBtn');
+  const topSlidersPanel = document.getElementById('topSlidersPanel');
+
+  topImportBtn.addEventListener('click', () => mapFileInput.click());
+  topSlidersBtn.addEventListener('click', () => topSlidersPanel.classList.toggle('open'));
+
+  // ---------- Combat ----------
+  const startCombatBtn = document.getElementById('startCombatBtn');
+  const stopCombatBtn = document.getElementById('stopCombatBtn');
+  const nextTurnBtn = document.getElementById('nextTurnBtn');
+  const combatControls = document.getElementById('combatControls');
+  const combatBar = document.getElementById('combatBar');
+  const combatBarTrack = document.getElementById('combatBar-track');
+  const combatBarTokens = document.getElementById('combatBar-tokens');
+
+  function startCombat() {
+    if (state.tokens.length === 0) return;
+    const existing = state.combat.order.filter(id => state.tokens.some(t => t.id === id));
+    const newIds = state.tokens.map(t => t.id).filter(id => !existing.includes(id));
+    state.combat.order = existing.concat(newIds);
+    state.combat.active = true;
+    startCombatBtn.classList.add('active');
+    combatControls.classList.add('open');
+    combatBar.classList.add('open');
+    renderCombatBar();
+    draw();
+    sendState();
+  }
+
+  function stopCombat() {
+    state.combat.active = false;
+    startCombatBtn.classList.remove('active');
+    combatControls.classList.remove('open');
+    combatBar.classList.remove('open');
+    draw();
+    sendState();
+  }
+
+  function nextTurn() {
+    if (state.combat.order.length === 0) return;
+    const first = state.combat.order.shift();
+    state.combat.order.push(first);
+
+    // Animate first token sliding right
+    const firstItem = combatBarTokens.querySelector(`[data-id="${first}"]`);
+    if (firstItem) {
+      const trackWidth = combatBarTrack.clientWidth;
+      firstItem.style.transition = 'none';
+      firstItem.style.left = TOKEN_PADDING_LEFT + 'px';
+      setTimeout(() => {
+        firstItem.style.transition = 'left 0.6s ease-out';
+        firstItem.style.left = (state.combat.order.length * SLOT_WIDTH + TOKEN_PADDING_LEFT) + 'px';
+      }, 16);
+    }
+
+    renderCombatBar();
+    draw();
+    sendState();
+  }
+
+  startCombatBtn.addEventListener('click', startCombat);
+  stopCombatBtn.addEventListener('click', stopCombat);
+  nextTurnBtn.addEventListener('click', nextTurn);
+
+  let combatDragId = null;
+  let combatDragStart = null;
+
+  function renderCombatBar() {
+    combatBarTokens.innerHTML = '';
+    const TOKEN_SIZE = 48;
+    const TOKEN_SPACING = 10;  // gap between tokens
+
+    state.combat.order.forEach((id, idx) => {
+      const t = state.tokens.find(t => t.id === id);
+      if (!t) return;
+
+      const item = document.createElement('div');
+      item.className = 'combat-token' + (idx === 0 ? ' current' : '');
+      item.dataset.id = id;
+      // Compact layout: left-aligned with 10px gap
+      const left = idx * (TOKEN_SIZE + TOKEN_SPACING) + 12;  // 12px left padding
+      item.style.left = left + 'px';
+      item.style.marginLeft = '0';
+
+      // Render token circle with same clipping as map canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = 48;
+      canvas.height = 48;
+      canvas.className = 'dot';
+      const c = canvas.getContext('2d');
+      const photo = getTokenPhotoImg(t);
+
+      c.beginPath();
+      c.arc(24, 24, 24, 0, Math.PI * 2);
+      if (photo) {
+        c.clip();
+        c.drawImage(photo, 0, 0, 48, 48);
+      } else {
+        c.fillStyle = t.color;
+        c.fill();
+      }
+
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = t.name || `Token ${t.id}`;
+
+      item.appendChild(canvas);
+      item.appendChild(name);
+
+      item.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        combatDragId = id;
+        combatDragStart = e.clientX;
+        combatDragInitialLeft = parseFloat(item.style.left);
+        item.classList.add('dragging');
+      });
+
+      combatBarTokens.appendChild(item);
+    });
+  }
+
+  // Drag horizontal on timeline (raw logic only)
+  const TOKEN_SIZE = 48;
+  const TOKEN_SPACING = 10;
+  const TOKEN_PADDING_LEFT = 12;
+  const SLOT_WIDTH = TOKEN_SIZE + TOKEN_SPACING;
+
+  let combatDragInitialLeft = 0;
+
+  window.addEventListener('mousemove', (e) => {
+    if (combatDragId === null) return;
+    e.preventDefault();
+
+    const delta = e.clientX - combatDragStart;
+    const item = combatBarTokens.querySelector(`[data-id="${combatDragId}"]`);
+    if (!item) return;
+
+    const trackWidth = combatBarTrack.clientWidth;
+    let left = combatDragInitialLeft + delta;
+    left = Math.max(0, Math.min(trackWidth - TOKEN_SIZE, left));
+
+    // Snap to nearest slot
+    const order = state.combat.order;
+    const idx = order.indexOf(combatDragId);
+    const tokenCount = order.length;
+
+    let snapIdx = idx;
+    for (let i = 0; i < tokenCount; i++) {
+      if (i === idx) continue;
+      const snapX = i * SLOT_WIDTH + TOKEN_PADDING_LEFT;
+      if (Math.abs(left - snapX) < SLOT_WIDTH * 0.4) {
+        snapIdx = i;
+        break;
+      }
+    }
+
+    if (snapIdx !== idx) {
+      order.splice(idx, 1);
+      order.splice(snapIdx, 0, combatDragId);
+      renderCombatBar();
+      return;
+    }
+
+    item.style.left = left + 'px';
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (combatDragId === null) return;
+
+    const item = combatBarTokens.querySelector(`[data-id="${combatDragId}"]`);
+    if (item) item.classList.remove('dragging');
+
+    combatDragId = null;
+    combatDragStart = null;
+    renderCombatBar();
+    draw();
+    sendState();
+  });
+
+  addTokenBtn.addEventListener('click', openModalForCreate);
+  cancelTokenBtn.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
+
+  // ---------- Help modal ----------
+  const helpOverlay = document.getElementById('helpOverlay');
+  const helpBtn = document.getElementById('helpBtn');
+  const closeHelpBtn = document.getElementById('closeHelpBtn');
+
+  function openHelp() {
+    helpOverlay.classList.add('open');
+  }
+
+  function closeHelp() {
+    helpOverlay.classList.remove('open');
+  }
+
+  helpBtn.addEventListener('click', openHelp);
+  closeHelpBtn.addEventListener('click', closeHelp);
+  helpOverlay.addEventListener('click', (e) => { if (e.target === helpOverlay) closeHelp(); });
+
+  tokenPhotoInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      openCropEditor(ev.target.result, (croppedDataUrl) => {
+        modalPhotoDataUrl = croppedDataUrl;
+        updatePhotoPreview();
+      });
+    };
+    reader.readAsDataURL(file);
+    tokenPhotoInput.value = '';
+  });
+
+  removePhotoBtn.addEventListener('click', () => {
+    modalPhotoDataUrl = null;
+    tokenPhotoInput.value = '';
+    updatePhotoPreview();
+  });
+
+  saveTokenBtn.addEventListener('click', () => {
+    const name = tokenNameInput.value.trim();
+    const color = tokenColorInput.value;
+    const isPlayer = tokenIsPlayerInput.checked;
+
+    if (modalMode === 'create') {
+      const c = screenToWorld(viewport.clientWidth / 2, viewport.clientHeight / 2);
+      const token = {
+        id: state.nextId++,
+        x: c.x + (Math.random() * 40 - 20),
+        y: c.y + (Math.random() * 40 - 20),
+        r: BASE_TOKEN_RADIUS,
+        color,
+        name,
+        photoDataUrl: modalPhotoDataUrl,
+        createdAt: Date.now(),
+        isPlayer,
+        barValues: {},
+        effects: [],   // GM-only: array of glossary effect ids applied to this token
+      };
+      if (isPlayer) syncTokenBarValues(token);
+      state.tokens.push(token);
+      state.selectedTokenId = token.id;
+    } else {
+      const t = state.tokens.find(t => t.id === modalEditingId);
+      if (t) {
+        t.name = name;
+        t.color = color;
+        t.photoDataUrl = modalPhotoDataUrl;
+        t.isPlayer = isPlayer;
+        if (isPlayer) syncTokenBarValues(t);
+      }
+    }
+
+    closeModal();
+    renderTokenList();
+    renderParty();
+    draw();
+    sendState();
+  });
+
+  function removeToken(id) {
+    state.tokens = state.tokens.filter(t => t.id !== id);
+    if (state.selectedTokenId === id) state.selectedTokenId = null;
+    state.combat.order = state.combat.order.filter(oid => oid !== id);
+    renderTokenList();
+    renderParty();
+    if (state.combat.active) renderCombatBar();
+    draw();
+    sendState();
+  }
+
+  // ---------- Token list sorting ----------
+  const tokenSortSelect = document.getElementById('tokenSortSelect');
+  let tokenSortMode = 'added';
+  tokenSortSelect.addEventListener('change', () => {
+    tokenSortMode = tokenSortSelect.value;
+    renderTokenList();
+  });
+
+  function getSortedTokens() {
+    const list = state.tokens.slice();
+    if (tokenSortMode === 'name') {
+      list.sort((a, b) => (a.name || `Token ${a.id}`).localeCompare(b.name || `Token ${b.id}`, 'pt-BR', { sensitivity: 'base' }));
+    } else {
+      list.sort((a, b) => (a.createdAt || a.id) - (b.createdAt || b.id));
+    }
+    return list;
+  }
+
+  // ---------- Delete confirmation ----------
+  const confirmOverlay = document.getElementById('confirmOverlay');
+  const confirmTokenName = document.getElementById('confirmTokenName');
+  const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+  const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+  let pendingDeleteId = null;
+
+  function askRemoveToken(t) {
+    pendingDeleteId = t.id;
+    confirmTokenName.textContent = t.name || `Token ${t.id}`;
+    confirmOverlay.classList.add('open');
+  }
+
+  function closeConfirm() {
+    confirmOverlay.classList.remove('open');
+    pendingDeleteId = null;
+  }
+
+  confirmCancelBtn.addEventListener('click', closeConfirm);
+  confirmOverlay.addEventListener('click', (e) => { if (e.target === confirmOverlay) closeConfirm(); });
+  confirmDeleteBtn.addEventListener('click', () => {
+    if (pendingDeleteId !== null) removeToken(pendingDeleteId);
+    closeConfirm();
+  });
+
+  function renderTokenList() {
+    tokenCount.textContent = state.tokens.length;
+    tokenList.innerHTML = '';
+    for (const t of getSortedTokens()) {
+      const item = document.createElement('div');
+      item.className = 'token-item';
+
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      dot.style.background = t.color;
+      if (t.photoDataUrl) {
+        dot.style.backgroundImage = `url(${t.photoDataUrl})`;
+      }
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = t.name || `Token ${t.id}`;
+      nameSpan.style.flex = '1';
+      nameSpan.style.overflow = 'hidden';
+      nameSpan.style.textOverflow = 'ellipsis';
+      nameSpan.style.whiteSpace = 'nowrap';
+
+      const badges = buildEffectBadges(t);
+
+      const effectsBtn = document.createElement('button');
+      effectsBtn.className = 'icon-btn effects-btn';
+      effectsBtn.textContent = '✨';
+      effectsBtn.title = 'Aplicar efeitos';
+      effectsBtn.addEventListener('click', (e) => { e.stopPropagation(); openEffectsPicker(t); });
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'icon-btn edit-btn';
+      editBtn.textContent = '✎';
+      editBtn.title = 'Editar token';
+      editBtn.addEventListener('click', () => openModalForEdit(t));
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'icon-btn remove-btn';
+      removeBtn.textContent = '✕';
+      removeBtn.title = 'Excluir token';
+      removeBtn.addEventListener('click', () => askRemoveToken(t));
+
+      item.appendChild(dot);
+      item.appendChild(nameSpan);
+      if (badges) item.appendChild(badges);
+      item.appendChild(effectsBtn);
+      item.appendChild(editBtn);
+      item.appendChild(removeBtn);
+      item.addEventListener('mouseenter', () => { state.selectedTokenId = t.id; draw(); });
+      tokenList.appendChild(item);
+    }
+  }
+
+  // small colored icon chips shown next to a token name for its applied effects
+  function buildEffectBadges(token) {
+    if (!token.effects || token.effects.length === 0) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'effect-badges';
+    for (const id of token.effects) {
+      const eff = state.glossary.find(e => e.id === id);
+      if (!eff) continue;
+      const badge = document.createElement('span');
+      badge.className = 'effect-badge';
+      badge.style.background = eff.color;
+      badge.title = eff.name + (eff.desc ? ' — ' + eff.desc : '');
+      badge.textContent = eff.icon || eff.name.slice(0, 1).toUpperCase();
+      wrap.appendChild(badge);
+    }
+    return wrap.children.length ? wrap : null;
+  }
+
+  // ---------- Apply-effects picker (glossary checklist w/ search) ----------
+  const effectsPickerOverlay = document.getElementById('effectsPickerOverlay');
+  const effectsPickerTitle = document.getElementById('effectsPickerTitle');
+  const effectsSearchInput = document.getElementById('effectsSearchInput');
+  const effectsPickerList = document.getElementById('effectsPickerList');
+  let effectsPickerToken = null;
+
+  function openEffectsPicker(token) {
+    effectsPickerToken = token;
+    if (!token.effects) token.effects = [];
+    effectsPickerTitle.textContent = `Efeitos — ${token.name || 'Token ' + token.id}`;
+    effectsSearchInput.value = '';
+    renderEffectsPicker();
+    effectsPickerOverlay.classList.add('open');
+    effectsSearchInput.focus();
+  }
+
+  function renderEffectsPicker() {
+    const q = effectsSearchInput.value.trim().toLowerCase();
+    effectsPickerList.innerHTML = '';
+
+    if (state.glossary.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-hint';
+      empty.textContent = 'Glossário vazio. Cadastre efeitos no Glossário de efeitos.';
+      effectsPickerList.appendChild(empty);
+      return;
+    }
+
+    const matches = state.glossary.filter(eff =>
+      !q || eff.name.toLowerCase().includes(q) || (eff.desc || '').toLowerCase().includes(q)
+    );
+
+    if (matches.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-hint';
+      empty.textContent = 'Nenhum efeito encontrado.';
+      effectsPickerList.appendChild(empty);
+      return;
+    }
+
+    for (const eff of matches) {
+      const applied = effectsPickerToken.effects.includes(eff.id);
+      const row = document.createElement('label');
+      row.className = 'effects-pick-row';
+      row.style.borderLeftColor = eff.color;
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = applied;
+      cb.addEventListener('change', () => {
+        const set = new Set(effectsPickerToken.effects);
+        if (cb.checked) set.add(eff.id); else set.delete(eff.id);
+        // keep glossary order
+        effectsPickerToken.effects = state.glossary.filter(e => set.has(e.id)).map(e => e.id);
+        renderTokenList();
+        draw();
+      });
+
+      const icon = document.createElement('span');
+      icon.className = 'ep-icon';
+      icon.style.color = eff.color;
+      icon.textContent = eff.icon || '';
+
+      const body = document.createElement('div');
+      body.className = 'ep-body';
+      const name = document.createElement('div');
+      name.className = 'ep-name';
+      name.textContent = eff.name;
+      name.style.color = eff.color;
+      body.appendChild(name);
+      if (eff.desc) {
+        const desc = document.createElement('div');
+        desc.className = 'ep-desc';
+        desc.textContent = eff.desc;
+        body.appendChild(desc);
+      }
+
+      row.appendChild(cb);
+      if (eff.icon) row.appendChild(icon);
+      row.appendChild(body);
+      effectsPickerList.appendChild(row);
+    }
+  }
+
+  effectsSearchInput.addEventListener('input', renderEffectsPicker);
+  document.getElementById('effectsPickerCloseBtn').addEventListener('click', () => {
+    effectsPickerOverlay.classList.remove('open');
+    effectsPickerToken = null;
+  });
+  effectsPickerOverlay.addEventListener('click', (e) => {
+    if (e.target === effectsPickerOverlay) {
+      effectsPickerOverlay.classList.remove('open');
+      effectsPickerToken = null;
+    }
+  });
+
+  // ---------- Party panel + universal bars ----------
+  const partyList = document.getElementById('partyList');
+  const partyCount = document.getElementById('partyCount');
+
+  // Ensure a token has a value entry for every universal bar; drop stale ones.
+  function syncTokenBarValues(t) {
+    if (!t.barValues) t.barValues = {};
+    for (const def of state.partyBars) {
+      if (!t.barValues[def.id]) {
+        t.barValues[def.id] = { current: def.defaultMax, max: def.defaultMax };
+      }
+    }
+    // remove values for bars that no longer exist
+    for (const id of Object.keys(t.barValues)) {
+      if (!state.partyBars.some(d => d.id === id)) delete t.barValues[id];
+    }
+  }
+
+  function syncAllPartyBarValues() {
+    for (const t of state.tokens) {
+      if (t.isPlayer) syncTokenBarValues(t);
+    }
+  }
+
+  function renderParty() {
+    syncAllPartyBarValues();
+    const members = state.tokens.filter(t => t.isPlayer);
+    partyCount.textContent = members.length;
+    partyList.innerHTML = '';
+
+    // universal bar toolbar (define which bars everyone has)
+    const toolbar = document.createElement('div');
+    toolbar.className = 'party-toolbar';
+    const toolbarHint = document.createElement('div');
+    toolbarHint.className = 'party-toolbar-title';
+    const activeCount = state.partyBars.filter(d => d.active).length;
+    toolbarHint.textContent = `Barras universais — ativas no mapa: ${activeCount}/${MAX_ACTIVE_BARS}`;
+    toolbar.appendChild(toolbarHint);
+
+    for (const def of state.partyBars) {
+      const chip = document.createElement('div');
+      chip.className = 'bar-def-chip';
+
+      // active checkbox — limited to MAX_ACTIVE_BARS
+      const activeCb = document.createElement('input');
+      activeCb.type = 'checkbox';
+      activeCb.className = 'bar-active-cb';
+      activeCb.checked = !!def.active;
+      activeCb.title = 'Exibir esta barra no mapa';
+      activeCb.disabled = !def.active && activeCount >= MAX_ACTIVE_BARS;
+      activeCb.addEventListener('change', () => {
+        if (activeCb.checked && state.partyBars.filter(d => d.active).length >= MAX_ACTIVE_BARS) {
+          activeCb.checked = false;
+          return;
+        }
+        def.active = activeCb.checked;
+        renderParty();
+        draw();
+        sendState();
+      });
+
+      const swatch = document.createElement('span');
+      swatch.className = 'bar-def-swatch';
+      swatch.style.background = def.color;
+      const nm = document.createElement('span');
+      nm.className = 'bar-def-name';
+      nm.textContent = def.name;
+      const mode = document.createElement('span');
+      mode.className = 'bar-def-mode';
+      mode.textContent = { horizontal: 'H', vertical: 'V', radial: 'O' }[def.display] || 'H';
+      mode.title = 'Exibição: ' + (def.display || 'horizontal');
+      const editB = document.createElement('button');
+      editB.className = 'icon-btn';
+      editB.textContent = '✎';
+      editB.title = 'Editar barra (universal)';
+      editB.addEventListener('click', () => openBarDefEditor(def));
+      const delB = document.createElement('button');
+      delB.className = 'icon-btn';
+      delB.textContent = '✕';
+      delB.title = 'Remover barra de todos';
+      delB.addEventListener('click', () => removeBarDef(def));
+      chip.appendChild(activeCb);
+      chip.appendChild(swatch);
+      chip.appendChild(nm);
+      chip.appendChild(mode);
+      chip.appendChild(editB);
+      chip.appendChild(delB);
+      toolbar.appendChild(chip);
+    }
+
+    const addDef = document.createElement('button');
+    addDef.className = 'secondary add-bar-btn';
+    addDef.textContent = '+ Nova barra universal';
+    addDef.addEventListener('click', () => openBarDefEditor(null));
+    toolbar.appendChild(addDef);
+    partyList.appendChild(toolbar);
+
+    if (members.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'party-nobars';
+      empty.style.textAlign = 'center';
+      empty.textContent = 'Marque um token como jogador para vê-lo aqui.';
+      partyList.appendChild(empty);
+    }
+
+    // each member: all universal bars, per-member values
+    for (const t of members) {
+      const card = document.createElement('div');
+      card.className = 'party-member';
+
+      const head = document.createElement('div');
+      head.className = 'party-member-head';
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      dot.style.background = t.color;
+      dot.style.color = t.color;
+      if (t.photoDataUrl) dot.style.backgroundImage = `url(${t.photoDataUrl})`;
+      const nameEl = document.createElement('div');
+      nameEl.className = 'pm-name';
+      nameEl.textContent = t.name || `Token ${t.id}`;
+      head.appendChild(dot);
+      head.appendChild(nameEl);
+      card.appendChild(head);
+
+      if (state.partyBars.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'party-nobars';
+        empty.textContent = 'Nenhuma barra definida.';
+        card.appendChild(empty);
+      } else {
+        for (const def of state.partyBars) {
+          card.appendChild(buildBarElement(t, def));
+        }
+      }
+
+      partyList.appendChild(card);
+    }
+  }
+
+  function buildBarElement(token, def) {
+    const val = token.barValues[def.id] || { current: def.defaultMax, max: def.defaultMax };
+
+    const wrap = document.createElement('div');
+    wrap.className = 'party-bar';
+
+    const labelRow = document.createElement('div');
+    labelRow.className = 'party-bar-labelrow';
+
+    const nm = document.createElement('span');
+    nm.className = 'pb-name';
+    nm.textContent = def.name;
+
+    const valEl = document.createElement('span');
+    valEl.className = 'pb-val';
+    valEl.textContent = `${val.current}/${val.max}`;
+
+    const editB = document.createElement('button');
+    editB.className = 'icon-btn';
+    editB.textContent = '✎';
+    editB.title = 'Editar valor deste membro';
+    editB.addEventListener('click', () => openBarValueEditor(token, def));
+
+    labelRow.appendChild(nm);
+    labelRow.appendChild(valEl);
+    labelRow.appendChild(editB);
+
+    const track = document.createElement('div');
+    track.className = 'party-bar-track';
+    const fill = document.createElement('div');
+    fill.className = 'party-bar-fill';
+    const pct = val.max > 0 ? Math.max(0, Math.min(100, (val.current / val.max) * 100)) : 0;
+    fill.style.width = pct + '%';
+    fill.style.background = def.color;
+    fill.style.boxShadow = `0 0 6px ${def.color}`;
+    track.appendChild(fill);
+
+    wrap.appendChild(labelRow);
+    wrap.appendChild(track);
+    return wrap;
+  }
+
+  function removeBarDef(def) {
+    state.partyBars = state.partyBars.filter(d => d.id !== def.id);
+    for (const t of state.tokens) {
+      if (t.barValues) delete t.barValues[def.id];
+    }
+    renderParty();
+    draw();
+    sendState();
+  }
+
+  // ---------- Effects glossary (GM-only reference) ----------
+  const GLOSSARY_PRESET_COLORS = ['#4be08f','#e04b4b','#4b8ee0','#a04be0','#e0c94b','#e08a4b','#4be0d8','#e04ba0'];
+  const glossaryOverlay = document.getElementById('glossaryOverlay');
+  const glossaryList = document.getElementById('glossaryList');
+  const glossaryForm = document.getElementById('glossaryForm');
+  const glossaryFormTitle = document.getElementById('glossaryFormTitle');
+  const glossaryNameInput = document.getElementById('glossaryNameInput');
+  const glossaryDescInput = document.getElementById('glossaryDescInput');
+  const glossaryColorInput = document.getElementById('glossaryColorInput');
+  const glossaryIconInput = document.getElementById('glossaryIconInput');
+  const glossarySwatchRow = document.getElementById('glossarySwatchRow');
+  const glossarySaveBtn = document.getElementById('glossarySaveBtn');
+  const glossaryClearBtn = document.getElementById('glossaryClearBtn');
+
+  let glossaryEditId = null; // id of effect being edited, or null when adding
+
+  GLOSSARY_PRESET_COLORS.forEach(c => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch';
+    sw.style.background = c;
+    sw.addEventListener('click', () => {
+      glossaryColorInput.value = c;
+      glossarySwatchRow.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+      sw.classList.add('selected');
+    });
+    glossarySwatchRow.appendChild(sw);
+  });
+
+  function resetGlossaryForm() {
+    glossaryEditId = null;
+    glossaryFormTitle.textContent = 'Novo efeito';
+    glossarySaveBtn.textContent = 'Adicionar';
+    glossaryNameInput.value = '';
+    glossaryDescInput.value = '';
+    glossaryIconInput.value = '';
+    glossaryColorInput.value = GLOSSARY_PRESET_COLORS[state.glossary.length % GLOSSARY_PRESET_COLORS.length];
+    glossarySwatchRow.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+  }
+
+  function renderGlossary() {
+    glossaryList.innerHTML = '';
+    if (state.glossary.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-hint';
+      empty.textContent = 'Nenhum efeito cadastrado ainda.';
+      glossaryList.appendChild(empty);
+      return;
+    }
+    for (const eff of state.glossary) {
+      const item = document.createElement('div');
+      item.className = 'glossary-item';
+      item.style.borderLeftColor = eff.color;
+
+      const icon = document.createElement('div');
+      icon.className = 'gi-icon';
+      icon.textContent = eff.icon || '';
+      icon.style.color = eff.color;
+
+      const body = document.createElement('div');
+      body.className = 'gi-body';
+      const name = document.createElement('div');
+      name.className = 'gi-name';
+      name.textContent = eff.name;
+      name.style.color = eff.color;
+      const desc = document.createElement('div');
+      desc.className = 'gi-desc';
+      desc.textContent = eff.desc || '';
+      body.appendChild(name);
+      if (eff.desc) body.appendChild(desc);
+
+      const actions = document.createElement('div');
+      actions.className = 'gi-actions';
+      const editBtn = document.createElement('button');
+      editBtn.textContent = '✎';
+      editBtn.title = 'Editar';
+      editBtn.addEventListener('click', () => startEditEffect(eff.id));
+      const delBtn = document.createElement('button');
+      delBtn.className = 'gi-del';
+      delBtn.textContent = '✕';
+      delBtn.title = 'Remover';
+      delBtn.addEventListener('click', () => {
+        state.glossary = state.glossary.filter(e => e.id !== eff.id);
+        // drop this effect from any token that had it applied
+        for (const t of state.tokens) {
+          if (t.effects) t.effects = t.effects.filter(id => id !== eff.id);
+        }
+        if (glossaryEditId === eff.id) resetGlossaryForm();
+        renderGlossary();
+        renderTokenList();
+        draw();
+      });
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+
+      item.appendChild(icon);
+      item.appendChild(body);
+      item.appendChild(actions);
+      glossaryList.appendChild(item);
+    }
+  }
+
+  function startEditEffect(id) {
+    const eff = state.glossary.find(e => e.id === id);
+    if (!eff) return;
+    glossaryEditId = id;
+    glossaryFormTitle.textContent = 'Editar efeito';
+    glossarySaveBtn.textContent = 'Salvar';
+    glossaryNameInput.value = eff.name;
+    glossaryDescInput.value = eff.desc || '';
+    glossaryIconInput.value = eff.icon || '';
+    glossaryColorInput.value = eff.color;
+    glossarySwatchRow.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+    glossaryNameInput.focus();
+  }
+
+  glossarySaveBtn.addEventListener('click', () => {
+    const name = glossaryNameInput.value.trim();
+    if (!name) { glossaryNameInput.focus(); return; }
+    const data = {
+      name,
+      desc: glossaryDescInput.value.trim(),
+      color: glossaryColorInput.value,
+      icon: glossaryIconInput.value.trim(),
+    };
+    if (glossaryEditId != null) {
+      const eff = state.glossary.find(e => e.id === glossaryEditId);
+      if (eff) Object.assign(eff, data);
+    } else {
+      state.glossary.push({ id: state.nextEffectId++, ...data });
+    }
+    resetGlossaryForm();
+    renderGlossary();
+  });
+
+  glossaryClearBtn.addEventListener('click', resetGlossaryForm);
+
+  document.getElementById('openGlossaryBtn').addEventListener('click', () => {
+    resetGlossaryForm();
+    renderGlossary();
+    glossaryOverlay.classList.add('open');
+  });
+  document.getElementById('glossaryCloseBtn').addEventListener('click', () => {
+    glossaryOverlay.classList.remove('open');
+  });
+  glossaryOverlay.addEventListener('click', (e) => {
+    if (e.target === glossaryOverlay) glossaryOverlay.classList.remove('open');
+  });
+
+  // ---------- Bar editor modal (two modes) ----------
+  const BAR_PRESET_COLORS = ['#e04b4b','#4b8ee0','#a04be0','#4be08f','#e0c94b','#e08a4b','#4be0d8','#e04ba0'];
+  const barOverlay = document.getElementById('barOverlay');
+  const barModalTitle = document.getElementById('barModalTitle');
+  const barNameInput = document.getElementById('barNameInput');
+  const barNameField = barNameInput.closest('.field');
+  const barCurrentInput = document.getElementById('barCurrentInput');
+  const barMaxInput = document.getElementById('barMaxInput');
+  const barColorInput = document.getElementById('barColorInput');
+  const barColorField = barColorInput.closest('.field');
+  const barSwatchRow = document.getElementById('barSwatchRow');
+  const barDisplayFields = document.getElementById('barDisplayFields');
+  const barDisplaySelect = document.getElementById('barDisplaySelect');
+  const barSideField = document.getElementById('barSideField');
+  const barSideSelect = document.getElementById('barSideSelect');
+  const barDirectionField = document.getElementById('barDirectionField');
+  const barDirectionSelect = document.getElementById('barDirectionSelect');
+  const barCancelBtn = document.getElementById('barCancelBtn');
+  const barSaveBtn = document.getElementById('barSaveBtn');
+
+  // show/hide side & direction depending on the chosen display mode
+  function updateBarDisplayFieldsVisibility() {
+    const mode = barDisplaySelect.value;
+    // side only matters for vertical; direction matters for horizontal & vertical (not radial)
+    barSideField.style.display = (mode === 'vertical') ? '' : 'none';
+    barDirectionField.style.display = (mode === 'radial') ? 'none' : '';
+  }
+  barDisplaySelect.addEventListener('change', updateBarDisplayFieldsVisibility);
+
+  BAR_PRESET_COLORS.forEach(c => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch';
+    sw.style.background = c;
+    sw.addEventListener('click', () => {
+      barColorInput.value = c;
+      barSwatchRow.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+      sw.classList.add('selected');
+    });
+    barSwatchRow.appendChild(sw);
+  });
+
+  // mode: 'def' (universal name+color) | 'value' (per-member current/max)
+  let barEditMode = null;
+  let barEditDef = null;   // def being created/edited
+  let barEditToken = null; // token when editing a value
+
+  function openBarDefEditor(def) {
+    barEditMode = 'def';
+    barEditDef = def;
+    barEditToken = null;
+    barNameField.style.display = '';
+    barColorField.style.display = '';
+    barDisplayFields.style.display = '';
+    if (def) {
+      barModalTitle.textContent = 'Editar barra universal';
+      barNameInput.value = def.name;
+      barColorInput.value = def.color;
+      barCurrentInput.value = def.defaultMax;
+      barMaxInput.value = def.defaultMax;
+      barDisplaySelect.value = def.display || 'horizontal';
+      barSideSelect.value = def.side || 'left';
+      barDirectionSelect.value = def.direction || 'ltr';
+    } else {
+      barModalTitle.textContent = 'Nova barra universal';
+      barNameInput.value = '';
+      barColorInput.value = BAR_PRESET_COLORS[state.partyBars.length % BAR_PRESET_COLORS.length];
+      barCurrentInput.value = 10;
+      barMaxInput.value = 10;
+      barDisplaySelect.value = 'horizontal';
+      barSideSelect.value = 'left';
+      barDirectionSelect.value = 'ltr';
+    }
+    updateBarDisplayFieldsVisibility();
+    barSwatchRow.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+    barOverlay.classList.add('open');
+    barNameInput.focus();
+  }
+
+  function openBarValueEditor(token, def) {
+    barEditMode = 'value';
+    barEditDef = def;
+    barEditToken = token;
+    const val = token.barValues[def.id] || { current: def.defaultMax, max: def.defaultMax };
+    barModalTitle.textContent = `${def.name} — ${token.name || 'Token ' + token.id}`;
+    // hide name, color & display (those are universal); show only current/max
+    barNameField.style.display = 'none';
+    barColorField.style.display = 'none';
+    barDisplayFields.style.display = 'none';
+    barCurrentInput.value = val.current;
+    barMaxInput.value = val.max;
+    barOverlay.classList.add('open');
+    barCurrentInput.focus();
+  }
+
+  function closeBarEditor() {
+    barOverlay.classList.remove('open');
+    barEditMode = null;
+    barEditDef = null;
+    barEditToken = null;
+  }
+
+  barCancelBtn.addEventListener('click', closeBarEditor);
+  barOverlay.addEventListener('click', (e) => { if (e.target === barOverlay) closeBarEditor(); });
+
+  barSaveBtn.addEventListener('click', () => {
+    const max = Math.max(1, Number(barMaxInput.value) || 1);
+    const current = Math.max(0, Math.min(max, Number(barCurrentInput.value) || 0));
+
+    if (barEditMode === 'def') {
+      const name = barNameInput.value.trim() || 'Barra';
+      const color = barColorInput.value;
+      const display = barDisplaySelect.value;
+      const side = barSideSelect.value;
+      const direction = barDirectionSelect.value;
+      if (barEditDef) {
+        barEditDef.name = name;
+        barEditDef.color = color;
+        barEditDef.defaultMax = max;
+        barEditDef.display = display;
+        barEditDef.side = side;
+        barEditDef.direction = direction;
+      } else {
+        state.partyBars.push({ id: 'bar-' + (state.nextBarId++), name, color, defaultMax: max, active: false, display, side, direction });
+      }
+      syncAllPartyBarValues();
+    } else if (barEditMode === 'value' && barEditToken && barEditDef) {
+      if (!barEditToken.barValues) barEditToken.barValues = {};
+      barEditToken.barValues[barEditDef.id] = { current, max };
+    }
+
+    closeBarEditor();
+    renderParty();
+    draw();
+    sendState();
+  });
+
+  // ---------- Photo crop editor ----------
+  const cropOverlay = document.getElementById('cropOverlay');
+  const cropCanvasWrap = document.getElementById('cropCanvasWrap');
+  const cropCanvas = document.getElementById('cropCanvas');
+  const cropCtx = cropCanvas.getContext('2d');
+  const cropZoomSlider = document.getElementById('cropZoomSlider');
+  const cropCancelBtn = document.getElementById('cropCancelBtn');
+  const cropApplyBtn = document.getElementById('cropApplyBtn');
+
+  const CROP_OUTPUT_SIZE = 256; // final exported square image, in px
+
+  const cropState = {
+    img: null,
+    minZoom: 1,       // zoom at which the image just covers the crop circle
+    zoom: 1,           // user zoom multiplier on top of minZoom
+    offsetX: 0,         // image-space pan offset (in source image pixels)
+    offsetY: 0,
+    onDone: null,
+  };
+
+  const cropDrag = { active: false, startX: 0, startY: 0, offX: 0, offY: 0 };
+
+  function openCropEditor(srcDataUrl, onDone) {
+    const img = new Image();
+    img.onload = () => {
+      cropState.img = img;
+      cropState.onDone = onDone;
+      cropState.offsetX = img.naturalWidth / 2;
+      cropState.offsetY = img.naturalHeight / 2;
+      cropState.minZoom = 1;
+      cropState.zoom = 1;
+      cropZoomSlider.value = 1;
+      cropOverlay.classList.add('open');
+      resizeCropCanvas();
+    };
+    img.src = srcDataUrl;
+  }
+
+  function resizeCropCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const size = cropCanvasWrap.clientWidth;
+    cropCanvas.width = Math.round(size * dpr);
+    cropCanvas.height = Math.round(size * dpr);
+    drawCrop();
+  }
+  window.addEventListener('resize', () => {
+    if (cropOverlay.classList.contains('open')) resizeCropCanvas();
+  });
+
+  function drawCrop() {
+    const img = cropState.img;
+    if (!img) return;
+    const dpr = window.devicePixelRatio || 1;
+    const size = cropCanvas.width; // square, device px
+    cropCtx.setTransform(1, 0, 0, 1, 0, 0);
+    cropCtx.clearRect(0, 0, size, size);
+    cropCtx.fillStyle = '#111';
+    cropCtx.fillRect(0, 0, size, size);
+
+    // "cover" scale: image fills the square crop area at zoom=1
+    const coverScale = Math.max(size / img.naturalWidth, size / img.naturalHeight);
+    const scale = coverScale * cropState.zoom;
+
+    const drawW = img.naturalWidth * scale;
+    const drawH = img.naturalHeight * scale;
+    const cx = size / 2 - cropState.offsetX * scale;
+    const cy = size / 2 - cropState.offsetY * scale;
+
+    cropCtx.drawImage(img, cx, cy, drawW, drawH);
+
+    // dim outside the circular crop area
+    cropCtx.save();
+    cropCtx.fillStyle = 'rgba(0,0,0,0.55)';
+    cropCtx.beginPath();
+    cropCtx.rect(0, 0, size, size);
+    cropCtx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2, true);
+    cropCtx.fill('evenodd');
+    cropCtx.restore();
+
+    cropCtx.beginPath();
+    cropCtx.arc(size / 2, size / 2, size / 2 - 1, 0, Math.PI * 2);
+    cropCtx.lineWidth = 2;
+    cropCtx.strokeStyle = 'rgba(255,255,255,0.8)';
+    cropCtx.stroke();
+  }
+
+  function clampCropOffset() {
+    const img = cropState.img;
+    if (!img) return;
+    const size = cropCanvas.width;
+    const coverScale = Math.max(size / img.naturalWidth, size / img.naturalHeight);
+    const scale = coverScale * cropState.zoom;
+    // visible half-extent in image space
+    const halfW = (size / scale) / 2;
+    const halfH = (size / scale) / 2;
+    cropState.offsetX = Math.min(img.naturalWidth - halfW, Math.max(halfW, cropState.offsetX));
+    cropState.offsetY = Math.min(img.naturalHeight - halfH, Math.max(halfH, cropState.offsetY));
+  }
+
+  cropZoomSlider.addEventListener('input', () => {
+    cropState.zoom = Number(cropZoomSlider.value);
+    clampCropOffset();
+    drawCrop();
+  });
+
+  cropCanvasWrap.addEventListener('mousedown', (e) => {
+    cropDrag.active = true;
+    cropCanvasWrap.classList.add('dragging');
+    cropDrag.startX = e.clientX;
+    cropDrag.startY = e.clientY;
+    cropDrag.offX = cropState.offsetX;
+    cropDrag.offY = cropState.offsetY;
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!cropDrag.active) return;
+    const img = cropState.img;
+    const size = cropCanvas.width;
+    const coverScale = Math.max(size / img.naturalWidth, size / img.naturalHeight);
+    const scale = coverScale * cropState.zoom;
+    const dpr = window.devicePixelRatio || 1;
+    const dx = (e.clientX - cropDrag.startX) * dpr;
+    const dy = (e.clientY - cropDrag.startY) * dpr;
+    cropState.offsetX = cropDrag.offX - dx / scale;
+    cropState.offsetY = cropDrag.offY - dy / scale;
+    clampCropOffset();
+    drawCrop();
+  });
+  window.addEventListener('mouseup', () => {
+    cropDrag.active = false;
+    cropCanvasWrap.classList.remove('dragging');
+  });
+
+  cropCanvasWrap.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 1.08 : 1 / 1.08;
+    cropState.zoom = Math.min(4, Math.max(1, cropState.zoom * delta));
+    cropZoomSlider.value = cropState.zoom;
+    clampCropOffset();
+    drawCrop();
+  }, { passive: false });
+
+  function closeCropEditor() {
+    cropOverlay.classList.remove('open');
+    cropState.img = null;
+    cropState.onDone = null;
+  }
+
+  cropCancelBtn.addEventListener('click', closeCropEditor);
+  cropOverlay.addEventListener('click', (e) => { if (e.target === cropOverlay) closeCropEditor(); });
+
+  cropApplyBtn.addEventListener('click', () => {
+    const img = cropState.img;
+    if (!img) return;
+
+    const out = document.createElement('canvas');
+    out.width = CROP_OUTPUT_SIZE;
+    out.height = CROP_OUTPUT_SIZE;
+    const octx = out.getContext('2d');
+
+    const coverScale = Math.max(cropCanvas.width / img.naturalWidth, cropCanvas.width / img.naturalHeight);
+    const scale = coverScale * cropState.zoom;
+    // source rect (in original image pixels) that maps to the crop square
+    const srcHalf = (cropCanvas.width / scale) / 2;
+    const sx = cropState.offsetX - srcHalf;
+    const sy = cropState.offsetY - srcHalf;
+    const sSize = srcHalf * 2;
+
+    octx.drawImage(img, sx, sy, sSize, sSize, 0, 0, CROP_OUTPUT_SIZE, CROP_OUTPUT_SIZE);
+
+    const resultUrl = out.toDataURL('image/png');
+    const cb = cropState.onDone;
+    closeCropEditor();
+    if (cb) cb(resultUrl);
+  });
+
+  // ---------- Init ----------
+  resizeCanvas();
+  centerView();
+  renderParty();
+})();
+</script>
+</body>
+</html>

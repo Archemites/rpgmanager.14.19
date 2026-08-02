@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mesa de RPG — Jogadores</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #020804;
+    overflow: hidden;
+    font-family: "VT323", "IBM Plex Mono", Consolas, "Lucida Console", monospace;
+  }
+  #viewport { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+  #canvas { display: block; width: 100%; height: 100%; cursor: default; }
+  #canvas.panning { cursor: grabbing; }
+
+  /* CRT overlay: scanlines + RGB mask + vignette + flicker */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(0,0,0,0)    0px,
+        rgba(0,0,0,0)    2px,
+        rgba(0,0,0,0.42) 3px,
+        rgba(0,0,0,0)    4px
+      ),
+      repeating-linear-gradient(
+        to right,
+        rgba(255,0,80,0.04)  0px,
+        rgba(0,255,120,0.03) 1px,
+        rgba(0,120,255,0.04) 2px,
+        rgba(0,0,0,0)        3px
+      );
+    animation: scan-drift 9s linear infinite;
+  }
+  /* VHS tracking band slowly rolling down the screen */
+  #viewport::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 90px;
+    z-index: 9997;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      rgba(255,255,255,0)    0%,
+      rgba(255,255,255,0.03) 35%,
+      rgba(255,255,255,0.07) 50%,
+      rgba(0,0,0,0.12)       62%,
+      rgba(255,255,255,0)    100%
+    );
+    animation: vhs-track 11s linear infinite;
+  }
+  @keyframes vhs-track {
+    0%   { top: -12%; }
+    100% { top: 112%; }
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center,
+      rgba(0,0,0,0) 55%,
+      rgba(0,10,4,0.35) 85%,
+      rgba(0,8,3,0.75) 100%);
+    animation: crt-flicker 4s steps(60) infinite;
+  }
+  @keyframes scan-drift {
+    from { background-position: 0 0, 0 0; }
+    to   { background-position: 0 4px, 0 0; }
+  }
+  @keyframes crt-flicker {
+    0%, 100% { opacity: 1; }
+    3%  { opacity: 0.92; }
+    7%  { opacity: 1; }
+    9%  { opacity: 0.96; }
+    11% { opacity: 1; }
+    43% { opacity: 0.97; }
+    47% { opacity: 1; }
+    81% { opacity: 0.94; }
+    83% { opacity: 1; }
+  }
+
+  #status {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(2,10,5,0.88);
+    border: 1px solid #1e5c32;
+    border-radius: 0;
+    box-shadow: 0 0 6px rgba(69,255,120,0.25), inset 0 0 8px rgba(69,255,120,0.07);
+    padding: 6px 14px;
+    font-size: 11px;
+    color: #2a9c4e;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    text-shadow: 0 0 4px rgba(69,255,120,0.55);
+    pointer-events: none;
+    transition: opacity 0.5s;
+    z-index: 10;
+  }
+  #status.hidden { opacity: 0; }
+
+  #combatBar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: none;
+    align-items: center;
+    padding: 0 12px;
+    background: rgba(2,10,5,0.92);
+    border-top: 1px solid rgba(69,255,120,0.2);
+    box-shadow: 0 0 8px rgba(0,0,0,0.3);
+    z-index: 11;
+    height: 80px;
+    pointer-events: none;
+  }
+  #combatBar.open { display: flex; }
+  #combatBar-track {
+    flex: 1;
+    position: relative;
+    height: 1px;
+    background: linear-gradient(to right, rgba(69,255,120,0.1), rgba(69,255,120,0.15), rgba(69,255,120,0.1));
+    margin: 0 8px;
+  }
+  #combatBar-tokens {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 60px;
+  }
+  #combatBar .combat-token {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    user-select: none;
+  }
+  #combatBar .combat-token .dot {
+    display: block;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid #1e5c32;
+    box-shadow: 0 0 8px rgba(0,0,0,0.5);
+    flex-shrink: 0;
+  }
+  #combatBar .combat-token.current .dot {
+    border-color: #ff9f45;
+    box-shadow: 0 0 12px rgba(255,159,69,0.8), inset 0 0 6px rgba(255,159,69,0.3);
+  }
+  #combatBar .combat-token .name {
+    font-size: 10px;
+    color: #2a9c4e;
+    max-width: 48px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+  }
+  #combatBar .combat-token.current .name { color: #ff9f45; text-shadow: 0 0 6px rgba(255,159,69,0.6); }
+</style>
+</head>
+<body>
+<div id="viewport">
+  <canvas id="canvas"></canvas>
+  <div id="status">Aguardando conexão com o mestre…</div>
+  <div id="combatBar">
+    <div id="combatBar-track">
+      <div id="combatBar-tokens"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const viewport = document.getElementById('viewport');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const statusEl = document.getElementById('status');
+
+  const MIN_ZOOM = 0.1;
+  const MAX_ZOOM = 6;
+  const MAX_ACTIVE_BARS = 2;
+
+  const cam = { x: 0, y: 0, zoom: 1 };
+
+  const state = {
+    grid: { show: true, size: 48, color: '#45ff78' },
+    map: { img: null, scalePct: 100 },
+    tokens: [],
+    fog: [],
+    combat: { active: false, order: [] },
+    partyBars: [],
+  };
+
+  const drag = {
+    active: false,
+    startScreenX: 0, startScreenY: 0,
+    camStartX: 0, camStartY: 0,
+  };
+
+  // ---------- Canvas sizing ----------
+  let dpr = 1;
+  function resizeCanvas() {
+    dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(viewport.clientWidth * dpr);
+    canvas.height = Math.round(viewport.clientHeight * dpr);
+    draw();
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function screenToWorld(sx, sy) {
+    return { x: sx / cam.zoom + cam.x, y: sy / cam.zoom + cam.y };
+  }
+  function eventScreenPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function zoomAt(screenX, screenY, factor) {
+    const before = screenToWorld(screenX, screenY);
+    cam.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, cam.zoom * factor));
+    cam.x = before.x - screenX / cam.zoom;
+    cam.y = before.y - screenY / cam.zoom;
+    draw();
+  }
+
+  function centerView() {
+    cam.zoom = 1;
+    cam.x = -viewport.clientWidth / 2;
+    cam.y = -viewport.clientHeight / 2;
+    draw();
+  }
+
+  // ---------- Drawing (same renderer as the master) ----------
+  function draw() {
+    const w = canvas.width, h = canvas.height;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#03140a';
+    ctx.fillRect(0, 0, w, h);
+
+    const s = cam.zoom * dpr;
+    ctx.setTransform(s, 0, 0, s, -cam.x * s, -cam.y * s);
+
+    const wl = cam.x;
+    const wt = cam.y;
+    const wr = cam.x + (w / dpr) / cam.zoom;
+    const wb = cam.y + (h / dpr) / cam.zoom;
+
+    if (state.map.img) {
+      const img = state.map.img;
+      const scale = state.map.scalePct / 100;
+      const mw = img.naturalWidth * scale;
+      const mh = img.naturalHeight * scale;
+      ctx.drawImage(img, -mw / 2, -mh / 2, mw, mh);
+    }
+
+    if (state.grid.show) {
+      const g = state.grid.size;
+      ctx.strokeStyle = state.grid.color;
+      ctx.globalAlpha = 0.3;
+      ctx.lineWidth = 1 / cam.zoom;
+      ctx.beginPath();
+      const x0 = Math.floor(wl / g) * g;
+      const y0 = Math.floor(wt / g) * g;
+      for (let x = x0; x <= wr; x += g) { ctx.moveTo(x, wt); ctx.lineTo(x, wb); }
+      for (let y = y0; y <= wb; y += g) { ctx.moveTo(wl, y); ctx.lineTo(wr, y); }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    for (const t of state.tokens) {
+      if (isUnderFog(t.x, t.y)) continue;
+      const photo = getTokenPhotoImg(t);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+      if (photo) {
+        ctx.clip();
+        ctx.drawImage(photo, t.x - t.r, t.y - t.r, t.r * 2, t.r * 2);
+      } else {
+        ctx.fillStyle = t.color;
+        ctx.fill();
+      }
+      ctx.restore();
+
+      const isCurrentTurn = state.combat.active && state.combat.order[0] === t.id;
+
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+      ctx.lineWidth = (isCurrentTurn ? 4 : 2) / cam.zoom;
+      ctx.strokeStyle = isCurrentTurn ? '#ff9f45' : (photo ? t.color : 'rgba(0,0,0,0.5)');
+      ctx.stroke();
+
+      if (!photo && t.name) {
+        ctx.font = `${Math.max(12, t.r * 0.7)}px "VT323", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = contrastColor(t.color);
+        ctx.fillText(t.name.slice(0, 2).toUpperCase(), t.x, t.y);
+      }
+
+      if (t.name) {
+        ctx.font = `${Math.max(14, t.r * 0.6)}px "VT323", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const labelY = t.y + t.r + 4 / cam.zoom;
+        ctx.lineWidth = 3 / cam.zoom;
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+        ctx.strokeText(t.name, t.x, labelY);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(t.name, t.x, labelY);
+      }
+
+      drawTokenBars(t);
+    }
+
+    // fog of war: fully opaque — players see nothing underneath
+    ctx.fillStyle = '#000000';
+    for (const f of state.fog) {
+      ctx.fillRect(f.x, f.y, f.w, f.h);
+    }
+  }
+
+  function isUnderFog(wx, wy) {
+    for (const f of state.fog) {
+      if (wx >= f.x && wx <= f.x + f.w && wy >= f.y && wy <= f.y + f.h) return true;
+    }
+    return false;
+  }
+
+  const photoImgCache = new Map();
+  function getTokenPhotoImg(t) {
+    if (!t.photoDataUrl) return null;
+    let img = photoImgCache.get(t.photoDataUrl);
+    if (!img) {
+      img = new Image();
+      img.onload = () => draw();
+      img.src = t.photoDataUrl;
+      photoImgCache.set(t.photoDataUrl, img);
+    }
+    return img.complete && img.naturalWidth ? img : null;
+  }
+
+  function contrastColor(hex) {
+    const c = hex.replace('#', '');
+    const r = parseInt(c.substring(0, 2), 16);
+    const g = parseInt(c.substring(2, 4), 16);
+    const b = parseInt(c.substring(4, 6), 16);
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#000000' : '#ffffff';
+  }
+
+  // mini status bars for a player token; only "active" universal bars render, each in its own display mode
+  function drawTokenBars(t) {
+    if (!t.isPlayer || !state.partyBars) return;
+    const vals = t.barValues || {};
+    const activeBars = state.partyBars.filter(d => d.active).slice(0, MAX_ACTIVE_BARS);
+    if (activeBars.length === 0) return;
+
+    const barPct = (def) => {
+      const v = vals[def.id] || { current: def.defaultMax, max: def.defaultMax };
+      return v.max > 0 ? Math.max(0, Math.min(1, v.current / v.max)) : 0;
+    };
+
+    let horizIdx = 0, vertLeftIdx = 0, vertRightIdx = 0, radialIdx = 0;
+    for (const def of activeBars) {
+      const pct = barPct(def);
+      if (def.display === 'radial') {
+        drawRadialBar(t, def, pct, radialIdx++);
+      } else if (def.display === 'vertical') {
+        const onLeft = def.side === 'left';
+        drawVerticalBar(t, def, pct, onLeft ? vertLeftIdx++ : vertRightIdx++, onLeft);
+      } else {
+        drawHorizontalBar(t, def, pct, horizIdx++);
+      }
+    }
+  }
+
+  function drawHorizontalBar(t, def, pct, idx) {
+    const barW = t.r * 2;
+    const barH = 5 / cam.zoom;
+    const gap = 2 / cam.zoom;
+    const x = t.x - t.r;
+    const y = t.y - t.r - 2 / cam.zoom - (idx + 1) * (barH + gap);
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(x, y, barW, barH);
+    ctx.fillStyle = def.color;
+    if (def.direction === 'rtl') {
+      ctx.fillRect(x + barW * (1 - pct), y, barW * pct, barH);
+    } else {
+      ctx.fillRect(x, y, barW * pct, barH);
+    }
+    ctx.lineWidth = 1 / cam.zoom;
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.strokeRect(x, y, barW, barH);
+  }
+
+  function drawVerticalBar(t, def, pct, idx, onLeft) {
+    const barH = t.r * 2;
+    const barW = 5 / cam.zoom;
+    const gap = 2 / cam.zoom;
+    const x = onLeft
+      ? (t.x - t.r - 2 / cam.zoom - (idx + 1) * (barW + gap))
+      : (t.x + t.r + 2 / cam.zoom + idx * (barW + gap));
+    const y = t.y - t.r;
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(x, y, barW, barH);
+    ctx.fillStyle = def.color;
+    if (def.direction === 'rtl') {
+      ctx.fillRect(x, y, barW, barH * pct);
+    } else {
+      ctx.fillRect(x, y + barH * (1 - pct), barW, barH * pct);
+    }
+    ctx.lineWidth = 1 / cam.zoom;
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.strokeRect(x, y, barW, barH);
+  }
+
+  function drawRadialBar(t, def, pct, idx) {
+    const ringGap = 4 / cam.zoom;
+    const ringW = 3 / cam.zoom;
+    const radius = t.r + 4 / cam.zoom + idx * (ringW + ringGap);
+    const start = -Math.PI / 2;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
+    ctx.lineWidth = ringW;
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, radius, start, start + Math.PI * 2 * pct);
+    ctx.lineWidth = ringW;
+    ctx.strokeStyle = def.color;
+    ctx.stroke();
+  }
+
+  // ---------- View-only interaction: middle-drag pan + scroll zoom ----------
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button !== 1 && e.button !== 0) return;
+    e.preventDefault();
+    const sp = eventScreenPos(e);
+    drag.active = true;
+    drag.startScreenX = sp.x;
+    drag.startScreenY = sp.y;
+    drag.camStartX = cam.x;
+    drag.camStartY = cam.y;
+    canvas.classList.add('panning');
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!drag.active) return;
+    const sp = eventScreenPos(e);
+    cam.x = drag.camStartX - (sp.x - drag.startScreenX) / cam.zoom;
+    cam.y = drag.camStartY - (sp.y - drag.startScreenY) / cam.zoom;
+    draw();
+  });
+
+  window.addEventListener('mouseup', () => {
+    drag.active = false;
+    canvas.classList.remove('panning');
+  });
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const sp = eventScreenPos(e);
+    zoomAt(sp.x, sp.y, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+  }, { passive: false });
+
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  canvas.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
+
+  // ---------- Combat bar (read-only timeline) ----------
+  const combatBar = document.getElementById('combatBar');
+  const combatBarTrack = document.getElementById('combatBar-track');
+  const combatBarTokens = document.getElementById('combatBar-tokens');
+
+  function renderCombatBar() {
+    combatBar.classList.toggle('open', !!state.combat.active);
+    combatBarTokens.innerHTML = '';
+    const TOKEN_SIZE = 48;
+    const TOKEN_SPACING = 10;
+    const TOKEN_PADDING_LEFT = 12;
+
+    state.combat.order.forEach((id, idx) => {
+      const t = state.tokens.find(t => t.id === id);
+      if (!t) return;
+
+      const item = document.createElement('div');
+      item.className = 'combat-token' + (idx === 0 ? ' current' : '');
+      const left = idx * (TOKEN_SIZE + TOKEN_SPACING) + TOKEN_PADDING_LEFT;
+      item.style.left = left + 'px';
+      item.style.marginLeft = '0';
+
+      // Render token circle with same clipping as map canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = 48;
+      canvas.height = 48;
+      canvas.className = 'dot';
+      const c = canvas.getContext('2d');
+      const photo = getTokenPhotoImg(t);
+
+      c.beginPath();
+      c.arc(24, 24, 24, 0, Math.PI * 2);
+      if (photo) {
+        c.clip();
+        c.drawImage(photo, 0, 0, 48, 48);
+      } else {
+        c.fillStyle = t.color;
+        c.fill();
+      }
+
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = t.name || `Token ${t.id}`;
+
+      item.appendChild(canvas);
+      item.appendChild(name);
+      combatBarTokens.appendChild(item);
+    });
+  }
+
+  // ---------- Sync with the master window ----------
+  let statusTimer = null;
+  function showStatus(text, autoHide) {
+    statusEl.textContent = text;
+    statusEl.classList.remove('hidden');
+    if (statusTimer) clearTimeout(statusTimer);
+    if (autoHide) statusTimer = setTimeout(() => statusEl.classList.add('hidden'), 2000);
+  }
+
+  window.addEventListener('message', (e) => {
+    const msg = e.data;
+    if (!msg || msg.type !== 'rpg-state') return;
+
+    state.grid = msg.grid;
+    state.tokens = msg.tokens;
+    state.fog = msg.fog || [];
+    state.map.scalePct = msg.map.scalePct;
+    state.combat = msg.combat || { active: false, order: [] };
+    state.partyBars = msg.partyBars || [];
+    renderCombatBar();
+
+    // dataUrl: string = new map, null = map removed, absent = unchanged
+    if ('dataUrl' in msg.map) {
+      if (msg.map.dataUrl) {
+        if (state.map._loadedUrl !== msg.map.dataUrl) {
+          const img = new Image();
+          img.onload = () => {
+            state.map.img = img;
+            state.map._loadedUrl = msg.map.dataUrl;
+            draw();
+          };
+          img.src = msg.map.dataUrl;
+        }
+      } else {
+        state.map.img = null;
+        state.map._loadedUrl = null;
+      }
+    }
+
+    showStatus('Conectado ao mestre ✓', true);
+    draw();
+  });
+
+  // ask the master (opener) for the current state
+  if (window.opener) {
+    window.opener.postMessage({ type: 'rpg-player-ready' }, '*');
+  } else {
+    showStatus('Abra esta tela pelo botão "Tela do jogador" no app do mestre.');
+  }
+
+  // ---------- Init ----------
+  resizeCanvas();
+  centerView();
+})();
+</script>
+</body>
+</html>

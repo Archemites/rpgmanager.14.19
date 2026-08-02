@@ -1,0 +1,221 @@
+/* ============================================================
+   Theme: CSS variables, base HTML/body, fonts
+   Themes are switched by setting data-theme on <html> (see js/gm/theme.js).
+   The default (no attribute) is the Cyberpunk green CRT look.
+
+   A theme redefines a full variable set, not just colors:
+   - color/glow: --bg/--panel/--accent/--danger/... + rgba(var(--accent-rgb), a)
+   - typography: --font-body, --font-head, --text-transform, --letter-spacing
+   - shape/texture: --radius, --border-width, --border-style, --crt-opacity
+   Everything across the app reads these vars, so switching data-theme reskins
+   fonts + shapes + colors at once — no per-rule edits.
+
+   @import rules MUST come first (CSS spec) — all webfonts are loaded up top.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=MedievalSharp&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Special+Elite&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Cinzel:wght@500;600&display=swap');
+
+:root,
+:root[data-theme="cyberpunk"] {
+  --bg: #020804;
+  --panel: #041008;
+  --panel-border: #1e5c32;
+  --text: #45ff78;
+  --text-dim: #2a9c4e;
+  --accent: #45ff78;
+  --accent-hover: #7dffa5;
+  --accent-rgb: 69, 255, 120;
+  --danger: #ff9f45;
+  --danger-rgb: 255, 159, 69;
+  --map-bg: #03140a;
+  --glow: 0 0 4px rgba(var(--accent-rgb),0.55), 0 0 11px rgba(var(--accent-rgb),0.22);
+  --glow-strong: 0 0 6px rgba(var(--accent-rgb),0.9), 0 0 18px rgba(var(--accent-rgb),0.45), 0 0 40px rgba(var(--accent-rgb),0.18);
+  --border-glow: 0 0 6px rgba(var(--accent-rgb),0.25), inset 0 0 8px rgba(var(--accent-rgb),0.07);
+  --crt-opacity: 1;
+  --input-bg: #000;
+  --input-panel: rgba(0,0,0,0.4);
+  --float-bg: rgba(2,10,5,0.9);
+  /* typography + shape */
+  --font-body: "VT323", "IBM Plex Mono", Consolas, "Lucida Console", monospace;
+  --font-head: "VT323", "IBM Plex Mono", Consolas, monospace;
+  --font-scale: 1;
+  --text-transform: uppercase;
+  --head-transform: uppercase;
+  --letter-spacing: 0.02em;
+  --head-letter-spacing: 0.14em;
+  --radius: 0px;
+  --border-width: 1px;
+  --border-style: solid;
+}
+
+/* ---------- D&D: amber / parchment, medieval serif, soft corners ---------- */
+:root[data-theme="dnd"] {
+  --bg: #140b04;
+  --panel: #1e1109;
+  --panel-border: #6e4420;
+  --text: #f0c27b;
+  --text-dim: #a9793f;
+  --accent: #f0a742;
+  --accent-hover: #ffcf82;
+  --accent-rgb: 240, 167, 66;
+  --danger: #e0563b;
+  --danger-rgb: 224, 86, 59;
+  --map-bg: #17100a;
+  --glow: 0 0 4px rgba(var(--accent-rgb),0.35), 0 1px 2px rgba(0,0,0,0.5);
+  --glow-strong: 0 0 6px rgba(var(--accent-rgb),0.5), 0 2px 4px rgba(0,0,0,0.6);
+  --border-glow: 0 0 8px rgba(0,0,0,0.4), inset 0 0 10px rgba(var(--accent-rgb),0.06);
+  --crt-opacity: 0.4;
+  --input-bg: #0c0703;
+  --input-panel: rgba(0,0,0,0.35);
+  --float-bg: rgba(20,11,4,0.92);
+  --font-body: "Crimson Text", "Georgia", "Times New Roman", serif;
+  --font-head: "MedievalSharp", "Cinzel", "Georgia", serif;
+  --font-scale: 1.12;
+  --text-transform: none;
+  --head-transform: none;
+  --letter-spacing: 0;
+  --head-letter-spacing: 0.04em;
+  --radius: 6px;
+  --border-width: 1px;
+  --border-style: solid;
+}
+
+/* ---------- Call of Cthulhu: sickly teal, typewriter, hard edges ---------- */
+:root[data-theme="cthulhu"] {
+  --bg: #050a0a;
+  --panel: #0a1414;
+  --panel-border: #2c5450;
+  --text: #8fc7bd;
+  --text-dim: #4f847c;
+  --accent: #6fb0a4;
+  --accent-hover: #a6ddd2;
+  --accent-rgb: 111, 176, 164;
+  --danger: #c65a6a;
+  --danger-rgb: 198, 90, 106;
+  --map-bg: #071010;
+  --glow: 0 0 3px rgba(var(--accent-rgb),0.35), 0 1px 1px rgba(0,0,0,0.5);
+  --glow-strong: 0 0 5px rgba(var(--accent-rgb),0.45), 0 1px 3px rgba(0,0,0,0.6);
+  --border-glow: 0 0 6px rgba(0,0,0,0.5), inset 0 0 8px rgba(var(--accent-rgb),0.04);
+  --crt-opacity: 0.6;
+  --input-bg: #030808;
+  --input-panel: rgba(0,0,0,0.35);
+  --float-bg: rgba(5,10,10,0.92);
+  --font-body: "Special Elite", "Courier New", monospace;
+  --font-head: "Special Elite", "Courier New", monospace;
+  --font-scale: 0.92;
+  --text-transform: none;
+  --head-transform: uppercase;
+  --letter-spacing: 0.01em;
+  --head-letter-spacing: 0.1em;
+  --radius: 1px;
+  --border-width: 1px;
+  --border-style: solid;
+}
+
+/* ---------- Neutral black: greyscale sans, flat modern, tiny radius ---------- */
+:root[data-theme="black"] {
+  --bg: #0a0a0b;
+  --panel: #16161a;
+  --panel-border: #3a3a42;
+  --text: #d8d8dd;
+  --text-dim: #8a8a92;
+  --accent: #c8c8d0;
+  --accent-hover: #ffffff;
+  --accent-rgb: 200, 200, 208;
+  --danger: #e08a5a;
+  --danger-rgb: 224, 138, 90;
+  --map-bg: #101012;
+  --glow: none;
+  --glow-strong: 0 0 4px rgba(var(--accent-rgb),0.25);
+  --border-glow: inset 0 0 6px rgba(var(--accent-rgb),0.04);
+  --crt-opacity: 0.2;
+  --input-bg: #060608;
+  --input-panel: rgba(0,0,0,0.4);
+  --float-bg: rgba(10,10,12,0.92);
+  --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-head: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-scale: 0.92;
+  --text-transform: none;
+  --head-transform: uppercase;
+  --letter-spacing: 0;
+  --head-letter-spacing: 0.08em;
+  --radius: 4px;
+  --border-width: 1px;
+  --border-style: solid;
+}
+
+/* ---------- Neutral cream: dark ink on warm paper, classic serif ---------- */
+:root[data-theme="cream"] {
+  --bg: #ece4d4;
+  --panel: #f6efe1;
+  --panel-border: #c8b79a;
+  --text: #3a2f22;
+  --text-dim: #8a7658;
+  --accent: #9a6a2f;
+  --accent-hover: #6f4a1e;
+  --accent-rgb: 154, 106, 47;
+  --danger: #b04a2f;
+  --danger-rgb: 176, 74, 47;
+  --map-bg: #d8cdb6;
+  --glow: none;
+  --glow-strong: none;
+  --border-glow: inset 0 0 6px rgba(var(--accent-rgb),0.06);
+  --crt-opacity: 0;
+  --input-bg: #fffdf7;
+  --input-panel: rgba(0,0,0,0.05);
+  --float-bg: rgba(246,239,225,0.94);
+  --font-body: "EB Garamond", "Georgia", "Times New Roman", serif;
+  --font-head: "Cinzel", "EB Garamond", "Georgia", serif;
+  --font-scale: 1.14;
+  --text-transform: none;
+  --head-transform: none;
+  --letter-spacing: 0;
+  --head-letter-spacing: 0.06em;
+  --radius: 5px;
+  --border-width: 1px;
+  --border-style: solid;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: calc(17px * var(--font-scale, 1));
+  overflow: hidden;
+  text-shadow: var(--glow);
+}
+
+/* Headings + section titles use the theme's display font and heading casing,
+   overriding the body font/casing they'd otherwise inherit. */
+h1, h2, h3, h4,
+.top-panel-title,
+#sidebar h1, #sidebar h2 {
+  font-family: var(--font-head);
+  text-transform: var(--head-transform);
+  letter-spacing: var(--head-letter-spacing);
+}
+
+/* Body-level letter spacing (buttons/labels) follows the theme too */
+button, label, .hint, .top-slider-row label {
+  letter-spacing: var(--letter-spacing);
+}
+
+/* ---------- Themed decorative glyphs ----------
+   The little markers before titles (█, ▓▒░) and the blinking terminal cursor
+   are pure Cyberpunk flavor. Each theme picks its own marker so a serif/paper
+   theme doesn't show block-drawing characters that don't belong to it. */
+:root { --head-marker: "█ "; --h2-marker: "▓▒░ "; --h1-cursor: "_"; }
+:root[data-theme="dnd"]     { --head-marker: "✦ "; --h2-marker: "❧ "; --h1-cursor: ""; }
+:root[data-theme="cthulhu"] { --head-marker: "† "; --h2-marker: "≈ "; --h1-cursor: ""; }
+:root[data-theme="black"]   { --head-marker: "▎"; --h2-marker: ""; --h1-cursor: ""; }
+:root[data-theme="cream"]   { --head-marker: "❦ "; --h2-marker: "§ "; --h1-cursor: ""; }
+/* the ::before/::after rules that consume these live in layout.css/modals.css
+   (loaded after this file) so they win the cascade — see those files. */

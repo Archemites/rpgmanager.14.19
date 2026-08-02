@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mesa de RPG — Jogadores</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<!-- Stylesheets -->
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/crt-effects.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/player.css">
+</head>
+<body>
+<div id="viewport">
+  <canvas id="canvas"></canvas>
+  <div id="status">Aguardando conexão com o mestre…</div>
+  <div id="combatBar">
+    <div id="combatBar-track">
+      <div id="combatBar-tokens"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Shared modules (both windows) -->
+<script src="js/shared/camera.js"></script>
+<script src="js/shared/photo-cache.js"></script>
+<script src="js/shared/object-cache.js"></script>
+<script src="js/shared/bars.js"></script>
+<script src="js/shared/scene-render.js"></script>
+<script src="js/shared/vision-math.js"></script>
+<script src="js/shared/fx-trail.js"></script>
+
+<!-- Player modules -->
+<script src="js/player/state.js"></script>
+<script src="js/player/memory.js"></script>
+<script src="js/player/vision-fog.js"></script>
+<script src="js/player/combat.js"></script>
+<script src="js/player/draw.js"></script>
+<script src="js/player/fullscreen.js"></script>
+<script src="js/player/sync.js"></script>
+
+</body>
+</html>
