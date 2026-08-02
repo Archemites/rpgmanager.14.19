@@ -64,17 +64,24 @@
     reader.readAsDataURL(file);
   });
 
-  removeMapBtn.addEventListener('click', () => {
+  // Drop the open scene's map image + reset its controls. `silent` skips the
+  // draw/sync so a caller doing a bigger batch (clearCurrentScene) can do one
+  // redraw/sendState at the end instead of two.
+  function removeMap(silent) {
     state.map.img = null;
     state.map.dataUrl = null;
+    state.map.name = null;
     mapScale.disabled = true;
     removeMapBtn.disabled = true;
     mapLabel.textContent = 'nenhum';
     mapFileInput.value = '';
+    if (silent) return;
     window.RPG.draw();
     window.RPG.renderSceneList();
     window.RPG.sendState(true);
-  });
+  }
+
+  removeMapBtn.addEventListener('click', () => removeMap());
 
   function setMapScale(val) {
     const v = Math.min(400, Math.max(10, val || 100));
@@ -145,6 +152,7 @@
 
   // ---------- Expose to window.RPG ----------
   window.RPG.syncSceneControlsFromState = syncSceneControlsFromState;
+  window.RPG.removeMap = removeMap;
   window.RPG.setMapScale = setMapScale;
   window.RPG.setGridSize = setGridSize;
 })();

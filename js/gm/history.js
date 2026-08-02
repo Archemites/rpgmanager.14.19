@@ -129,6 +129,16 @@
     undoStack.pop();
   }
 
+  // Wipe undo/redo + the event log — for a full session reset (see
+  // js/gm/session-io.js's clearSession), where every snapshot on the stack
+  // refers to content that no longer exists.
+  function resetHistory() {
+    undoStack.length = 0;
+    redoStack.length = 0;
+    eventLog.length = 0;
+    renderEventLog();
+  }
+
   function undo() {
     if (undoStack.length === 0) return;
     const cur = snapshot();
@@ -153,6 +163,7 @@
   window.RPG.captureBeforeChange = captureBeforeChange;
   window.RPG.discardLastCapture = discardLastCapture;
   window.RPG.logEvent = logEvent;
+  window.RPG.resetHistory = resetHistory;
   window.RPG.undo = undo;
   window.RPG.redo = redo;
   window.RPG.renderEventLog = renderEventLog;

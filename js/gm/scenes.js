@@ -23,9 +23,20 @@
   const scenes = [
     { id: 1, name: 'Cena 1', map: { img: null, scalePct: 100, dataUrl: null, bgColor: '#03140a' }, fog: [], walls: [], notes: [], objects: [],
       grid: { show: true, size: 48, color: '#45ff78' }, combat: { active: false, order: [] },
-      nextFogId: 1, nextWallId: 1, nextNoteId: 1, nextObjectId: 1 },
+      nextFogId: 1, nextWallId: 1, nextNoteId: 1, nextObjectId: 1, folderId: null },
   ];
   let currentSceneId = 1;
+
+  // Scene folders: a flat (non-nested) grouping, sibling state to scenes[].
+  // Each scene optionally carries a folderId (null = ungrouped) rather than a
+  // folder owning an id-list — mirrors the flat-field style of the scene
+  // object itself and forbids a scene from being in two folders at once.
+  let nextFolderId = 1;
+  const folders = [];   // { id, name, collapsed }
+
+  // Transient multi-select (Ctrl+click), UI-only: not persisted, not synced
+  // to the player, not undoable. Feeds "group into folder".
+  let multiSelectedSceneIds = new Set();
 
   function currentScene() {
     return scenes.find(s => s.id === currentSceneId);
@@ -119,10 +130,80 @@
       grid: { show: true, size: 48, color: '#45ff78' },
       combat: { active: false, order: [] },
       nextFogId: 1, nextWallId: 1, nextNoteId: 1, nextObjectId: 1,
+      folderId: null,
     };
     scenes.push(sc);
     window.RPG.renderSceneList();
     return sc;
+  }
+
+  // Rename a scene (first rename affordance in the app — click-to-edit via
+  // renderSceneList()'s inline-rename, see startInlineRename()).
+  function renameScene(sceneId, name) {
+    const sc = scenes.find(s => s.id === sceneId);
+    if (!sc) return;
+    const trimmed = (name || '').trim();
+    if (trimmed) sc.name = trimmed;
+    renderSceneList();
+  }
+
+  // ---------- Scene folders (flat grouping, see data model comment above) ----------
+
+  // Groups the given scenes into a brand-new folder, clearing the multi-
+  // selection that fed it. name=null uses a default "Pasta N" label — the
+  // "group into folder" button opens inline-rename right after, so the GM
+  // usually never sees the default name.
+  function createFolder(name, sceneIds) {
+    if (!sceneIds || sceneIds.length === 0) return null;
+    const folder = { id: nextFolderId++, name: (name || '').trim() || `Pasta ${folders.length + 1}`, collapsed: false };
+    folders.push(folder);
+    for (const id of sceneIds) {
+      const sc = scenes.find(s => s.id === id);
+      if (sc) sc.folderId = folder.id;
+    }
+    multiSelectedSceneIds.clear();
+    renderSceneList();
+    return folder;
+  }
+
+  function renameFolder(folderId, name) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+    const trimmed = (name || '').trim();
+    if (trimmed) folder.name = trimmed;
+    renderSceneList();
+  }
+
+  // Ungroups every member scene (folderId -> null) and removes the folder
+  // itself — never deletes the scenes it contained.
+  function deleteFolder(folderId) {
+    for (const sc of scenes) {
+      if (sc.folderId === folderId) sc.folderId = null;
+    }
+    const idx = folders.findIndex(f => f.id === folderId);
+    if (idx !== -1) folders.splice(idx, 1);
+    renderSceneList();
+  }
+
+  // folderId=null moves the scene back to the top-level ungrouped area.
+  function moveSceneToFolder(sceneId, folderId) {
+    const sc = scenes.find(s => s.id === sceneId);
+    if (!sc) return;
+    sc.folderId = folderId;
+    renderSceneList();
+  }
+
+  function toggleFolderCollapsed(folderId) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+    folder.collapsed = !folder.collapsed;
+    renderSceneList();
+  }
+
+  function toggleSceneMultiSelect(sceneId) {
+    if (multiSelectedSceneIds.has(sceneId)) multiSelectedSceneIds.delete(sceneId);
+    else multiSelectedSceneIds.add(sceneId);
+    renderSceneList();
   }
 
   // "Bring to scene" carry: a party member from another scene follows the
@@ -166,11 +247,22 @@
   // ---------- Scene sidebar ----------
   const sceneListEl = document.getElementById('sceneList');
   const addSceneBtn = document.getElementById('addSceneBtn');
+  const groupScenesBtn = document.getElementById('groupScenesBtn');
   const THUMB_W = 200, THUMB_H = 150;  // logical size of each mini-map canvas
 
   addSceneBtn.addEventListener('click', () => {
     const sc = createScene();
     switchScene(sc.id);
+  });
+
+  // Groups the current multi-selection into a new folder, then immediately
+  // opens the folder's name for inline-rename (no blocking prompt) — see
+  // startInlineRename().
+  groupScenesBtn.addEventListener('click', () => {
+    const folder = createFolder(null, [...multiSelectedSceneIds]);
+    if (!folder) return;
+    const nameEl = sceneListEl.querySelector(`.scene-folder[data-folder-id="${folder.id}"] .scene-folder-name`);
+    if (nameEl) startInlineRename(nameEl, folder.name, (val) => renameFolder(folder.id, val));
   });
 
   // ---------- Delete scene (with confirmation) ----------
@@ -274,66 +366,184 @@
     return { x: (px - originX) / fit, y: (py - originY) / fit };
   }
 
+  // Shared inline-edit affordance for scene names + folder names (the only
+  // rename UI in the app — no modal/prompt() convention exists to reuse).
+  // Replaces `labelEl`'s text with a temporary input; Enter/blur commits via
+  // `onCommit(value)`, Escape cancels and restores the original text.
+  function startInlineRename(labelEl, currentValue, onCommit) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'inline-rename-input';
+    input.value = currentValue;
+    labelEl.replaceWith(input);
+    input.focus();
+    input.select();
+
+    let done = false;
+    function commit() {
+      if (done) return;
+      done = true;
+      onCommit(input.value);
+    }
+    function cancel() {
+      if (done) return;
+      done = true;
+      renderSceneList();
+    }
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('mousedown', (e) => e.stopPropagation());
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+    });
+    input.addEventListener('blur', commit);
+  }
+
+  // Builds one .scene-card element (thumbnail, token dots, header, remove
+  // button, click-to-switch/multi-select, click-to-rename, drag-to-folder).
+  // Shared by both the folder branch and the ungrouped branch of
+  // renderSceneList() so per-card behavior isn't duplicated.
+  function buildSceneCard(sc) {
+    const card = document.createElement('div');
+    card.className = 'scene-card'
+      + (sc.id === currentSceneId ? ' active' : '')
+      + (multiSelectedSceneIds.has(sc.id) ? ' multi-selected' : '');
+    card.dataset.sceneId = sc.id;
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'scene-card-name';
+    nameEl.textContent = sc.name;
+    nameEl.title = 'Clique para renomear';
+    nameEl.addEventListener('click', (e) => {
+      if (e.ctrlKey) return;  // Ctrl+click is reserved for multi-select
+      e.stopPropagation();
+      startInlineRename(nameEl, sc.name, (val) => renameScene(sc.id, val));
+    });
+
+    const thumbWrap = document.createElement('div');
+    thumbWrap.className = 'scene-card-thumb';
+    const thumbCanvas = document.createElement('canvas');
+    thumbCanvas.width = THUMB_W;
+    thumbCanvas.height = THUMB_H;
+    thumbWrap.appendChild(thumbCanvas);
+    drawSceneThumb(thumbCanvas, sc);
+
+    // token dots — the token being viewed here may be the live-edited copy
+    // (if this is the open scene) or its committed per-scene position
+    const isOpenScene = sc.id === currentSceneId;
+    for (const t of allTokens) {
+      const pos = isOpenScene ? (t.scenes && t.scenes[sc.id] ? { x: t.x, y: t.y } : null) : (t.scenes && t.scenes[sc.id]);
+      if (!pos) continue;
+      const dot = document.createElement('div');
+      dot.className = 'scene-token-dot';
+      const ppx = sceneWorldToThumbPx(sc, pos.x, pos.y);
+      const dotSize = 10;
+      dot.style.left = (ppx.x - dotSize / 2) + 'px';
+      dot.style.top = (ppx.y - dotSize / 2) + 'px';
+      dot.style.width = dotSize + 'px';
+      dot.style.height = dotSize + 'px';
+      dot.style.background = t.color;
+      dot.title = t.name || `Token ${t.id}`;
+      attachSceneDotHandlers(dot, thumbWrap, sc, t);
+      thumbWrap.appendChild(dot);
+    }
+
+    const header = document.createElement('div');
+    header.className = 'scene-card-header';
+    header.appendChild(nameEl);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'scene-card-remove-btn';
+    removeBtn.textContent = '✕';
+    removeBtn.title = 'Excluir cena';
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      askDeleteScene(sc);
+    });
+    header.appendChild(removeBtn);
+
+    card.appendChild(header);
+    card.appendChild(thumbWrap);
+    card.addEventListener('click', (e) => {
+      if (e.target.classList.contains('scene-token-dot')) return;
+      if (e.target.closest('.inline-rename-input')) return;
+      if (e.ctrlKey) { toggleSceneMultiSelect(sc.id); return; }
+      switchScene(sc.id);
+    });
+    attachSceneCardDragHandlers(card, sc);
+    return card;
+  }
+
   function renderSceneList() {
     sceneListEl.innerHTML = '';
+
+    // Bucket scenes by folderId in one pass, preserving scenes[] order.
+    const byFolder = new Map();
+    const ungrouped = [];
     for (const sc of scenes) {
-      const card = document.createElement('div');
-      card.className = 'scene-card' + (sc.id === currentSceneId ? ' active' : '');
-
-      const nameEl = document.createElement('div');
-      nameEl.className = 'scene-card-name';
-      nameEl.textContent = sc.name;
-
-      const thumbWrap = document.createElement('div');
-      thumbWrap.className = 'scene-card-thumb';
-      const thumbCanvas = document.createElement('canvas');
-      thumbCanvas.width = THUMB_W;
-      thumbCanvas.height = THUMB_H;
-      thumbWrap.appendChild(thumbCanvas);
-      drawSceneThumb(thumbCanvas, sc);
-
-      // token dots — the token being viewed here may be the live-edited copy
-      // (if this is the open scene) or its committed per-scene position
-      const isOpenScene = sc.id === currentSceneId;
-      for (const t of allTokens) {
-        const pos = isOpenScene ? (t.scenes && t.scenes[sc.id] ? { x: t.x, y: t.y } : null) : (t.scenes && t.scenes[sc.id]);
-        if (!pos) continue;
-        const dot = document.createElement('div');
-        dot.className = 'scene-token-dot';
-        const ppx = sceneWorldToThumbPx(sc, pos.x, pos.y);
-        const dotSize = 10;
-        dot.style.left = (ppx.x - dotSize / 2) + 'px';
-        dot.style.top = (ppx.y - dotSize / 2) + 'px';
-        dot.style.width = dotSize + 'px';
-        dot.style.height = dotSize + 'px';
-        dot.style.background = t.color;
-        dot.title = t.name || `Token ${t.id}`;
-        attachSceneDotHandlers(dot, thumbWrap, sc, t);
-        thumbWrap.appendChild(dot);
+      if (sc.folderId != null && folders.some(f => f.id === sc.folderId)) {
+        if (!byFolder.has(sc.folderId)) byFolder.set(sc.folderId, []);
+        byFolder.get(sc.folderId).push(sc);
+      } else {
+        ungrouped.push(sc);
       }
+    }
+
+    for (const folder of folders) {
+      const wrap = document.createElement('div');
+      wrap.className = 'scene-folder';
+      wrap.dataset.folderId = folder.id;
 
       const header = document.createElement('div');
-      header.className = 'scene-card-header';
-      header.appendChild(nameEl);
+      header.className = 'scene-folder-header';
 
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'scene-card-remove-btn';
-      removeBtn.textContent = '✕';
-      removeBtn.title = 'Excluir cena';
-      removeBtn.addEventListener('click', (e) => {
+      const collapseIcon = document.createElement('span');
+      collapseIcon.className = 'scene-folder-collapse-icon' + (folder.collapsed ? ' collapsed' : '');
+      collapseIcon.textContent = '▾';
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'scene-folder-name';
+      nameEl.textContent = folder.name;
+      nameEl.title = 'Clique para renomear';
+      nameEl.addEventListener('click', (e) => {
         e.stopPropagation();
-        askDeleteScene(sc);
+        startInlineRename(nameEl, folder.name, (val) => renameFolder(folder.id, val));
       });
-      header.appendChild(removeBtn);
 
-      card.appendChild(header);
-      card.appendChild(thumbWrap);
-      card.addEventListener('click', (e) => {
-        if (e.target.classList.contains('scene-token-dot')) return;
-        switchScene(sc.id);
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'scene-folder-delete-btn';
+      deleteBtn.textContent = '✕';
+      deleteBtn.title = 'Desagrupar pasta';
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteFolder(folder.id);
       });
-      sceneListEl.appendChild(card);
+
+      header.appendChild(collapseIcon);
+      header.appendChild(nameEl);
+      header.appendChild(deleteBtn);
+      header.addEventListener('click', (e) => {
+        if (e.target === nameEl || e.target === deleteBtn) return;
+        toggleFolderCollapsed(folder.id);
+      });
+
+      const body = document.createElement('div');
+      body.className = 'scene-folder-body' + (folder.collapsed ? ' collapsed' : '');
+      for (const sc of (byFolder.get(folder.id) || [])) {
+        body.appendChild(buildSceneCard(sc));
+      }
+
+      wrap.appendChild(header);
+      wrap.appendChild(body);
+      sceneListEl.appendChild(wrap);
     }
+
+    for (const sc of ungrouped) {
+      sceneListEl.appendChild(buildSceneCard(sc));
+    }
+
+    groupScenesBtn.disabled = multiSelectedSceneIds.size < 2;
   }
 
   // Drag a token's dot within its scene's thumbnail to reposition it there
@@ -387,6 +597,59 @@
     });
   }
 
+  // Drag a scene card into/out of a folder. Raw mouse events (not HTML5 DnD),
+  // matching attachSceneDotHandlers/note-postit.js's drag pattern elsewhere
+  // in this codebase. A drag under DRAG_THRESHOLD px is ignored so a plain
+  // click still reaches the card's own click handler unimpeded (both
+  // listeners coexist without preventDefault/stopPropagation conflicts).
+  const DRAG_THRESHOLD = 4;
+  function attachSceneCardDragHandlers(card, sc) {
+    card.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest('.scene-token-dot, .scene-card-remove-btn, .inline-rename-input, .scene-card-name')) return;
+      const startX = e.clientX, startY = e.clientY;
+      let dragging = false;
+      let currentTarget = null;
+
+      function resolveDropTarget(clientX, clientY) {
+        const el = document.elementFromPoint(clientX, clientY);
+        if (!el) return null;
+        return el.closest('.scene-folder') || (el.closest('#sceneList') ? sceneListEl : null);
+      }
+
+      function onMove(ev) {
+        if (!dragging) {
+          if (Math.abs(ev.clientX - startX) < DRAG_THRESHOLD && Math.abs(ev.clientY - startY) < DRAG_THRESHOLD) return;
+          dragging = true;
+          card.classList.add('dragging');
+        }
+        const target = resolveDropTarget(ev.clientX, ev.clientY);
+        if (target !== currentTarget) {
+          if (currentTarget) currentTarget.classList.remove('drop-target');
+          if (target) target.classList.add('drop-target');
+          currentTarget = target;
+        }
+      }
+
+      function onUp(ev) {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        if (!dragging) return;
+        card.classList.remove('dragging');
+        if (currentTarget) currentTarget.classList.remove('drop-target');
+        const target = resolveDropTarget(ev.clientX, ev.clientY);
+        if (target && target.classList.contains('scene-folder')) {
+          moveSceneToFolder(sc.id, Number(target.dataset.folderId));
+        } else if (target === sceneListEl) {
+          moveSceneToFolder(sc.id, null);
+        }
+      }
+
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
+  }
+
   // ---------- Expose to window.RPG ----------
   window.RPG.scenes = scenes;
   window.RPG.getCurrentSceneId = () => currentSceneId;
@@ -402,4 +665,15 @@
   window.RPG.startBringToken = startBringToken;
   window.RPG.bringTokenToCurrentScene = bringTokenToCurrentScene;
   window.RPG.renderSceneList = renderSceneList;
+  window.RPG.renameScene = renameScene;
+  window.RPG.folders = folders;
+  window.RPG.createFolder = createFolder;
+  window.RPG.renameFolder = renameFolder;
+  window.RPG.deleteFolder = deleteFolder;
+  window.RPG.moveSceneToFolder = moveSceneToFolder;
+  window.RPG.toggleFolderCollapsed = toggleFolderCollapsed;
+  window.RPG.toggleSceneMultiSelect = toggleSceneMultiSelect;
+  window.RPG.getMultiSelectedSceneIds = () => multiSelectedSceneIds;
+  window.RPG.setNextFolderId = (id) => { nextFolderId = id; };
+  window.RPG.clearSceneMultiSelect = () => { multiSelectedSceneIds.clear(); };
 })();

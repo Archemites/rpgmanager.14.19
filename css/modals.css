@@ -240,14 +240,50 @@
 
 #confirmSceneModal #confirmActions button { flex: 1; }
 
-#confirmDeleteBtn {
+/* Clear-scene confirmation — above the Ajustes modal that opens it */
+#confirmClearOverlay {
+  z-index: 210;
+}
+
+#confirmClearModal {
+  border: 1px solid var(--danger);
+  box-shadow: 0 0 24px rgba(var(--danger-rgb),0.35), inset 0 0 20px rgba(var(--danger-rgb),0.05);
+  width: 300px;
+  padding: 16px;
+  gap: 10px;
+}
+
+#confirmClearModal h3 {
+  font-size: 13px;
+  color: var(--danger);
+  text-shadow: 0 0 6px rgba(var(--danger-rgb),0.9), 0 0 18px rgba(var(--danger-rgb),0.45);
+}
+
+#confirmClearModal h3::before { content: "⚠ "; }
+
+#confirmClearModal p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+#confirmClearModal #confirmActions {
+  display: flex;
+  gap: 8px;
+}
+
+#confirmClearModal #confirmActions button { flex: 1; }
+
+#confirmDeleteBtn,
+#confirmClearBtn {
   background: rgba(var(--danger-rgb),0.14);
   border-color: var(--danger);
   color: var(--danger);
   box-shadow: 0 0 10px rgba(var(--danger-rgb),0.35), inset 0 0 10px rgba(var(--danger-rgb),0.08);
 }
 
-#confirmDeleteBtn:hover {
+#confirmDeleteBtn:hover,
+#confirmClearBtn:hover {
   background: rgba(var(--danger-rgb),0.3);
   box-shadow: 0 0 18px rgba(var(--danger-rgb),0.6), inset 0 0 14px rgba(var(--danger-rgb),0.15);
 }

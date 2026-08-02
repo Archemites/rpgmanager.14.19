@@ -117,6 +117,7 @@
   <div id="sceneSidebar">
     <h2>Cenas</h2>
     <button class="full" id="addSceneBtn" style="margin-bottom:10px;">+ Nova cena</button>
+    <button class="secondary full" id="groupScenesBtn" style="margin-bottom:10px;" disabled title="Selecione 2+ cenas (Ctrl+clique) para agrupar">📁 Agrupar em pasta</button>
     <div id="sceneList"></div>
   </div>
 </div>
@@ -234,6 +235,19 @@
     <div id="confirmActions">
       <button class="secondary" id="confirmSceneCancelBtn">Cancelar</button>
       <button id="confirmSceneDeleteBtn">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm clear session modal -->
+<div id="confirmClearOverlay" class="modal-overlay">
+  <div id="confirmClearModal" class="modal-dialog">
+    <h3>Limpar sessão</h3>
+    <p>Apagar TUDO? Todas as cenas, tokens, party, mapas, objetos, névoa, paredes, anotações, glossário e o autosave.</p>
+    <p class="hint">&gt; Não dá para desfazer com Ctrl+Z. Os backups .json em "Histórico de Versões" continuam salvos.</p>
+    <div id="confirmActions">
+      <button class="secondary" id="confirmClearCancelBtn">Cancelar</button>
+      <button id="confirmClearBtn">Limpar tudo</button>
     </div>
   </div>
 </div>
@@ -533,6 +547,8 @@
       <button class="secondary full" id="exportSessionBtn">💾 Exportar sessão (backup)</button>
       <button class="secondary full" id="importSessionBtn" style="margin-top:6px;">📂 Importar sessão</button>
       <input type="file" id="importSessionInput" accept="application/json,.json" style="display:none;">
+      <button class="secondary full" id="clearSessionBtn" style="margin-top:6px;">🧹 Limpar sessão</button>
+      <div class="hint" style="margin:6px 0 0;">&gt; Zera tudo e volta ao estado de sessão nova.</div>
     </div>
     <div id="modalActions">
       <button class="secondary" id="openEventLogBtn">📜 Log de Eventos</button>

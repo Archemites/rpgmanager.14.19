@@ -13,6 +13,7 @@
   const state = window.RPG.state;
   const allTokens = window.RPG.allTokens;
   const scenes = window.RPG.scenes;
+  const folders = window.RPG.folders;
 
   const SESSION_FORMAT_VERSION = 1;
   const AUTOSAVE_KEY = 'rpg-autosave-session';
@@ -102,6 +103,8 @@
       currentSceneId: window.RPG.getCurrentSceneId(),
       nextSceneId: Math.max(0, ...scenes.map(s => s.id)) + 1,
       scenes: scenes.map(sceneForExport),
+      folders: folders.map(f => ({ ...f })),
+      nextFolderId: Math.max(0, ...folders.map(f => f.id)) + 1,
       allTokens,
       partyBars: state.partyBars,
       glossary: state.glossary,
@@ -149,6 +152,10 @@
 
     scenes.length = 0;
     scenes.push(...payload.scenes);
+    folders.length = 0;
+    folders.push(...(payload.folders || []));
+    window.RPG.setNextFolderId(payload.nextFolderId || (Math.max(0, ...folders.map(f => f.id)) + 1));
+    window.RPG.clearSceneMultiSelect();
     allTokens.length = 0;
     allTokens.push(...payload.allTokens);
     for (const t of allTokens) window.RPG.ensureTokenVision(t);
@@ -220,6 +227,36 @@
       .catch((err) => {
         console.error(err);
         alert('Falha ao restaurar versão: ' + err.message);
+      });
+  }
+
+  // ---------- Clear session (Ajustes > Sessão > "🧹 Limpar sessão") ----------
+  // The app's factory state, snapshotted at load time — BEFORE the autosave
+  // restore below runs, so it's exactly what a first-ever visit looks like
+  // (one empty scene, no tokens, default party bars/lighting/occlusion).
+  // Deep-cloned through JSON so later mutations can't reach back into it.
+  const PRISTINE_PAYLOAD = JSON.parse(JSON.stringify(buildSessionPayload()));
+
+  // Wipe EVERYTHING back to that factory state: all scenes, all tokens, party
+  // bars, glossary, maps/photos, settings, the undo stack + event log, and the
+  // localStorage autosave. The IndexedDB version history (exported/imported
+  // .json backups) is deliberately kept — it's the escape hatch if this was a
+  // mistake. Not undoable, hence the #confirmClearOverlay confirmation.
+  function clearSession() {
+    window.RPG.closeNotePostit();
+    window.RPG.closeContextMenu();
+    window.RPG.stopCombat();          // resets the combat bar/button UI, not just the flag
+    window.RPG.removeMap(true);       // silent — clears the map file input + controls
+    return applySessionPayload(JSON.parse(JSON.stringify(PRISTINE_PAYLOAD)))
+      .then(() => {
+        window.RPG.centerView();
+        window.RPG.resetHistory();
+        clearAutosave();
+        window.RPG.logEvent('Limpou a sessão inteira');
+      })
+      .catch((err) => {
+        console.error(err);
+        alert('Falha ao limpar a sessão: ' + err.message);
       });
   }
 
@@ -307,6 +344,7 @@
   window.RPG.hasAutosave = hasAutosave;
   window.RPG.restoreAutosave = restoreAutosave;
   window.RPG.clearAutosave = clearAutosave;
+  window.RPG.clearSession = clearSession;
   window.RPG.renderVersionHistory = renderVersionHistory;
 
   // ---------- Restore on load, if an autosave exists ----------
@@ -339,5 +377,21 @@
     if (!file) return;
     if (!confirm('Importar esta sessão vai substituir TUDO na sessão atual (cenas, tokens, mapas). Continuar?')) return;
     window.RPG.importSession(file);
+  });
+
+  // ---------- Clear-session button + confirmation ----------
+  const clearSessionBtn = document.getElementById('clearSessionBtn');
+  const confirmClearOverlay = document.getElementById('confirmClearOverlay');
+  const confirmClearCancelBtn = document.getElementById('confirmClearCancelBtn');
+  const confirmClearBtn = document.getElementById('confirmClearBtn');
+
+  function closeConfirmClear() { confirmClearOverlay.classList.remove('open'); }
+
+  clearSessionBtn.addEventListener('click', () => confirmClearOverlay.classList.add('open'));
+  confirmClearCancelBtn.addEventListener('click', closeConfirmClear);
+  confirmClearOverlay.addEventListener('click', (e) => { if (e.target === confirmClearOverlay) closeConfirmClear(); });
+  confirmClearBtn.addEventListener('click', () => {
+    closeConfirmClear();
+    clearSession();
   });
 })();

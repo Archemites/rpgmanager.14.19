@@ -57,7 +57,7 @@ js/shared/            Used by BOTH windows — loaded first, before js/gm or js/
 js/gm/                 GM-only — index.html
   state.js              allTokens, state (current-scene view), constants, DOM canvas/viewport refs
   history.js            undo/redo: snapshot-based, scoped to current scene's tokens/fog/walls — captureBeforeChange/undo/redo
-  scenes.js             scenes[], currentSceneId, switchScene/createScene/bringTokenToCurrentScene, bringCarry
+  scenes.js             scenes[], currentSceneId, switchScene/createScene/bringTokenToCurrentScene, bringCarry, scene folders[] + multi-select (see "Scenes" below)
   sync.js               sendState/sendStateForced, sceneSyncPending gate, postMessage to the player window
   draw.js               draw() — the GM canvas render loop (map, grid, tokens, fog tint, walls, cones, handles)
   vision-preview.js      GM-only cosmetic vision-cone glow (NOT occluded by walls — preview only)
@@ -293,6 +293,44 @@ know scenes exist at all.
   (world coords ↔ thumbnail pixel coords, independent of the live camera).
   Dragging a dot repositions that token within *that* scene (no migration);
   double-clicking it calls `bringTokenToCurrentScene` (full migration).
+- **Scene folders** (`js/gm/scenes.js`'s `folders[]` + each scene's optional
+  `folderId`): a flat (non-nested), sibling grouping to `scenes[]`, owned by
+  the same file. `folders[]` entries are `{ id, name, collapsed }`; a scene
+  with `folderId: null` (the default) is ungrouped. `renderSceneList()`
+  buckets scenes by `folderId` and renders collapsible folder headers before
+  the ungrouped cards, via a shared `buildSceneCard(sc)` helper so per-card
+  behavior (thumbnail, token dots, active/multi-select state, click-to-switch,
+  click-to-rename) isn't duplicated between the folder and top-level branches.
+  `createFolder(name, sceneIds)` groups a multi-selection into a new folder
+  (opened for inline-rename right after, no blocking prompt);
+  `deleteFolder(folderId)` ungroups its members (`folderId = null`) rather
+  than deleting them; `moveSceneToFolder(sceneId, folderId|null)` backs both
+  drag-and-drop and is the single mutation point for folder membership.
+  Dragging a scene card into/out of a folder uses the same raw
+  `mousedown`/`mousemove`/`mouseup` pattern as `attachSceneDotHandlers`
+  above and `js/gm/note-postit.js` (not HTML5 Drag-and-Drop, to avoid a
+  second drag paradigm in the same file) — see
+  `attachSceneCardDragHandlers`. Folders are **not undoable** (consistent
+  with scene creation/deletion already being outside `js/gm/history.js`'s
+  scope) and **not per-scene state** — don't confuse with "Add a new
+  per-scene field" in Common tasks. `folders`/`nextFolderId` round-trip
+  through `js/gm/session-io.js`'s `buildSessionPayload`/`applySessionPayload`
+  the same way `scenes[]` does, defaulting to `[]` for older saves that
+  predate this field.
+- **Scene multi-select** (`js/gm/scenes.js`'s `multiSelectedSceneIds`, a
+  `Set`): Ctrl+left-click on a scene card toggles its membership
+  (`toggleSceneMultiSelect`) **without** switching the open scene; a plain
+  click still calls `switchScene` immediately, unchanged. Transient UI state
+  only — not persisted, not synced to the player, not undoable; cleared on
+  folder creation from the selection and on session import/clear. Feeds the
+  "📁 Agrupar em pasta" button (`#groupScenesBtn`, enabled only at 2+
+  selected).
+- **Renaming** scenes and folders (`renameScene`/`renameFolder`) both go
+  through one shared inline-edit helper, `startInlineRename(labelEl,
+  currentValue, onCommit)` — click the name, it becomes a text input,
+  Enter/blur commits, Escape cancels. This is the first rename affordance in
+  the app; there's no modal or `prompt()` convention for a single text field,
+  so don't introduce one for future single-field edits — reuse this helper.
 - **"Bring to scene" carry** (`js/gm/scenes.js`'s `bringCarry` +
   `startBringToken`): clicking the 🎯 button in the Party panel (only party
   members show this — NPCs have no cross-scene UI today, though the data
