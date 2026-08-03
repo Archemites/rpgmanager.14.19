@@ -392,6 +392,13 @@
 
 .glossary-item .gi-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
 
+.glossary-item .gi-meta {
+  font-size: 12px;
+  color: var(--text-dim);
+  opacity: 0.8;
+  margin-top: 3px;
+}
+
 .glossary-item .gi-actions button {
   font-size: 12px;
   padding: 2px 8px;

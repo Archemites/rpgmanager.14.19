@@ -33,8 +33,8 @@
     // anchor just outside the top-right of the token (past any bars there)
     const cx = t.x + t.r + ext.right + dotR + pad;
     let cy = t.y - t.r - ext.top - dotR - pad;
-    for (const id of t.effects) {
-      const eff = state.glossary.find(e => e.id === id);
+    for (const app of t.effects) {
+      const eff = state.glossary.find(e => e.id === app.id);
       if (!eff) continue;
       ctx.beginPath();
       ctx.arc(cx, cy, dotR, 0, Math.PI * 2);
@@ -44,7 +44,7 @@
       ctx.fill();
       ctx.stroke();
       // track for hit-testing
-      effectDotHitboxes.push({ cx, cy, r: dotR, effectId: id });
+      effectDotHitboxes.push({ cx, cy, r: dotR, effectId: app.id });
       cy += dotR * 2 + gap; // stack downward
     }
   }

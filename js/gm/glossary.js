@@ -17,11 +17,65 @@
   const glossaryDescInput = document.getElementById('glossaryDescInput');
   const glossaryColorInput = document.getElementById('glossaryColorInput');
   const glossaryIconInput = document.getElementById('glossaryIconInput');
+  const glossaryDurationInput = document.getElementById('glossaryDurationInput');
+  const glossaryNarrativeInput = document.getElementById('glossaryNarrativeInput');
+  const glossaryBarModsList = document.getElementById('glossaryBarModsList');
+  const glossaryAddBarModBtn = document.getElementById('glossaryAddBarModBtn');
   const glossarySwatchRow = document.getElementById('glossarySwatchRow');
   const glossarySaveBtn = document.getElementById('glossarySaveBtn');
   const glossaryClearBtn = document.getElementById('glossaryClearBtn');
 
   let glossaryEditId = null; // id of effect being edited, or null when adding
+  let glossaryBarMods = []; // [{barId, delta}] being edited in the form
+
+  function renderBarModsForm() {
+    glossaryBarModsList.innerHTML = '';
+    glossaryBarMods.forEach((mod, idx) => {
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.style.gap = '6px';
+      row.style.marginTop = '4px';
+
+      const sel = document.createElement('select');
+      sel.style.flex = '1';
+      for (const bar of state.partyBars) {
+        const opt = document.createElement('option');
+        opt.value = bar.id;
+        opt.textContent = bar.name;
+        if (bar.id === mod.barId) opt.selected = true;
+        sel.appendChild(opt);
+      }
+      sel.addEventListener('change', () => { mod.barId = sel.value; });
+
+      const delta = document.createElement('input');
+      delta.type = 'text';
+      delta.value = mod.delta;
+      delta.style.width = '70px';
+      delta.placeholder = 'ex: -1d4';
+      delta.title = 'Quanto muda por turno: número fixo (-2, +1) ou dado (-1d4, +2d6)';
+      delta.addEventListener('input', () => { mod.delta = delta.value.trim(); });
+
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'secondary';
+      del.textContent = '✕';
+      del.addEventListener('click', () => {
+        glossaryBarMods.splice(idx, 1);
+        renderBarModsForm();
+      });
+
+      row.appendChild(sel);
+      row.appendChild(delta);
+      row.appendChild(del);
+      glossaryBarModsList.appendChild(row);
+    });
+  }
+
+  glossaryAddBarModBtn.addEventListener('click', () => {
+    if (state.partyBars.length === 0) return;
+    glossaryBarMods.push({ barId: state.partyBars[0].id, delta: '-1' });
+    renderBarModsForm();
+  });
 
   GLOSSARY_PRESET_COLORS.forEach(c => {
     const sw = document.createElement('div');
@@ -42,6 +96,10 @@
     glossaryNameInput.value = '';
     glossaryDescInput.value = '';
     glossaryIconInput.value = '';
+    glossaryDurationInput.value = '';
+    glossaryNarrativeInput.checked = false;
+    glossaryBarMods = [];
+    renderBarModsForm();
     glossaryColorInput.value = GLOSSARY_PRESET_COLORS[state.glossary.length % GLOSSARY_PRESET_COLORS.length];
     glossarySwatchRow.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
   }
@@ -77,6 +135,25 @@
       body.appendChild(name);
       if (eff.desc) body.appendChild(desc);
 
+      const meta = [];
+      if (eff.narrative) meta.push('📜 narrativo');
+      if (eff.duration) meta.push(`⏱ ${eff.duration} turno${eff.duration === 1 ? '' : 's'}`);
+      if (eff.barMods && eff.barMods.length) {
+        for (const mod of eff.barMods) {
+          const bar = state.partyBars.find(b => b.id === mod.barId);
+          if (bar) {
+            const sign = /^[+-]/.test(mod.delta) ? '' : '+';
+            meta.push(`${bar.name} ${sign}${mod.delta}/turno`);
+          }
+        }
+      }
+      if (meta.length) {
+        const metaEl = document.createElement('div');
+        metaEl.className = 'gi-meta';
+        metaEl.textContent = meta.join(' · ');
+        body.appendChild(metaEl);
+      }
+
       const actions = document.createElement('div');
       actions.className = 'gi-actions';
       const editBtn = document.createElement('button');
@@ -91,7 +168,7 @@
         state.glossary = state.glossary.filter(e => e.id !== eff.id);
         // drop this effect from any token that had it applied (across all scenes)
         for (const t of allTokens) {
-          if (t.effects) t.effects = t.effects.filter(id => id !== eff.id);
+          if (t.effects) t.effects = t.effects.filter(a => a.id !== eff.id);
         }
         if (glossaryEditId === eff.id) resetGlossaryForm();
         renderGlossary();
@@ -117,6 +194,10 @@
     glossaryNameInput.value = eff.name;
     glossaryDescInput.value = eff.desc || '';
     glossaryIconInput.value = eff.icon || '';
+    glossaryDurationInput.value = eff.duration || '';
+    glossaryNarrativeInput.checked = !!eff.narrative;
+    glossaryBarMods = (eff.barMods || []).map(m => ({ ...m }));
+    renderBarModsForm();
     glossaryColorInput.value = eff.color;
     glossarySwatchRow.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
     glossaryNameInput.focus();
@@ -125,11 +206,15 @@
   glossarySaveBtn.addEventListener('click', () => {
     const name = glossaryNameInput.value.trim();
     if (!name) { glossaryNameInput.focus(); return; }
+    const duration = Number(glossaryDurationInput.value) || 0;
     const data = {
       name,
       desc: glossaryDescInput.value.trim(),
       color: glossaryColorInput.value,
       icon: glossaryIconInput.value.trim(),
+      duration,
+      narrative: glossaryNarrativeInput.checked,
+      barMods: glossaryBarMods.filter(m => m.barId && m.delta).map(m => ({ ...m })),
     };
     if (glossaryEditId != null) {
       const eff = state.glossary.find(e => e.id === glossaryEditId);

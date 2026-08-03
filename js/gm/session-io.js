@@ -158,7 +158,13 @@
     window.RPG.clearSceneMultiSelect();
     allTokens.length = 0;
     allTokens.push(...payload.allTokens);
-    for (const t of allTokens) window.RPG.ensureTokenVision(t);
+    for (const t of allTokens) {
+      window.RPG.ensureTokenVision(t);
+      // migrate old save format: effects was an array of bare glossary ids
+      if (Array.isArray(t.effects) && t.effects.length && typeof t.effects[0] !== 'object') {
+        t.effects = t.effects.map(id => ({ id, remaining: 0 }));
+      }
+    }
 
     state.partyBars = payload.partyBars || state.partyBars;
     state.glossary = payload.glossary || [];

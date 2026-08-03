@@ -163,7 +163,7 @@
         createdAt: Date.now(),
         isPlayer,
         barValues: {},
-        effects: [],   // GM-only: array of glossary effect ids applied to this token
+        effects: [],   // GM-only: array of {id, remaining} glossary effect applications on this token
         facing: -Math.PI / 2,   // orientation angle (radians); default = up
         visionAngle,            // cone width in degrees
         visionMult,             // per-token range multiplier

@@ -118,13 +118,15 @@
     if (!token.effects || token.effects.length === 0) return null;
     const wrap = document.createElement('div');
     wrap.className = 'effect-badges';
-    for (const id of token.effects) {
-      const eff = state.glossary.find(e => e.id === id);
+    for (const app of token.effects) {
+      const eff = state.glossary.find(e => e.id === app.id);
       if (!eff) continue;
       const badge = document.createElement('span');
       badge.className = 'effect-badge';
       badge.style.background = eff.color;
-      badge.title = eff.name + (eff.desc ? ' — ' + eff.desc : '');
+      let title = eff.name + (eff.desc ? ' — ' + eff.desc : '');
+      if (eff.duration) title += ` (restam ${app.remaining} turno${app.remaining === 1 ? '' : 's'})`;
+      badge.title = title;
       badge.textContent = eff.icon || eff.name.slice(0, 1).toUpperCase();
       wrap.appendChild(badge);
     }

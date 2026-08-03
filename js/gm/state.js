@@ -57,7 +57,14 @@
     partyBars: [
       { id: 'bar-vida', name: 'Vida', color: '#e04b4b', defaultMax: 10, active: true, display: 'horizontal', side: 'left', direction: 'ltr' },
     ],
-    // Effects glossary — GM-only reference notes. {id, name, desc, color, icon} (icon = optional emoji)
+    // Effects glossary — GM-only reference notes.
+    // {id, name, desc, color, icon, narrative, duration, barMods}
+    //   narrative: bool — tag only, shown separately in the glossary list, no other effect
+    //   duration: turns remaining when freshly applied (null/0 = no auto countdown)
+    //   barMods: [{barId, delta}] — per-turn amount added to token.barValues[barId].current while active.
+    //     delta is a string: a plain signed number ("-2", "+1") or signed dice notation
+    //     ("-1d4", "+2d6"); parsed/rolled each turn by rollDeltaExpr() in js/gm/combat.js.
+    // Applied to a token via token.effects = [{id, remaining}], remaining decremented each nextTurn().
     glossary: [],
     // Fog of war = the area OUTSIDE the players' vision (not necessarily darkness).
     // `lighting` scales how far a token's vision cone reaches into the fog:

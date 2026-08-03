@@ -44,9 +44,55 @@
     window.RPG.sendState();
   }
 
+  // Resolves a barMod delta expression: a plain signed number ("-2", "+1")
+  // or signed dice notation ("-1d4", "+2d6") — rolled fresh each turn.
+  // Returns { value, rolled, expr } so callers can log dice results distinctly.
+  function rollDeltaExpr(expr) {
+    const s = String(expr).trim();
+    const diceMatch = s.match(/^([+-]?)(\d+)d(\d+)$/i);
+    if (!diceMatch) return { value: Number(s) || 0, rolled: false };
+    const sign = diceMatch[1] === '-' ? -1 : 1;
+    const count = parseInt(diceMatch[2], 10);
+    const faces = parseInt(diceMatch[3], 10);
+    let total = 0;
+    for (let i = 0; i < count; i++) total += 1 + Math.floor(Math.random() * faces);
+    return { value: sign * total, rolled: true, expr: s, total };
+  }
+
+  function applyEndOfTurnEffects(tokenId) {
+    const token = state.tokens.find(t => t.id === tokenId);
+    if (!token || !token.effects || token.effects.length === 0) return;
+    const tokenLabel = token.name || `Token ${token.id}`;
+    for (const app of token.effects) {
+      const eff = state.glossary.find(e => e.id === app.id);
+      if (!eff) continue;
+      if (eff.barMods) {
+        for (const mod of eff.barMods) {
+          const bv = token.barValues && token.barValues[mod.barId];
+          const roll = rollDeltaExpr(mod.delta);
+          if (bv) bv.current = Math.max(0, Math.min(bv.max, bv.current + roll.value));
+          if (roll.rolled) {
+            const bar = state.partyBars.find(b => b.id === mod.barId);
+            const sign = roll.value >= 0 ? '+' : '';
+            window.RPG.logEvent(
+              `${eff.name} em ${tokenLabel}: ${roll.expr} → ${sign}${roll.value}` +
+              (bar ? ` (${bar.name})` : '')
+            );
+          }
+        }
+      }
+      if (eff.duration) app.remaining--;
+    }
+    token.effects = token.effects.filter(app => {
+      const eff = state.glossary.find(e => e.id === app.id);
+      return !eff || !eff.duration || app.remaining > 0;
+    });
+  }
+
   function nextTurn() {
     if (state.combat.order.length === 0) return;
     const first = state.combat.order.shift();
+    applyEndOfTurnEffects(first);
     state.combat.order.push(first);
 
     // Animate first token sliding right
@@ -61,6 +107,7 @@
     }
 
     renderCombatBar();
+    window.RPG.renderTokenList();
     window.RPG.draw();
     window.RPG.sendState();
   }

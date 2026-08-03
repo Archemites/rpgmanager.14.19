@@ -213,7 +213,12 @@ state = {
   nextNoteId,
   nextObjectId,
   partyBars: [ { id, name, color, defaultMax, active, display, side, direction }, ... ],  // GLOBAL (all scenes)
-  glossary: [ { id, name, desc, color, icon }, ... ],  // GLOBAL
+  glossary: [ { id, name, desc, color, icon, narrative, duration, barMods }, ... ],  // GLOBAL
+    // narrative: bool, tag-only (still counts down duration, no other effect)
+    // duration: turns remaining when freshly applied (0/null = no auto countdown)
+    // barMods: [ { barId, delta } ], applied to the token's own barValues[barId].current each nextTurn()
+    // delta is a string: plain signed number ("-2") or signed dice notation ("-1d4", "+2d6"),
+    // rolled fresh each turn by rollDeltaExpr() in js/gm/combat.js
   lighting,                // GLOBAL — reach(px) = BASE_VISION_RANGE * lighting * token.visionMult
   wallOcclusionMethod,     // GLOBAL — 'cell' | 'raycast', controls the PLAYER window's occlusion rendering
   nextId, nextFogId, nextWallId, nextBarId, nextEffectId,
@@ -224,7 +229,7 @@ state = {
 }
 
 allTokens = [
-  { id, x, y, r, color, name, photoDataUrl, isPlayer, barValues, effects,
+  { id, x, y, r, color, name, photoDataUrl, isPlayer, barValues, effects,  // effects: [ { id, remaining }, ... ] glossary applications on this token
     facing, visionAngle, visionMult, createdAt, note,   // note: GM-only free-text annotation
     scenes: { [sceneId]: { x, y } } },  // PRESENCE + per-scene position map
 ]
@@ -602,11 +607,23 @@ which scene is open:
 - `state.partyBars` — universal bar *definitions* (Vida, Mana, etc.); every
   party member across every scene shares the same definitions, with their own
   `barValues` per bar id.
-- `state.glossary` — GM reference notes on status effects (name/desc/
-  color/icon); applying one to a token (`js/gm/effects-picker.js`) just adds
-  its id to that token's `effects` array — deleting a glossary entry strips
-  it from every token across every scene (`js/gm/glossary.js`'s delete
-  handler iterates `allTokens`, not the current scene's view).
+- `state.glossary` — GM-defined status effects (name/desc/color/icon), plus
+  optional `narrative` tag, `duration` (turns), and `barMods` (per-turn bar
+  deltas). Applying one to a token (`js/gm/effects-picker.js`) adds
+  `{ id, remaining }` to that token's `effects` array — deleting a glossary
+  entry strips it from every token across every scene (`js/gm/glossary.js`'s
+  delete handler iterates `allTokens`, not the current scene's view).
+  `js/gm/combat.js`'s `nextTurn()` calls `applyEndOfTurnEffects()` on the
+  token whose turn just ended: applies each active effect's `barMods` to
+  that token's own `barValues` (rolling dice notation fresh via
+  `rollDeltaExpr()` if the delta is e.g. `"-1d4"`), decrements `remaining`
+  for effects with a `duration`, and drops the application once `remaining`
+  hits 0. Narrative effects still count down the same way — the flag only
+  changes how the glossary list displays them, it doesn't skip the countdown.
+  Dice-notation barMods (not plain fixed numbers) log their roll to the
+  Event Log (`window.RPG.logEvent`, see `js/gm/history.js`) — e.g.
+  `"Sangramento em Aragorn: -1d4 → -3 (Vida)"`. Applying/removing a glossary
+  effect on a token from `js/gm/effects-picker.js` is also logged.
 - `state.lighting`, `state.wallOcclusionMethod` — both affect how the player
   window renders vision, regardless of scene.
 

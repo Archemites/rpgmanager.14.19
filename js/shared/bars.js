@@ -63,7 +63,7 @@
     function drawRadialBar(t, def, pct, idx) {
       const ctx = getCtx(), cam = getCam();
       const ringGap = 4 / cam.zoom;
-      const ringW = 3 / cam.zoom;
+      const ringW = 3.75 / cam.zoom;
       const radius = t.r + 4 / cam.zoom + idx * (ringW + ringGap);
       const start = -Math.PI / 2; // 12 o'clock
       ctx.beginPath();
