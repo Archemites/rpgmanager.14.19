@@ -78,6 +78,43 @@
   box-shadow: 0 0 10px rgba(var(--accent-rgb),0.5);
 }
 
+#sceneSidebarToggle {
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 40px;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 40px;
+  text-align: center;
+  cursor: pointer;
+  border: var(--border-width) var(--border-style) var(--panel-border);
+  border-right: none;
+  background: var(--panel);
+  color: var(--text-dim);
+  z-index: 6;
+}
+
+#sceneSidebarToggle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+#sceneSidebar.collapsed {
+  width: 0 !important;
+  min-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  overflow: hidden;
+  border: none;
+}
+
+#sceneSidebarResizer.collapsed { cursor: default; }
+
 #sceneSidebar {
   width: 220px;
   min-width: 160px;

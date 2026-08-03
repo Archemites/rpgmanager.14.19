@@ -155,7 +155,18 @@
   const SCENE_SIDEBAR_MAX = 420;
   let sceneSidebarResizing = false;
 
+  const sceneSidebarToggle = document.getElementById('sceneSidebarToggle');
+  sceneSidebarToggle.addEventListener('mousedown', (e) => e.stopPropagation());
+  sceneSidebarToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const collapsed = sceneSidebar.classList.toggle('collapsed');
+    sceneSidebarResizer.classList.toggle('collapsed', collapsed);
+    sceneSidebarToggle.textContent = collapsed ? '◀' : '▶';
+    resizeCanvas();
+  });
+
   sceneSidebarResizer.addEventListener('mousedown', (e) => {
+    if (sceneSidebar.classList.contains('collapsed')) return;
     e.preventDefault();
     sceneSidebarResizing = true;
     sceneSidebarResizer.classList.add('dragging');
