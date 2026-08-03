@@ -18,8 +18,33 @@
   // "🔄 Atualizar tela do jogador", which clears the gate and force-sends.
   let sceneSyncPending = false;
 
+  // Dozens of call sites (token drag, wall/fog drawing, rotation) call
+  // sendState() on every 'mousemove' — postMessage structured-clones the
+  // whole tokens/fog/walls/objects payload AND makes the player window redo
+  // its full draw()+fog composite, so firing it on every pixel of mouse
+  // movement was costing real frame time on both windows for no visible
+  // benefit (the player only ever sees the latest position anyway).
+  // Coalesce to at most one send per animation frame; sendStateForced always
+  // bypasses this (immediate) since it's a deliberate one-off user action.
+  let pendingIncludeMap = false;
+  let sendRafId = null;
+
+  function flushSendState() {
+    sendRafId = null;
+    const includeMap = pendingIncludeMap;
+    pendingIncludeMap = false;
+    doSendState(includeMap);
+  }
+
   // includeMap: send the (heavy) map image too — only on map changes / player connect
   function sendState(includeMap) {
+    if (!playerWin || playerWin.closed) return;
+    if (sceneSyncPending) return;
+    if (includeMap) pendingIncludeMap = true;
+    if (sendRafId === null) sendRafId = requestAnimationFrame(flushSendState);
+  }
+
+  function doSendState(includeMap) {
     if (!playerWin || playerWin.closed) return;
     if (sceneSyncPending) return;
     const map = { scalePct: state.map.scalePct, bgColor: state.map.bgColor || '#03140a' };
@@ -48,7 +73,9 @@
   function sendStateForced(includeMap) {
     sceneSyncPending = false;
     updatePlayerBtn.classList.remove('pending');
-    sendState(includeMap);
+    if (sendRafId !== null) { cancelAnimationFrame(sendRafId); sendRafId = null; }
+    pendingIncludeMap = false;
+    doSendState(includeMap);
   }
 
   window.addEventListener('message', (e) => {

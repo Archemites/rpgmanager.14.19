@@ -106,6 +106,7 @@
     memoryOriginCy = 0;
     memoryColsCells = 0;
     memoryRowsCells = 0;
+    if (window.RPG.resetDirtyVersions) window.RPG.resetDirtyVersions();
   }
 
   // Paint one explored cell's frozen memory patch onto `fx` (fog layer, identity

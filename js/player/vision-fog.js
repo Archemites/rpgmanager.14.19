@@ -13,6 +13,11 @@
   const exploredCells = window.RPG.exploredCells;
   const tokenVisionReach = window.RPG.tokenVisionReach;
 
+  // tracks, per explored cell, the sceneVersion its frozen snapshot was last
+  // rendered at — lets visitTokenVision skip re-rendering cells whose content
+  // hasn't changed since the last visit (see visitTokenVision below).
+  const dirtyVersion = new Map();
+
   // ---------- Wall occlusion (line of sight) ----------
   // True if segments (x1,y1)-(x2,y2) and (x3,y3)-(x4,y4) cross.
   function segmentsIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
@@ -89,9 +94,19 @@
           }
           if (state.walls.length > 0 && lineBlockedByWalls(t, wx, wy)) continue;
         }
-        exploredCells.add(cx + ',' + cy);
+        const key = cx + ',' + cy;
+        exploredCells.add(key);
         window.RPG.ensureMemoryCovers(cx, cy);
-        window.RPG.renderCellSnapshot(cx, cy, t.id);
+        // Re-rendering a cell's frozen snapshot is only meaningful once per
+        // visit — while the token's cone keeps covering the same cell every
+        // subsequent frame, the live scene inside it hasn't changed unless the
+        // GM pushed a new state. Re-stamping it unconditionally every frame
+        // was the single most expensive per-frame cost on the player window
+        // (full map+grid+token redraw per cell, every mousemove/pan/zoom).
+        if (window.RPG.sceneVersion !== dirtyVersion.get(key)) {
+          window.RPG.renderCellSnapshot(cx, cy, t.id);
+          dirtyVersion.set(key, window.RPG.sceneVersion);
+        }
       }
     }
   }
@@ -216,6 +231,13 @@
     occludeMaskByWallsExact(mc, t, reach);
   }
 
+  // clears the per-cell "already rendered at this sceneVersion" cache — call
+  // whenever exploration memory itself resets (new/removed map), so stale
+  // keys from a previous map don't linger and skip a snapshot they shouldn't.
+  function resetDirtyVersions() {
+    dirtyVersion.clear();
+  }
+
   // Punch a token's vision cone out of the (destination-out) fog layer, with a
   // soft falloff on EVERY side — radially toward the outer rim (front) AND
   // angularly toward both straight edges.
@@ -319,4 +341,5 @@
   window.RPG.visitTokenVision = visitTokenVision;
   window.RPG.punchVisionCone = punchVisionCone;
   window.RPG.getConeMask = getConeMask;
+  window.RPG.resetDirtyVersions = resetDirtyVersions;
 })();

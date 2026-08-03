@@ -24,6 +24,11 @@
     }
     if (!msg || msg.type !== 'rpg-state') return;
 
+    // bump on every incoming state so frozen-memory cell snapshots know to
+    // re-render (see js/player/vision-fog.js's dirtyVersion) — cheap counter,
+    // avoids diffing tokens/walls/objects to decide if a repaint is needed
+    window.RPG.sceneVersion = (window.RPG.sceneVersion || 0) + 1;
+
     state.grid = msg.grid;
     state.tokens = msg.tokens;
     state.fog = msg.fog || [];
