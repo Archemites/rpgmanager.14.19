@@ -20,6 +20,7 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -63,6 +64,7 @@
   justify-content: center;
   background: rgba(0,0,0,0.82);
   cursor: pointer;
+  -webkit-user-select: none;
   user-select: none;
 }
 

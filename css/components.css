@@ -529,6 +529,7 @@ button:disabled {
   align-items: center;
   gap: 4px;
   cursor: grab;
+  -webkit-user-select: none;
   user-select: none;
   transition: left 0.6s ease-out;
 }
@@ -567,6 +568,27 @@ button:disabled {
 
 /* Helper classes */
 .hint { font-size: 10px; color: var(--text-dim); line-height: 1.6; }
+
+/* Spacing/layout utilities — replace one-off inline styles across the modals */
+.mt-6  { margin-top: 6px; }
+.mt-8  { margin-top: 8px; }
+.mt-10 { margin-top: 10px; }
+.mb-10 { margin-bottom: 10px; }
+.m-0   { margin: 0; }
+.hint-m0    { margin: 0; }
+.hint-mt6   { margin: 6px 0 0; }
+.hint-mb6   { margin: 0 0 6px; }
+.flex-1-mt0 { flex: 1; margin-top: 0; }
+.minw-70  { min-width: 70px; }
+.minw-44  { min-width: 44px; }
+.maxw-120 { max-width: 120px; }
+.select-full { max-width: none; width: 100%; }
+.hidden { display: none; }
+.row-gap6-center { gap: 6px; align-items: center; }
+.checkbox-auto { width: auto; }
+.slider-row-m0   { margin: 0; }
+.slider-row-mt6  { margin: 6px 0 0; }
+.slider-row-mt10 { margin-top: 10px; }
 
 #topFogBtn.active {
   background: rgba(var(--accent-rgb),0.35);

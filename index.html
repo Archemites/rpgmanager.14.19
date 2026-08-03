@@ -26,17 +26,17 @@
     <div class="section">
       <h2>Jogadores</h2>
       <button class="full" id="openPlayerBtn">🖥️ Abrir tela do jogador</button>
-      <button class="full" id="updatePlayerBtn" style="margin-top:10px;" title="Envia o estado atual (mapa, tokens, névoa, paredes) para a tela do jogador. Necessário depois de trocar de cena — a troca fica retida até você confirmar aqui.">🔄 Atualizar tela do jogador</button>
-      <button class="full" id="openGlossaryBtn" style="margin-top:10px;">📖 Glossário de efeitos</button>
-      <button class="full" id="openDiceBtn" style="margin-top:10px;">🎲 Rolar dados</button>
+      <button class="full mt-10" id="updatePlayerBtn" title="Envia o estado atual (mapa, tokens, névoa, paredes) para a tela do jogador. Necessário depois de trocar de cena — a troca fica retida até você confirmar aqui.">🔄 Atualizar tela do jogador</button>
+      <button class="full mt-10" id="openGlossaryBtn">📖 Glossário de efeitos</button>
+      <button class="full mt-10" id="openDiceBtn">🎲 Rolar dados</button>
     </div>
 
     <input type="file" id="mapFileInput" accept="image/*" title="Importar imagem do mapa" aria-label="Importar imagem do mapa">
 
     <div class="section" id="tokenListSection">
       <h2>Tokens (<span id="tokenCount">0</span>)</h2>
-      <button class="full" id="addTokenBtn" style="margin-bottom:10px;">+ Adicionar token</button>
-      <div class="row" style="margin-bottom:10px;">
+      <button class="full mb-10" id="addTokenBtn">+ Adicionar token</button>
+      <div class="row mb-10">
         <label for="tokenSortSelect">Ordenar por</label>
         <select id="tokenSortSelect" class="token-sort-select">
           <option value="added">Data de adição</option>
@@ -53,7 +53,7 @@
 
     <div class="section" id="objectListSection">
       <h2>Objetos (<span id="objectCount">0</span>)</h2>
-      <button class="full" id="addObjectBtn" style="margin-bottom:10px;">+ Adicionar objeto</button>
+      <button class="full mb-10" id="addObjectBtn">+ Adicionar objeto</button>
       <div id="objectList"></div>
     </div>
   </div>
@@ -116,8 +116,8 @@
   <div id="sceneSidebarResizer"></div>
   <div id="sceneSidebar">
     <h2>Cenas</h2>
-    <button class="full" id="addSceneBtn" style="margin-bottom:10px;">+ Nova cena</button>
-    <button class="secondary full" id="groupScenesBtn" style="margin-bottom:10px;" disabled title="Selecione 2+ cenas (Ctrl+clique) para agrupar">📁 Agrupar em pasta</button>
+    <button class="full mb-10" id="addSceneBtn">+ Nova cena</button>
+    <button class="secondary full mb-10" id="groupScenesBtn" disabled title="Selecione 2+ cenas (Ctrl+clique) para agrupar">📁 Agrupar em pasta</button>
     <div id="sceneList"></div>
   </div>
 </div>
@@ -137,13 +137,13 @@
         <label class="modal-file-label" for="tokenPhotoInput">📷 Escolher foto</label>
         <input type="file" id="tokenPhotoInput" accept="image/*" title="Escolher foto do token" aria-label="Escolher foto do token">
       </div>
-      <button class="secondary" id="removePhotoBtn" style="margin-top:8px; display:none;">Remover foto</button>
+      <button class="secondary mt-8 hidden" id="removePhotoBtn">Remover foto</button>
     </div>
     <div class="field">
       <label for="tokenColorInput">Cor</label>
       <div class="row">
         <input type="color" id="tokenColorInput" value="#e04b4b">
-        <div class="token-swatch-row" id="modalSwatchRow" style="flex:1; margin-top:0;"></div>
+        <div class="token-swatch-row flex-1-mt0" id="modalSwatchRow"></div>
       </div>
     </div>
     <div class="field">
@@ -154,17 +154,17 @@
     </div>
     <div class="field">
       <label>Visão (cone)</label>
-      <div class="top-slider-row" style="margin:0;">
-        <label for="tokenVisionAngleInput" style="min-width:70px;">Ângulo</label>
+      <div class="top-slider-row slider-row-m0">
+        <label for="tokenVisionAngleInput" class="minw-70">Ângulo</label>
         <input type="range" id="tokenVisionAngleInput" min="20" max="360" step="5" value="120">
-        <span id="tokenVisionAngleVal" style="min-width:44px;">120°</span>
+        <span id="tokenVisionAngleVal" class="minw-44">120°</span>
       </div>
-      <div class="top-slider-row" style="margin:6px 0 0;">
-        <label for="tokenVisionMultInput" style="min-width:70px;">Alcance</label>
+      <div class="top-slider-row slider-row-mt6">
+        <label for="tokenVisionMultInput" class="minw-70">Alcance</label>
         <input type="range" id="tokenVisionMultInput" min="0" max="300" step="10" value="100">
-        <span id="tokenVisionMultVal" style="min-width:44px;">100%</span>
+        <span id="tokenVisionMultVal" class="minw-44">100%</span>
       </div>
-      <div class="hint" style="margin:6px 0 0;">&gt; Só tokens de jogador revelam a névoa para a party.</div>
+      <div class="hint hint-mt6">&gt; Só tokens de jogador revelam a névoa para a party.</div>
     </div>
     <div id="modalActions">
       <button class="secondary" id="cancelTokenBtn">Cancelar</button>
@@ -274,13 +274,13 @@
       <label for="barColorInput">Cor</label>
       <div class="row">
         <input type="color" id="barColorInput" value="#e04b4b">
-        <div class="token-swatch-row" id="barSwatchRow" style="flex:1; margin-top:0;"></div>
+        <div class="token-swatch-row flex-1-mt0" id="barSwatchRow"></div>
       </div>
     </div>
     <div id="barDisplayFields">
       <div class="field">
         <label for="barDisplaySelect">Exibição no mapa</label>
-        <select id="barDisplaySelect" class="token-sort-select" style="max-width:none; width:100%;">
+        <select id="barDisplaySelect" class="token-sort-select select-full">
           <option value="horizontal">Horizontal</option>
           <option value="vertical">Vertical</option>
           <option value="radial">Radial (anel)</option>
@@ -288,14 +288,14 @@
       </div>
       <div class="field" id="barSideField">
         <label for="barSideSelect">Lado</label>
-        <select id="barSideSelect" class="token-sort-select" style="max-width:none; width:100%;">
+        <select id="barSideSelect" class="token-sort-select select-full">
           <option value="left">Esquerda</option>
           <option value="right">Direita</option>
         </select>
       </div>
       <div class="field" id="barDirectionField">
         <label for="barDirectionSelect">Orientação</label>
-        <select id="barDirectionSelect" class="token-sort-select" style="max-width:none; width:100%;">
+        <select id="barDirectionSelect" class="token-sort-select select-full">
           <option value="ltr">Esquerda → Direita</option>
           <option value="rtl">Direita → Esquerda</option>
         </select>
@@ -312,7 +312,7 @@
 <div id="glossaryOverlay" class="modal-overlay">
   <div id="glossaryModal" class="modal-dialog">
     <h3>Glossário de efeitos</h3>
-    <div class="hint" style="margin:0;">&gt; Anotações do mestre — nome, descrição, cor e ícone opcional.</div>
+    <div class="hint hint-m0">&gt; Anotações do mestre — nome, descrição, cor e ícone opcional.</div>
     <div id="glossaryColumns">
     <div id="glossaryList"></div>
     <div id="glossaryForm">
@@ -330,14 +330,14 @@
           <label for="glossaryColorInput">Cor</label>
           <div class="row">
             <input type="color" id="glossaryColorInput" value="#4be08f">
-            <div class="token-swatch-row" id="glossarySwatchRow" style="flex:1; margin-top:0;"></div>
+            <div class="token-swatch-row flex-1-mt0" id="glossarySwatchRow"></div>
           </div>
         </div>
       </div>
       <div class="two-col">
         <div class="field">
           <label for="glossaryIconInput">Ícone (opcional)</label>
-          <input type="text" id="glossaryIconInput" maxlength="4" placeholder="Ex: ☠️ 🔥 💤" style="max-width:120px;">
+          <input type="text" id="glossaryIconInput" maxlength="4" placeholder="Ex: ☠️ 🔥 💤" class="maxw-120">
         </div>
         <div class="field">
           <label for="glossaryDurationInput">Duração (turnos, opcional)</label>
@@ -345,15 +345,15 @@
         </div>
       </div>
       <div class="field">
-        <label class="row" style="gap:6px; align-items:center;">
-          <input type="checkbox" id="glossaryNarrativeInput" style="width:auto;">
+        <label class="row row-gap6-center">
+          <input type="checkbox" id="glossaryNarrativeInput" class="checkbox-auto">
           Efeito narrativo (apenas tag, sem alterar barras)
         </label>
       </div>
       <div class="field">
         <label>Alterar barras por turno</label>
         <div id="glossaryBarModsList"></div>
-        <button type="button" class="secondary" id="glossaryAddBarModBtn" style="margin-top:6px;">+ Adicionar barra</button>
+        <button type="button" class="secondary mt-6" id="glossaryAddBarModBtn">+ Adicionar barra</button>
       </div>
       <div id="glossaryFormActions">
         <button class="secondary" id="glossaryClearBtn">Limpar</button>
@@ -371,7 +371,7 @@
 <div id="diceOverlay" class="modal-overlay">
   <div id="diceModal" class="modal-dialog">
     <h3>Rolar dados</h3>
-    <div class="hint" style="margin:0;">&gt; Escolha um dado, ajuste quantidade/modificador e role.</div>
+    <div class="hint hint-m0">&gt; Escolha um dado, ajuste quantidade/modificador e role.</div>
     <div id="diceFaceRow">
       <button class="dice-face-btn" data-faces="4">d4</button>
       <button class="dice-face-btn" data-faces="6">d6</button>
@@ -539,7 +539,7 @@
         <label for="topSnapToGrid">Encaixar na grade</label>
         <input type="checkbox" id="topSnapToGrid">
       </div>
-      <div class="hint" style="margin:6px 0 0;">&gt; Ao mover, o token trava no centro da célula da grade mais próxima.</div>
+      <div class="hint hint-mt6">&gt; Ao mover, o token trava no centro da célula da grade mais próxima.</div>
     </div>
     <div class="top-panel-group">
       <div class="top-panel-title">Visão / Iluminação</div>
@@ -548,24 +548,24 @@
         <input type="range" id="topLighting" min="0" max="300" value="100">
         <span id="topLightingVal">100%</span>
       </div>
-      <div class="hint" style="margin:6px 0 0;">&gt; Maior iluminação = tokens enxergam mais fundo na névoa.</div>
-      <div class="top-slider-row" style="margin-top:10px;">
+      <div class="hint hint-mt6">&gt; Maior iluminação = tokens enxergam mais fundo na névoa.</div>
+      <div class="top-slider-row slider-row-mt10">
         <label for="topWallMethod">Oclusão de paredes</label>
         <select id="topWallMethod" class="token-sort-select">
           <option value="cell">Por célula (rápido)</option>
           <option value="raycast">Silhueta precisa (raycasting)</option>
         </select>
       </div>
-      <div class="hint" style="margin:6px 0 0;">&gt; "Por célula" bloqueia a névoa em blocos de grid — leve. "Silhueta precisa" desenha a sombra exata da parede — mais fiel, um pouco mais pesado.</div>
+      <div class="hint hint-mt6">&gt; "Por célula" bloqueia a névoa em blocos de grid — leve. "Silhueta precisa" desenha a sombra exata da parede — mais fiel, um pouco mais pesado.</div>
     </div>
     <div class="top-panel-group">
       <div class="top-panel-title">Sessão</div>
-      <div class="hint" style="margin:0 0 6px;">&gt; Backup local com tudo: cenas, tokens, mapas, fotos e ajustes.</div>
+      <div class="hint hint-mb6">&gt; Backup local com tudo: cenas, tokens, mapas, fotos e ajustes.</div>
       <button class="secondary full" id="exportSessionBtn">💾 Exportar sessão (backup)</button>
-      <button class="secondary full" id="importSessionBtn" style="margin-top:6px;">📂 Importar sessão</button>
-      <input type="file" id="importSessionInput" accept="application/json,.json" style="display:none;">
-      <button class="secondary full" id="clearSessionBtn" style="margin-top:6px;">🧹 Limpar sessão</button>
-      <div class="hint" style="margin:6px 0 0;">&gt; Zera tudo e volta ao estado de sessão nova.</div>
+      <button class="secondary full mt-6" id="importSessionBtn">📂 Importar sessão</button>
+      <input type="file" id="importSessionInput" accept="application/json,.json" class="hidden" title="Importar sessão" aria-label="Importar sessão">
+      <button class="secondary full mt-6" id="clearSessionBtn">🧹 Limpar sessão</button>
+      <div class="hint hint-mt6">&gt; Zera tudo e volta ao estado de sessão nova.</div>
     </div>
     <div id="modalActions">
       <button class="secondary" id="openEventLogBtn">📜 Log de Eventos</button>
@@ -588,7 +588,7 @@
       <input type="range" id="fxDurationSlider" min="25" max="300" value="100">
       <span id="fxDurationVal">100%</span>
     </div>
-    <div class="hint" style="margin:6px 0 0;">&gt; Vale para o próximo efeito colocado (e os seguintes, até ajustar de novo).</div>
+    <div class="hint hint-mt6">&gt; Vale para o próximo efeito colocado (e os seguintes, até ajustar de novo).</div>
     <div id="modalActions">
       <button class="secondary" id="closeFxSettingsBtn">Fechar</button>
     </div>
@@ -603,7 +603,7 @@
       <textarea id="noteTextInput" rows="8" placeholder="Escreva sua anotação..."></textarea>
     </div>
     <div id="modalActions">
-      <button class="secondary" id="noteDeleteBtn" style="display:none;">Excluir</button>
+      <button class="secondary hidden" id="noteDeleteBtn">Excluir</button>
       <button class="secondary" id="noteCancelBtn">Cancelar</button>
       <button id="noteSaveBtn">Salvar</button>
     </div>
