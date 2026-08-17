@@ -11,9 +11,9 @@
 <link rel="stylesheet" href="css/theme.css">
 <link rel="stylesheet" href="css/crt-effects.css">
 <link rel="stylesheet" href="css/layout.css">
-<link rel="stylesheet" href="css/components.css?v=7">
+<link rel="stylesheet" href="css/components.css?v=8">
 <link rel="stylesheet" href="css/modals.css">
-<link rel="stylesheet" href="css/player.css?v=8">
+<link rel="stylesheet" href="css/player.css?v=9">
 </head>
 <body>
 <div id="entryOverlay" class="modal-overlay open">
@@ -32,6 +32,11 @@
         <video id="entryScanVideo" playsinline muted></video>
       </div>
       <div class="hint hint-m0" id="entryScanHint"></div>
+    </div>
+    <div class="field">
+      <label for="entryPinInput">PIN da mesa</label>
+      <input type="text" id="entryPinInput" class="room-pin-input" placeholder="0000"
+             maxlength="4" inputmode="numeric" autocomplete="off" spellcheck="false">
     </div>
     <div id="entryActions">
       <button type="button" class="secondary" id="entryModeScanBtn">📷 Escanear QR</button>
@@ -68,7 +73,7 @@
 <script src="js/player/combat.js"></script>
 <script src="js/player/draw.js?v=9"></script>
 <script src="js/player/fullscreen.js?v=7"></script>
-<script src="js/player/sync.js?v=9"></script>
+<script src="js/player/sync.js?v=11"></script>
 
 </body>
 </html>

@@ -11,10 +11,12 @@
   const showStatus = window.RPG.showStatus;
 
   const NAME_KEY = 'rpg-player-name';
+  const CODE_KEY = 'rpg-last-room-code';
 
   const entryOverlay = document.getElementById('entryOverlay');
   const entryNameInput = document.getElementById('entryNameInput');
   const entryCodeInput = document.getElementById('entryCodeInput');
+  const entryPinInput = document.getElementById('entryPinInput');
   const entryJoinBtn = document.getElementById('entryJoinBtn');
   const entryStatus = document.getElementById('entryStatus');
   const viewport = document.getElementById('viewport');
@@ -26,15 +28,25 @@
 
   entryNameInput.value = localStorage.getItem(NAME_KEY) || '';
 
-  // Scanning the GM's QR opens player.html?mesa=CODE, so prefill from the URL
-  // and jump straight to joining — a scanned player never types anything.
+  // Scanning the GM's QR opens player.html?mesa=CODE&pin=PIN, so prefill
+  // both from the URL and jump straight to joining — a scanned player never
+  // types anything. The PIN is not persisted across sessions (it rotates,
+  // so an old cached value would just cause confusing rejections).
   const urlCode = new URLSearchParams(location.search).get('mesa');
+  const urlPin = new URLSearchParams(location.search).get('pin');
   if (urlCode) entryCodeInput.value = window.RPG.normalizeRoomCode(urlCode);
+  if (urlPin) entryPinInput.value = urlPin.replace(/\D/g, '').slice(0, 4);
 
   entryCodeInput.addEventListener('input', () => {
     entryCodeInput.value = entryCodeInput.value.toUpperCase();
   });
   entryCodeInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') entryJoinBtn.click();
+  });
+  entryPinInput.addEventListener('input', () => {
+    entryPinInput.value = entryPinInput.value.replace(/\D/g, '').slice(0, 4);
+  });
+  entryPinInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') entryJoinBtn.click();
   });
 
@@ -58,14 +70,16 @@
     entryModeScan.classList.add('hidden');
   }
 
-  // The GM's QR holds a full player.html?mesa=CODE URL; accept a bare code too.
-  function codeFromScan(text) {
+  // The GM's QR holds a full player.html?mesa=CODE&pin=PIN URL; accept a
+  // bare code (no PIN available then) too.
+  function fromScan(text) {
     try {
       const u = new URL(text);
       const m = u.searchParams.get('mesa');
-      if (m) return window.RPG.normalizeRoomCode(m);
+      const p = u.searchParams.get('pin');
+      if (m) return { code: window.RPG.normalizeRoomCode(m), pin: p ? p.replace(/\D/g, '').slice(0, 4) : '' };
     } catch (_) { /* not a URL */ }
-    return window.RPG.normalizeRoomCode(text);
+    return { code: window.RPG.normalizeRoomCode(text), pin: '' };
   }
 
   async function startScan() {
@@ -115,7 +129,9 @@
         ctx.drawImage(entryScanVideo, 0, 0, w, h);
         const code = decode(ctx.getImageData(0, 0, w, h).data, w, h);
         if (code && code.data) {
-          entryCodeInput.value = codeFromScan(code.data);
+          const scanned = fromScan(code.data);
+          entryCodeInput.value = scanned.code;
+          if (scanned.pin) entryPinInput.value = scanned.pin;
           entryScanHint.textContent = 'Código lido ✓';
           stopScan();
           join();
@@ -155,6 +171,19 @@
   const rehydrateObjectImages = makeImageRehydrator('dataUrl');
 
   function handleMessage(msg) {
+    if (msg && msg.type === 'rpg-denied') {
+      // GM rejected the PIN — this connection will be closed by the GM right
+      // after, but don't wait for 'close' to tell the player why. Also
+      // covers the auto-reconnect path (silentRejoin): if the PIN rotated
+      // while this player was backgrounded, they land back on the entry
+      // screen instead of hanging on "Reconectando…" forever.
+      entryOverlay.classList.add('open');
+      viewport.classList.add('hidden');
+      entryStatus.textContent = 'PIN incorreto — confira com o mestre e tente de novo.';
+      entryJoinBtn.disabled = false;
+      window.RPG.setActiveConnection(null);
+      return;
+    }
     if (msg && msg.type === 'rpg-my-token') {
       window.RPG.setMyTokenId(typeof msg.tokenId === 'number' ? msg.tokenId : null);
       return;
@@ -172,6 +201,17 @@
       return;
     }
     if (!msg || msg.type !== 'rpg-state') return;
+
+    // The first 'rpg-state' is the GM's proof the PIN was accepted (the GM
+    // never sends state to a peer it hasn't admitted) — that's the actual
+    // "you're in" signal, not the WebRTC connection opening.
+    if (entryOverlay.classList.contains('open')) {
+      stopScan();
+      entryOverlay.classList.remove('open');
+      viewport.classList.remove('hidden');
+      window.RPG.resizeCanvas();
+      if (window.RPG.showFullscreenUI) window.RPG.showFullscreenUI();
+    }
 
     // bump on every incoming state so frozen-memory cell snapshots know to
     // re-render — cheap counter, avoids diffing tokens/objects to decide if
@@ -211,17 +251,15 @@
   }
 
   function onConnected(conn) {
-    stopScan();
-    entryOverlay.classList.remove('open');
-    viewport.classList.remove('hidden');
-    window.RPG.resizeCanvas();
-    if (window.RPG.showFullscreenUI) window.RPG.showFullscreenUI();
+    entryStatus.textContent = 'Verificando PIN…';
 
-    // Announce who we are so the GM's player list can label this connection —
-    // the only message the player ever sends.
+    // Announce who we are + the access PIN — the GM validates it before
+    // sending any state or creating a token; the entry screen only closes
+    // once the first 'rpg-state' proves we were admitted (see handleMessage).
     const myName = (entryNameInput.value.trim() || localStorage.getItem(NAME_KEY) || '').slice(0, 40);
+    const pin = entryPinInput.value.trim();
     if (myName) {
-      try { conn.send({ type: 'rpg-hello', name: myName }); } catch (_) {}
+      try { conn.send({ type: 'rpg-hello', name: myName, pin }); } catch (_) {}
     }
 
     conn.on('data', handleMessage);
@@ -264,12 +302,20 @@
       entryCodeInput.focus();
       return;
     }
+    localStorage.setItem(CODE_KEY, code);
+
+    if (entryPinInput.value.trim().length !== 4) {
+      entryStatus.textContent = 'Digite o PIN de 4 dígitos da mesa.';
+      entryPinInput.focus();
+      return;
+    }
 
     joining = true;
     entryJoinBtn.disabled = true;
     entryStatus.textContent = 'Conectando…';
 
     const guest = window.RPG.joinHost(code);
+    activeGuest = guest;
     try {
       const conn = await guest.connection;
       entryStatus.textContent = '';
@@ -283,15 +329,68 @@
     }
   }
 
+  // ---------- Auto-reconnect after the tab returns from background ----------
+  // Mobile browsers throttle/freeze timers and can silently kill the
+  // underlying WebRTC connection while a tab is backgrounded, without ever
+  // firing the DataConnection's 'close'/'error' — so on return the app can
+  // be left believing it's still connected while nothing actually works
+  // (can't drag the token, no updates arrive). Re-verify on every return to
+  // visibility and silently rejoin using the same code+name if it's dead.
+  let activeGuest = null; // { peer, connection, destroy } from the current joinHost() call
+
+  function isConnectionAlive() {
+    const conn = window.RPG.getActiveConnection ? window.RPG.getActiveConnection() : null;
+    if (!conn || !conn.open) return false;
+    const peer = activeGuest && activeGuest.peer;
+    if (peer && (peer.destroyed || peer.disconnected)) return false;
+    return true;
+  }
+
+  let rejoining = false;
+
+  async function silentRejoin() {
+    if (rejoining) return;
+    const code = localStorage.getItem(CODE_KEY);
+    const name = localStorage.getItem(NAME_KEY);
+    if (!code || !name) return; // never successfully joined before — nothing to resume
+
+    rejoining = true;
+    showStatus('Reconectando…');
+    if (activeGuest) { try { activeGuest.destroy(); } catch (_) {} }
+    window.RPG.setActiveConnection(null);
+    window.RPG.setMyTokenId(null);
+
+    const guest = window.RPG.joinHost(code);
+    activeGuest = guest;
+    try {
+      const conn = await guest.connection;
+      onConnected(conn);
+    } catch (err) {
+      // Surface it on the entry screen rather than failing silently forever —
+      // the player can still retry by hand (code/name are already filled in).
+      entryOverlay.classList.add('open');
+      viewport.classList.add('hidden');
+      entryStatus.textContent = window.RPG.describePeerError(err);
+    } finally {
+      rejoining = false;
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (entryOverlay.classList.contains('open')) return; // never connected / already on entry screen
+    if (!isConnectionAlive()) silentRejoin();
+  });
+
   entryJoinBtn.addEventListener('click', join);
   entryNameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') join();
   });
 
-  // A scanned/shared link carries the code, so only the character name is
-  // still missing — auto-join if we already know it from a previous session,
-  // otherwise focus the name field and wait.
-  if (urlCode) {
+  // A scanned/shared link carries the code + PIN, so only the character name
+  // is still missing — auto-join if we already know it from a previous
+  // session, otherwise focus the name field and wait.
+  if (urlCode && urlPin) {
     if (entryNameInput.value.trim()) join();
     else entryNameInput.focus();
   }

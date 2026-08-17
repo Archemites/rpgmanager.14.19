@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="css/theme.css">
 <link rel="stylesheet" href="css/crt-effects.css">
 <link rel="stylesheet" href="css/layout.css">
-<link rel="stylesheet" href="css/components.css?v=7">
+<link rel="stylesheet" href="css/components.css?v=8">
 <link rel="stylesheet" href="css/modals.css">
 </head>
 <body>
@@ -360,7 +360,12 @@
     <h3>Convidar jogador</h3>
     <div id="inviteOfferQr" class="qr-center"></div>
     <div id="inviteRoomCode">------</div>
-    <div class="hint hint-m0">&gt; O jogador escaneia o QR ou digita este código. Mantenha esta mesa aberta.</div>
+    <div class="hint hint-m0">&gt; O jogador escaneia o QR ou digita código + PIN. Mantenha esta mesa aberta.</div>
+    <div id="invitePinRow">
+      <span class="hint hint-m0">PIN: </span>
+      <span id="invitePin">····</span>
+      <button type="button" class="secondary" id="invitePinRotateBtn" title="Gera um novo PIN — só bloqueia quem tentar entrar depois com o antigo; jogadores já conectados não são afetados">🔄 Trocar PIN</button>
+    </div>
     <div id="inviteStatus" class="hint hint-m0"></div>
     <div id="inviteCloseRow">
       <button type="button" class="secondary" id="inviteCloseBtn">Fechar</button>
@@ -620,7 +625,7 @@
 <script src="js/gm/state.js?v=8"></script>
 <script src="js/gm/history.js?v=8"></script>
 <script src="js/gm/scenes.js?v=8"></script>
-<script src="js/gm/sync.js?v=10"></script>
+<script src="js/gm/sync.js?v=11"></script>
 <script src="js/gm/hit-test.js?v=8"></script>
 <script src="js/gm/draw.js?v=8"></script>
 <script src="js/gm/map-grid-lighting.js?v=8"></script>

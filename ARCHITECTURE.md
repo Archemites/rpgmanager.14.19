@@ -370,21 +370,73 @@ hand a second code back to the GM. Trading the "zero servers" purity for a
 signaling-only broker is what buys the one-way, 5-character flow.
 
 The GM's "🔗 Convidar jogador" modal (`js/gm/sync.js`) shows the room code
-big, plus a QR of `player.html?mesa=<CODE>` (via `js/vendor/qrcode.min.js`)
-— scanning it lands the player straight in the game, no typing. The player's
+big, the current access PIN, and a QR of
+`player.html?mesa=<CODE>&pin=<PIN>` (via `js/vendor/qrcode.min.js`) —
+scanning it lands the player straight in the game, no typing. The player's
 entry screen (`player.html`'s `#entryOverlay`, handled in
-`js/player/sync.js`) takes a name + the code, typed or read from the camera
-(`js/vendor/jsQR.js`), and **nothing goes back to the GM**. The room is
-opened lazily on first invite and kept alive for the session — closing the
-dialog does not tear it down, or codes already handed out would break.
+`js/player/sync.js`) takes a name + the code + the PIN, typed or read from
+the camera (`js/vendor/jsQR.js`). The room is opened lazily on first invite
+and kept alive for the session — closing the dialog does not tear it down,
+or codes already handed out would break.
+
+**Access PIN vs. room code** — deliberately two different things:
+- **Room code** = the PeerJS peer id the GM claims. Fixed for the whole
+  session; changing it would mean creating a new `Peer`, which drops every
+  already-open `DataConnection` (P2P connections can't be "renamed" — this
+  is a hard WebRTC constraint, not a design choice).
+- **Access PIN** (`js/gm/sync.js`'s `accessPin`, 4 digits, `randomPin()`) =
+  a GM-rotatable gate checked only at the `'rpg-hello'` handshake below.
+  The "🔄 Trocar PIN" button in the invite modal generates a new one — this
+  only blocks *new* joiners still holding the old code/QR (e.g. it leaked);
+  peers already connected were validated once at their own `'rpg-hello'`
+  and are never re-checked, so nobody currently at the table gets dropped.
 
 The GM can have **N simultaneous connections** (`js/gm/sync.js`'s `peers[]`),
 one per player device. This replaced the old single
 `window.open('player.html', ...)` same-browser model entirely; there is no
 `openPlayerBtn`/child window anymore.
 
-GM broadcasts message type `'rpg-state'` to every open connection (see
-`js/gm/sync.js`'s `doSendState`/`broadcast`). PeerJS serializes objects
+**The WebRTC connection opening is not the same as being let into the
+game.** `attachPeer()` wires up the `DataConnection` and waits — nothing is
+sent until `'rpg-hello'` arrives with a name **and a matching PIN**:
+```js
+{ type: 'rpg-hello', name, pin }   // name = the CHARACTER name; pin = current 4-digit access PIN
+```
+- **PIN matches**: `peer.admitted = true`, then (and only then) the GM does
+  a forced full sync (`sendStateForced(true)`) and runs
+  `ensurePlayerToken(peer)` (see below). The player's entry screen doesn't
+  close on connection open — it waits for the first `'rpg-state'` message
+  as proof of admission (`js/player/sync.js`'s `handleMessage`).
+- **PIN doesn't match**: GM replies `{ type: 'rpg-denied', reason: 'pin' }`
+  and closes the connection; the peer entry is discarded. The player sees
+  "PIN incorreto" and stays on the entry screen — this also covers the
+  auto-reconnect path (see "Backgrounded tab" below) if the PIN rotated
+  while a player was disconnected.
+- Every other incoming message type is ignored until `peer.admitted` is true.
+
+`ensurePlayerToken` looks for an existing `isPlayer` token whose name
+matches case-insensitively; if none exists it creates one (`isPlayer: true`,
+so it joins the Party panel) in the currently open scene, near the center of
+the GM's view with a small random jitter, in the next color from a rotating
+palette. Because the lookup is by name, a player refreshing or reconnecting
+lands back on their existing token instead of spawning a duplicate — and
+their token is left in whatever scene it already occupies, since scene
+placement is the GM's call (scene sidebar / "bring to scene"), not something
+a reconnect should override. The token shape is duplicated from
+`js/gm/token-modal.js`'s create branch — **keep the two in sync when adding
+a token field**. The character name is required on the entry screen
+precisely because it is the token's identity. Right after creating/finding
+the token, the GM sends it back:
+```js
+{ type: 'rpg-my-token', tokenId }
+```
+`js/player/sync.js` stores this as `window.RPG`'s `myTokenId` — the player's
+canvas (`js/player/state.js`) only allows dragging **this one token**, and
+the GM re-validates ownership server-side on every move (see below), so a
+compromised/hostile client still can't move anyone else's token.
+
+GM broadcasts message type `'rpg-state'` to every **admitted** connection
+(see `js/gm/sync.js`'s `doSendState`/`broadcast`). PeerJS serializes objects
 itself, so these are sent as plain objects, not `JSON.stringify`'d strings:
 ```js
 {
@@ -393,34 +445,18 @@ itself, so these are sent as plain objects, not `JSON.stringify`'d strings:
   map: { scalePct, dataUrl? } // dataUrl: string = new, null = removed, absent = unchanged
 }
 ```
-A newly-opened connection triggers a forced full sync (`sendStateForced(true)`)
-from `attachPeer()` — equivalent to the old `'rpg-player-ready'` handshake,
-but driven by PeerJS's `connection`/`open` events rather than an explicit
-ready message.
 
-The player sends exactly one message ever, on connect — everything else is
-one-way GM→player:
+**Players are not fully read-only** — each can send exactly two message
+types back, both handled in `attachPeer()`'s `conn.on('data', ...)`:
 ```js
-{ type: 'rpg-hello', name }   // the CHARACTER name, typed on the entry screen
+{ type: 'rpg-hello', name, pin }        // once, on connect (see above)
+{ type: 'rpg-token-move', x, y }        // while dragging their own token, throttled ~60fps
 ```
-That name drives two things on the GM side: the label in the connected-players
-list, and **automatic party-token creation** (`js/gm/sync.js`'s
-`ensurePlayerToken`). On `'rpg-hello'` the GM looks for an existing
-`isPlayer` token whose name matches case-insensitively; if none exists it
-creates one (`isPlayer: true`, so it joins the Party panel) in the currently
-open scene, near the center of the GM's view with a small random jitter, in
-the next color from a rotating palette. Because the lookup is by name, a
-player refreshing or reconnecting lands back on their existing token instead
-of spawning a duplicate — and their token is left in whatever scene it
-already occupies, since scene placement is the GM's call (scene sidebar /
-"bring to scene"), not something a reconnect should override. The token shape
-is duplicated from `js/gm/token-modal.js`'s create branch — **keep the two in
-sync when adding a token field**. The character name is required on the entry
-screen precisely because it is the token's identity.
-
-**Only `js/gm/sync.js`'s `sendState()`/`broadcast()` send updates; every
-player peer is read-only** and never sends anything back over the channel
-after the initial WebRTC handshake.
+`rpg-token-move` is applied only if `peer.tokenId` is set and matches an
+existing token — the GM is the authority; movement is optimistic on the
+player's own screen (`js/player/state.js` moves the local token immediately
+for instant feedback, then echoes the position) but the GM's broadcast back
+is what every other client actually renders.
 
 GM also broadcasts message type `'rpg-fx'` (see `js/gm/sync.js`'s `sendFx`)
 to trigger a cosmetic FX trail (explosion/fire/smoke/heal) on player
@@ -431,6 +467,29 @@ one-shot animation trigger, not persistent state, so it always fires
 immediately. `js/player/sync.js` handles it by calling
 `window.RPG.spawnFx(fxType, x, y, opts)` (see `js/shared/fx-trail.js`) and
 returns early, before the `'rpg-state'` check.
+
+### Backgrounded tab (`js/player/sync.js`'s auto-reconnect)
+
+Mobile browsers throttle or freeze timers and can silently kill the
+underlying WebRTC connection while `player.html`'s tab is backgrounded
+(app switched away from, screen locked, etc.) — often without ever firing
+the `DataConnection`'s `'close'`/`'error'` events. Left unhandled, the
+player returns to the tab still believing it's connected while nothing
+actually works: can't drag the token, no state updates arrive.
+
+Fix: on every `visibilitychange` back to `'visible'`, `isConnectionAlive()`
+checks `conn.open` and the underlying PeerJS peer's `destroyed`/
+`disconnected` flags; if either says the connection is actually dead,
+`silentRejoin()` tears down the old `Peer` and redoes the full `joinHost()`
+plus `'rpg-hello'` handshake automatically, using the room code
+(`localStorage`'s `rpg-last-room-code`) and character name (`rpg-player-name`)
+saved from the original join — no re-typing, just a brief "Reconectando…"
+in the status banner. The PIN is **not** persisted across reconnects (it
+read straight from `#entryPinInput`, which is never cleared after a
+successful join, so the same value is reused) — if the GM rotated the PIN
+while the player was backgrounded, the reconnect attempt gets `'rpg-denied'`
+and the player lands back on the entry screen with a clear error instead of
+hanging on "Reconectando…" forever.
 
 ### Player sync gate (`sceneSyncPending`)
 

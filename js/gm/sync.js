@@ -17,6 +17,22 @@
   let nextPeerId = 1;
   let host = null;      // { peer, code, ready, destroy } from createHost()
 
+  // Access PIN: separate from the room code on purpose. The room code is
+  // the PeerJS peer id — changing it means creating a whole new Peer, which
+  // would drop every already-open DataConnection (that's how P2P works,
+  // there's no "rename" for an active connection). The PIN is a GM-rotatable
+  // gate checked only at the 'rpg-hello' handshake, so the GM can revoke
+  // access for new joiners (e.g. a leaked code/QR) without kicking anyone
+  // already at the table.
+  const PIN_LEN = 4;
+  let accessPin = randomPin();
+
+  function randomPin() {
+    const buf = new Uint8Array(PIN_LEN);
+    crypto.getRandomValues(buf);
+    return Array.from(buf, (b) => b % 10).join('');
+  }
+
   // Gate that holds back sendState() after a scene switch: the GM may need to
   // set up fog/tokens in the new scene before the players see it. While
   // pending, every sendState() call is silently dropped — the player windows
@@ -293,27 +309,37 @@
   }
 
   // Wires a freshly-opened DataConnection into the peer list + sync loop.
+  // The P2P connection itself opens before we know who's on the other end —
+  // that's just transport. Nothing about the game (state, token) is sent
+  // until 'rpg-hello' arrives with a PIN that matches the current one.
   function attachPeer(conn) {
-    const peer = { id: nextPeerId++, name: null, conn, connected: true, tokenId: null };
+    const peer = { id: nextPeerId++, name: null, conn, connected: true, tokenId: null, admitted: false };
     peers.push(peer);
     renderPeerList();
-    inviteStatus.textContent = 'Jogador conectado ✓';
+    inviteStatus.textContent = 'Jogador conectando…';
 
-    // A brand-new peer has seen no state at all — force a full sync past the gate.
-    sendStateForced(true);
-    if (window.RPG.getTheme) sendTheme(window.RPG.getTheme());
-
-    // Players are read-only except for announcing their name on join and
-    // dragging their own token (validated server-side by peer.tokenId — a
-    // player can never move anyone else's).
     conn.on('data', (msg) => {
       if (!msg) return;
       if (msg.type === 'rpg-hello' && typeof msg.name === 'string') {
+        if (msg.pin !== accessPin) {
+          try { conn.send({ type: 'rpg-denied', reason: 'pin' }); } catch (_) {}
+          try { conn.close(); } catch (_) {}
+          const idx = peers.indexOf(peer);
+          if (idx !== -1) peers.splice(idx, 1);
+          renderPeerList();
+          return;
+        }
+        peer.admitted = true;
         peer.name = msg.name.slice(0, 40);
         renderPeerList();
+        inviteStatus.textContent = 'Jogador conectado ✓';
+        // A newly-admitted peer has seen no state at all — force a full sync.
+        sendStateForced(true);
+        if (window.RPG.getTheme) sendTheme(window.RPG.getTheme());
         ensurePlayerToken(peer);
         return;
       }
+      if (!peer.admitted) return; // ignore everything else until the PIN checks out
       if (msg.type === 'rpg-token-move' && typeof msg.x === 'number' && typeof msg.y === 'number') {
         if (!peer.tokenId) return;
         const allTokens = window.RPG.allTokens;
@@ -335,10 +361,11 @@
     conn.on('error', drop);
   }
 
-  // ---------- Invite modal: one short room code, nothing to paste back ----------
+  // ---------- Invite modal: one short room code + a rotatable PIN ----------
   const inviteOverlay = document.getElementById('inviteOverlay');
   const inviteOfferQr = document.getElementById('inviteOfferQr');
   const inviteRoomCode = document.getElementById('inviteRoomCode');
+  const invitePin = document.getElementById('invitePin');
   const inviteStatus = document.getElementById('inviteStatus');
 
   // The room is opened once, lazily, and then kept alive for the whole
@@ -365,23 +392,40 @@
   }
 
   // The player opens player.html and types/scans the code, so the QR encodes
-  // a full join URL — scanning it on a phone lands straight in the game.
-  function joinUrlFor(code) {
+  // a full join URL (code + current PIN) — scanning it on a phone lands
+  // straight in the game with nothing to type.
+  function joinUrlFor(code, pin) {
     const base = location.href.replace(/[^/]*$/, '') + 'player.html';
-    return base + '?mesa=' + encodeURIComponent(code);
+    return base + '?mesa=' + encodeURIComponent(code) + '&pin=' + encodeURIComponent(pin);
+  }
+
+  function refreshInviteQr(code) {
+    invitePin.textContent = accessPin;
+    renderQr(inviteOfferQr, joinUrlFor(code, accessPin), inviteStatus);
   }
 
   document.getElementById('openInviteBtn').addEventListener('click', async () => {
     inviteOverlay.classList.add('open');
     inviteRoomCode.textContent = '·····';
+    invitePin.textContent = '····';
     inviteOfferQr.innerHTML = '';
     try {
       const h = await ensureHost();
       inviteRoomCode.textContent = h.code;
-      renderQr(inviteOfferQr, joinUrlFor(h.code), inviteStatus);
+      refreshInviteQr(h.code);
     } catch (_) {
       inviteRoomCode.textContent = '—';
     }
+  });
+
+  // Rotating the PIN only blocks NEW joiners using the old one — already
+  // connected peers were validated at their own 'rpg-hello' and are never
+  // re-checked, so nobody currently at the table gets dropped.
+  document.getElementById('invitePinRotateBtn').addEventListener('click', () => {
+    accessPin = randomPin();
+    if (host) refreshInviteQr(host.code);
+    if (window.RPG.logEvent) window.RPG.logEvent('Trocou o PIN de acesso da mesa');
+    inviteStatus.textContent = 'PIN atualizado — jogadores já conectados continuam normalmente.';
   });
 
   document.getElementById('inviteCloseBtn').addEventListener('click', () => {

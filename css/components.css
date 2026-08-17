@@ -52,6 +52,21 @@
   user-select: all;
 }
 
+#invitePinRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+#invitePin {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  -webkit-user-select: all;
+  user-select: all;
+}
+
 #inviteActions { display: flex; gap: 8px; justify-content: center; }
 
 #inviteCloseRow {

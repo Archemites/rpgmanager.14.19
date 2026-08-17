@@ -309,4 +309,5 @@
   window.RPG.setMyTokenId = (id) => { myTokenId = id; };
   window.RPG.getMyTokenId = () => myTokenId;
   window.RPG.setActiveConnection = (conn) => { activeConnection = conn; };
+  window.RPG.getActiveConnection = () => activeConnection;
 })();
