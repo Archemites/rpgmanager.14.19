@@ -203,7 +203,14 @@
       renderPeerList();
     });
 
-    const offerCode = await pendingHost.createOfferCode();
+    let offerCode;
+    try {
+      offerCode = await pendingHost.createOfferCode();
+    } catch (err) {
+      inviteStatus.textContent = 'Falha ao gerar convite: ' + (err && err.message ? err.message : err);
+      removePeer(peerId);
+      return;
+    }
     inviteOfferCode.value = offerCode;
     if (window.QRCode) {
       inviteOfferQr.innerHTML = '';
