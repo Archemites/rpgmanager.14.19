@@ -43,7 +43,15 @@
   // scheduled send entirely while the channel's own send buffer is still
   // backed up (bufferedAmount), and never inline heavy assets (photos) into
   // the routine per-move payload — see makeImageDedupe() below.
-  const SEND_MIN_INTERVAL_MS = 120; // ~8/s ceiling while dragging — plenty for token movement
+  //
+  // 16ms (~60/s) ceiling: mousemove itself never fires faster than the
+  // display refresh rate, so this is effectively "no throttle" for movement
+  // smoothness while still coalescing bursts into one send. The image
+  // dedup above (not the interval) is what fixed the original lag — going
+  // lower than 16ms buys nothing since the browser can't produce events
+  // that fast anyway, and bufferedAmount below remains the real backstop
+  // against flooding a slow peer's channel.
+  const SEND_MIN_INTERVAL_MS = 16;
   const MAX_BUFFERED_BYTES = 256 * 1024; // skip a send while a peer's queue is this backed up
 
   let pendingIncludeMap = false;

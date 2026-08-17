@@ -48,10 +48,12 @@
   };
 
   // Movement is optimistic: applied to the local token immediately (so it
-  // feels instant) and echoed to the GM, throttled the same way GM→player
-  // state pushes are (js/gm/sync.js's SEND_MIN_INTERVAL_MS) — the GM is the
-  // authority and will broadcast back the same or a corrected position.
-  const MOVE_MIN_INTERVAL_MS = 120;
+  // feels instant) and echoed to the GM — the GM is the authority and will
+  // broadcast back the same or a corrected position. Throttled only to
+  // ~60fps (16ms): mousemove itself never fires faster than the display's
+  // refresh rate, so anything below that is wasted messages, not smoother
+  // motion. This timer only ever runs while tokenDrag.active — no polling.
+  const MOVE_MIN_INTERVAL_MS = 16;
   let moveTimerId = null;
   let lastMoveAt = 0;
   let pendingMove = null; // { x, y } or null
