@@ -109,7 +109,9 @@
       const row = document.createElement('div');
       row.className = 'peer-row';
       const status = peer.connected ? '🟢' : '⏳';
-      row.textContent = `${status} ${peer.name || 'Jogador'}`;
+      const label = document.createElement('span');
+      label.textContent = `${status} ${peer.name || 'Jogador'}`;
+      row.appendChild(label);
       const removeBtn = document.createElement('button');
       removeBtn.className = 'secondary';
       removeBtn.textContent = '✕';

@@ -20,17 +20,31 @@
   }
 
   // Waits for ICE gathering to finish so the exported code is a single,
-  // trickle-free blob (no separate ICE candidate messages to relay).
+  // trickle-free blob (no separate ICE candidate messages to relay). Some
+  // browsers/networks never fire icegatheringstatechange all the way to
+  // 'complete' (e.g. no reachable STUN, or the event fires before the
+  // listener is attached) — a hard timeout keeps this from hanging forever
+  // and silently blocking the whole invite flow. Whatever candidates have
+  // gathered by then still work for same-network (LAN) peers.
+  const ICE_GATHER_TIMEOUT_MS = 3000;
+
   function waitForIceGathering(pc) {
     if (pc.iceGatheringState === 'complete') return Promise.resolve();
     return new Promise((resolve) => {
+      let done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        pc.removeEventListener('icegatheringstatechange', check);
+        clearTimeout(timer);
+        resolve();
+      }
       function check() {
-        if (pc.iceGatheringState === 'complete') {
-          pc.removeEventListener('icegatheringstatechange', check);
-          resolve();
-        }
+        if (pc.iceGatheringState === 'complete') finish();
       }
       pc.addEventListener('icegatheringstatechange', check);
+      const timer = setTimeout(finish, ICE_GATHER_TIMEOUT_MS);
+      check(); // re-check in case gathering completed before the listener attached
     });
   }
 
