@@ -102,6 +102,28 @@
     broadcast({ type: 'rpg-fx', fxType: type, x, y, opts });
   }
 
+  // Renders `code` as a QR into `el`. The WebRTC SDP blob is big (~1.5-2.5KB
+// of base64), which is at or past what a QR can hold: qrcode.min.js's
+  // default correctLevel H caps out around 1.2KB and throws "Too long data"
+  // (or an out-of-range table read) past that. Force correctLevel L for the
+  // largest possible payload, and never let a failure escape — the text code
+  // below the QR is always the reliable path, the QR is a convenience.
+  function renderQr(el, code, statusEl) {
+    el.innerHTML = '';
+    if (!window.QRCode) return;
+    try {
+      new QRCode(el, {
+        text: code,
+        width: 220,
+        height: 220,
+        correctLevel: QRCode.CorrectLevel.L,
+      });
+    } catch (err) {
+      el.innerHTML = '';
+      if (statusEl) statusEl.textContent = 'Código longo demais para QR — use o código de texto abaixo.';
+    }
+  }
+
   function renderPeerList() {
     const el = document.getElementById('peerList');
     el.innerHTML = '';
@@ -134,7 +156,6 @@
   // 3 steps: (1) optional name + generate, (2) QR + code only, (3) paste the
   // player's answer code to complete the connection.
   const inviteOverlay = document.getElementById('inviteOverlay');
-  const inviteNameInput = document.getElementById('inviteNameInput');
   const inviteStep1 = document.getElementById('inviteStep1');
   const inviteStep2 = document.getElementById('inviteStep2');
   const inviteStep3 = document.getElementById('inviteStep3');
@@ -154,7 +175,6 @@
 
   function resetInviteModal() {
     showInviteStep(1);
-    inviteNameInput.value = '';
     inviteOfferCode.value = '';
     inviteOfferQr.innerHTML = '';
     inviteAnswerInput.value = '';
@@ -182,18 +202,19 @@
   });
 
   document.getElementById('inviteGenerateBtn').addEventListener('click', async () => {
-    const name = inviteNameInput.value.trim() || 'Jogador';
     pendingHost = window.RPG.createHostConnection();
     const peerId = nextPeerId++;
     pendingPeerId = peerId;
-    const peer = { id: peerId, name, pc: pendingHost.pc, channel: pendingHost.channel, connected: false };
+    // name stays null until the player announces theirs ('rpg-hello', sent by
+    // js/player/sync.js on connect) — the GM never types a player's name.
+    const peer = { id: peerId, name: null, pc: pendingHost.pc, channel: pendingHost.channel, connected: false };
     peers.push(peer);
     renderPeerList();
 
     peer.channel.addEventListener('open', () => {
       peer.connected = true;
       renderPeerList();
-      inviteStatus.textContent = `Conectado a ${peer.name} ✓`;
+      inviteStatus.textContent = 'Jogador conectado ✓';
       // freshly-connected peer has never seen any state — force a full sync
       sendStateForced(true);
       if (window.RPG.getTheme) sendTheme(window.RPG.getTheme());
@@ -201,6 +222,15 @@
     peer.channel.addEventListener('close', () => {
       peer.connected = false;
       renderPeerList();
+    });
+    // The player window is read-only except for this one announce message.
+    peer.channel.addEventListener('message', (e) => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch (_) { return; }
+      if (msg && msg.type === 'rpg-hello' && typeof msg.name === 'string') {
+        peer.name = msg.name.slice(0, 40);
+        renderPeerList();
+      }
     });
 
     let offerCode;
@@ -212,11 +242,10 @@
       return;
     }
     inviteOfferCode.value = offerCode;
-    if (window.QRCode) {
-      inviteOfferQr.innerHTML = '';
-      new QRCode(inviteOfferQr, { text: offerCode, width: 220, height: 220 });
-    }
+    // Show the step FIRST: a QR failure must never leave the modal stuck on
+    // step 1 with a generated-but-invisible code.
     showInviteStep(2);
+    renderQr(inviteOfferQr, offerCode, inviteStatus);
   });
 
   document.getElementById('inviteHaveAnswerBtn').addEventListener('click', () => {

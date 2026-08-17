@@ -30,11 +30,11 @@
     mapScale.disabled = !hasMap;
     removeMapBtn.disabled = !hasMap;
     mapLabel.textContent = hasMap ? (state.map.name || 'mapa') : 'nenhum';
-    mapBgColor.value = state.map.bgColor || window.RPG.getThemeMapBg();
+    mapBgColor.value = state.map.bgColor || (window.RPG.getThemeMapBg ? window.RPG.getThemeMapBg() : '#03140a');
     gridToggle.checked = state.grid.show;
     gridSize.value = state.grid.size;
     gridSizeVal.textContent = state.grid.size + 'px';
-    gridColor.value = state.grid.color || window.RPG.getThemeGridColor();
+    gridColor.value = state.grid.color || (window.RPG.getThemeGridColor ? window.RPG.getThemeGridColor() : '#45ff78');
   }
 
   // ---------- Map import ----------

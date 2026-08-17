@@ -340,7 +340,7 @@
   function drawSceneThumb(canvasEl, sc) {
     const tctx = canvasEl.getContext('2d');
     tctx.clearRect(0, 0, THUMB_W, THUMB_H);
-    tctx.fillStyle = sc.map.bgColor || window.RPG.getThemeMapBg();
+    tctx.fillStyle = sc.map.bgColor || (window.RPG.getThemeMapBg ? window.RPG.getThemeMapBg() : '#03140a');
     tctx.fillRect(0, 0, THUMB_W, THUMB_H);
     if (sc.map.img) {
       const scale = sc.map.scalePct / 100;

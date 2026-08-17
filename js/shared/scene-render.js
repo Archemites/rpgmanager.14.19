@@ -45,7 +45,7 @@
 
         if (gr > gl && gb > gt) {
           const g = state.grid.size;
-          octx.strokeStyle = state.grid.color || window.RPG.getThemeGridColor();
+          octx.strokeStyle = state.grid.color || (window.RPG.getThemeGridColor ? window.RPG.getThemeGridColor() : '#45ff78');
           octx.globalAlpha = 0.3;
           octx.lineWidth = 1 / lineScale;
           octx.beginPath();

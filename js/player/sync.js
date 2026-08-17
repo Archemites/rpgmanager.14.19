@@ -156,6 +156,13 @@
     window.RPG.resizeCanvas();
     if (window.RPG.showFullscreenUI) window.RPG.showFullscreenUI();
 
+    // Announce who we are so the GM's player list can label this connection —
+    // the only message the player ever sends over the channel.
+    const myName = (entryNameInput.value.trim() || localStorage.getItem(NAME_KEY) || '').slice(0, 40);
+    if (myName) {
+      try { channel.send(JSON.stringify({ type: 'rpg-hello', name: myName })); } catch (_) {}
+    }
+
     channel.addEventListener('message', (e) => {
       try { handleMessage(JSON.parse(e.data)); } catch (_) {}
     });
@@ -199,13 +206,22 @@
     }
 
     entryAnswerCode.value = answerCode;
-    entryAnswerQr.innerHTML = '';
-    if (window.QRCode) {
-      new QRCode(entryAnswerQr, { text: answerCode, width: 200, height: 200 });
-    }
     entryStatus.textContent = 'Envie o código de resposta acima ao mestre. Aguardando conexão…';
     entryStep1.classList.add('hidden');
     entryStep2.classList.remove('hidden');
+    // correctLevel L = largest capacity; the SDP blob is near/past QR limits,
+    // and a QR failure must never block the (reliable) text code path.
+    entryAnswerQr.innerHTML = '';
+    if (window.QRCode) {
+      try {
+        new QRCode(entryAnswerQr, {
+          text: answerCode, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.L,
+        });
+      } catch (err) {
+        entryAnswerQr.innerHTML = '';
+        entryStatus.textContent = 'Código longo demais para QR — envie o código de texto acima ao mestre.';
+      }
+    }
 
     guest.channelPromise.then((channel) => {
       if (channel.readyState === 'open') {

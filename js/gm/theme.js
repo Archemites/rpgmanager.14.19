@@ -57,14 +57,18 @@
     sw.addEventListener('click', () => applyTheme(sw.dataset.theme, { broadcast: true, log: true }));
   }
 
-  // ---------- Restore saved theme on load ----------
-  let saved = DEFAULT_THEME;
-  try { saved = localStorage.getItem(THEME_KEY) || DEFAULT_THEME; } catch (e) { /* ignore */ }
-  applyTheme(saved, { broadcast: false, log: false });
-
   // ---------- Expose to window.RPG ----------
+  // MUST come before the applyTheme() call below: applyTheme calls
+  // window.RPG.draw(), and draw() (js/gm/draw.js) + renderSceneList()
+  // (js/gm/scenes.js) both read window.RPG.getThemeMapBg(). Exposing after
+  // the call left them running against an undefined function on page load.
   window.RPG.getTheme = () => currentTheme;
   window.RPG.applyTheme = applyTheme;
   window.RPG.getThemeMapBg = getThemeMapBg;
   window.RPG.getThemeGridColor = getThemeGridColor;
+
+  // ---------- Restore saved theme on load ----------
+  let saved = DEFAULT_THEME;
+  try { saved = localStorage.getItem(THEME_KEY) || DEFAULT_THEME; } catch (e) { /* ignore */ }
+  applyTheme(saved, { broadcast: false, log: false });
 })();
