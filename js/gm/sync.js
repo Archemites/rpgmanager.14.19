@@ -1,6 +1,6 @@
 /* ============================================================
    GM sync: sendState/sendStateForced, sceneSyncPending gate, broadcasts
-   over WebRTC data channels to every connected player peer. See
+   over PeerJS data connections to every connected player. See
    ARCHITECTURE.md "Player sync protocol" + "Player sync gate".
    ============================================================ */
 
@@ -9,11 +9,13 @@
 
   const state = window.RPG.state;
 
-  // Each entry: { id, name, pc, channel, connected }. One RTCPeerConnection
-  // per player — there's no signaling server, so each connects via a
-  // manually-exchanged offer/answer code (see js/shared/webrtc.js).
+  // Each entry: { id, name, conn, connected }, where conn is a PeerJS
+  // DataConnection. The GM claims one short room code (see js/shared/webrtc.js)
+  // and every player joins it — the broker only carries the handshake, game
+  // data goes peer-to-peer.
   let peers = [];
   let nextPeerId = 1;
+  let host = null;      // { peer, code, ready, destroy } from createHost()
 
   // Gate that holds back sendState() after a scene switch: the GM may need to
   // set up fog/tokens in the new scene before the players see it. While
@@ -47,10 +49,9 @@
   }
 
   function broadcast(msg) {
-    const json = JSON.stringify(msg);
     for (const peer of peers) {
-      if (peer.channel && peer.channel.readyState === 'open') {
-        peer.channel.send(json);
+      if (peer.conn && peer.conn.open) {
+        try { peer.conn.send(msg); } catch (_) { /* peer dropped mid-send */ }
       }
     }
   }
@@ -102,24 +103,22 @@
     broadcast({ type: 'rpg-fx', fxType: type, x, y, opts });
   }
 
-  // Renders `code` as a QR into `el`. js/shared/webrtc.js keeps codes compact
-  // (~330 chars => QR version ~12, 65x65 modules) specifically so a phone
-  // camera can read this off a monitor; correctLevel M gives decent error
-  // tolerance at that size. A QR failure must never escape — the text code
-  // below it is always the reliable fallback.
-  function renderQr(el, code, statusEl) {
+  // Room codes are short (5 chars), so this QR stays at a low version that a
+  // phone camera reads instantly off a monitor. Failures never escape — the
+  // printed code below the QR is always usable.
+  function renderQr(el, text, statusEl) {
     el.innerHTML = '';
     if (!window.QRCode) return;
     try {
       new QRCode(el, {
-        text: code,
-        width: 260,
-        height: 260,
+        text,
+        width: 220,
+        height: 220,
         correctLevel: QRCode.CorrectLevel.M,
       });
     } catch (err) {
       el.innerHTML = '';
-      if (statusEl) statusEl.textContent = 'Não foi possível gerar o QR — use o código de texto abaixo.';
+      if (statusEl) statusEl.textContent = 'Não foi possível gerar o QR — use o código abaixo.';
     }
   }
 
@@ -129,9 +128,8 @@
     for (const peer of peers) {
       const row = document.createElement('div');
       row.className = 'peer-row';
-      const status = peer.connected ? '🟢' : '⏳';
       const label = document.createElement('span');
-      label.textContent = `${status} ${peer.name || 'Jogador'}`;
+      label.textContent = `${peer.connected ? '🟢' : '⏳'} ${peer.name || 'Jogador'}`;
       row.appendChild(label);
       const removeBtn = document.createElement('button');
       removeBtn.className = 'secondary';
@@ -146,126 +144,95 @@
   function removePeer(peerId) {
     const idx = peers.findIndex((p) => p.id === peerId);
     if (idx === -1) return;
-    try { peers[idx].pc.close(); } catch (_) {}
+    try { peers[idx].conn.close(); } catch (_) {}
     peers.splice(idx, 1);
     renderPeerList();
   }
 
-  // ---------- Invite modal (offer/answer handshake, no signaling server) ----------
-  // 3 steps: (1) optional name + generate, (2) QR + code only, (3) paste the
-  // player's answer code to complete the connection.
-  const inviteOverlay = document.getElementById('inviteOverlay');
-  const inviteStep1 = document.getElementById('inviteStep1');
-  const inviteStep2 = document.getElementById('inviteStep2');
-  const inviteStep3 = document.getElementById('inviteStep3');
-  const inviteOfferCode = document.getElementById('inviteOfferCode');
-  const inviteOfferQr = document.getElementById('inviteOfferQr');
-  const inviteAnswerInput = document.getElementById('inviteAnswerInput');
-  const inviteStatus = document.getElementById('inviteStatus');
-
-  let pendingHost = null; // { pc, channel, createOfferCode, acceptAnswerCode }
-  let pendingPeerId = null;
-
-  function showInviteStep(n) {
-    inviteStep1.classList.toggle('hidden', n !== 1);
-    inviteStep2.classList.toggle('hidden', n !== 2);
-    inviteStep3.classList.toggle('hidden', n !== 3);
-  }
-
-  function resetInviteModal() {
-    showInviteStep(1);
-    inviteOfferCode.value = '';
-    inviteOfferQr.innerHTML = '';
-    inviteAnswerInput.value = '';
-    inviteStatus.textContent = '';
-    pendingHost = null;
-    pendingPeerId = null;
-  }
-
-  document.getElementById('openInviteBtn').addEventListener('click', () => {
-    resetInviteModal();
-    inviteOverlay.classList.add('open');
-  });
-
-  document.getElementById('inviteCloseBtn').addEventListener('click', () => {
-    inviteOverlay.classList.remove('open');
-    if (pendingPeerId !== null) removePeer(pendingPeerId);
-    resetInviteModal();
-  });
-
-  inviteOverlay.addEventListener('click', (e) => {
-    if (e.target !== inviteOverlay) return;
-    inviteOverlay.classList.remove('open');
-    if (pendingPeerId !== null) removePeer(pendingPeerId);
-    resetInviteModal();
-  });
-
-  document.getElementById('inviteGenerateBtn').addEventListener('click', async () => {
-    pendingHost = window.RPG.createHostConnection();
-    const peerId = nextPeerId++;
-    pendingPeerId = peerId;
-    // name stays null until the player announces theirs ('rpg-hello', sent by
-    // js/player/sync.js on connect) — the GM never types a player's name.
-    const peer = { id: peerId, name: null, pc: pendingHost.pc, channel: pendingHost.channel, connected: false };
+  // Wires a freshly-opened DataConnection into the peer list + sync loop.
+  function attachPeer(conn) {
+    const peer = { id: nextPeerId++, name: null, conn, connected: true };
     peers.push(peer);
     renderPeerList();
+    inviteStatus.textContent = 'Jogador conectado ✓';
 
-    peer.channel.addEventListener('open', () => {
-      peer.connected = true;
-      renderPeerList();
-      inviteStatus.textContent = 'Jogador conectado ✓';
-      // freshly-connected peer has never seen any state — force a full sync
-      sendStateForced(true);
-      if (window.RPG.getTheme) sendTheme(window.RPG.getTheme());
-    });
-    peer.channel.addEventListener('close', () => {
-      peer.connected = false;
-      renderPeerList();
-    });
-    // The player window is read-only except for this one announce message.
-    peer.channel.addEventListener('message', (e) => {
-      let msg;
-      try { msg = JSON.parse(e.data); } catch (_) { return; }
+    // A brand-new peer has seen no state at all — force a full sync past the gate.
+    sendStateForced(true);
+    if (window.RPG.getTheme) sendTheme(window.RPG.getTheme());
+
+    // Players are read-only except for announcing their name on join.
+    conn.on('data', (msg) => {
       if (msg && msg.type === 'rpg-hello' && typeof msg.name === 'string') {
         peer.name = msg.name.slice(0, 40);
         renderPeerList();
       }
     });
 
-    let offerCode;
-    try {
-      offerCode = await pendingHost.createOfferCode();
-    } catch (err) {
-      inviteStatus.textContent = 'Falha ao gerar convite: ' + (err && err.message ? err.message : err);
-      removePeer(peerId);
-      return;
-    }
-    inviteOfferCode.value = offerCode;
-    // Show the step FIRST: a QR failure must never leave the modal stuck on
-    // step 1 with a generated-but-invisible code.
-    showInviteStep(2);
-    renderQr(inviteOfferQr, offerCode, inviteStatus);
-  });
+    const drop = () => {
+      peer.connected = false;
+      renderPeerList();
+    };
+    conn.on('close', drop);
+    conn.on('error', drop);
+  }
 
-  document.getElementById('inviteHaveAnswerBtn').addEventListener('click', () => {
+  // ---------- Invite modal: one short room code, nothing to paste back ----------
+  const inviteOverlay = document.getElementById('inviteOverlay');
+  const inviteOfferQr = document.getElementById('inviteOfferQr');
+  const inviteRoomCode = document.getElementById('inviteRoomCode');
+  const inviteStatus = document.getElementById('inviteStatus');
+
+  // The room is opened once, lazily, and then kept alive for the whole
+  // session — every player joins the same code, so re-opening per invite
+  // would invalidate codes already handed out.
+  async function ensureHost() {
+    if (host) return host;
+    inviteStatus.textContent = 'Abrindo a mesa…';
+    host = window.RPG.createHost({
+      onConnection: attachPeer,
+      onError: (err) => {
+        inviteStatus.textContent = window.RPG.describePeerError(err);
+      },
+    });
+    try {
+      await host.ready;
+    } catch (err) {
+      inviteStatus.textContent = window.RPG.describePeerError(err);
+      host = null;
+      throw err;
+    }
     inviteStatus.textContent = '';
-    showInviteStep(3);
-  });
+    return host;
+  }
 
-  document.getElementById('inviteBackBtn').addEventListener('click', () => {
-    showInviteStep(2);
-  });
+  // The player opens player.html and types/scans the code, so the QR encodes
+  // a full join URL — scanning it on a phone lands straight in the game.
+  function joinUrlFor(code) {
+    const base = location.href.replace(/[^/]*$/, '') + 'player.html';
+    return base + '?mesa=' + encodeURIComponent(code);
+  }
 
-  document.getElementById('inviteConnectBtn').addEventListener('click', async () => {
-    if (!pendingHost) return;
-    const answerCode = inviteAnswerInput.value.trim();
-    if (!answerCode) return;
+  document.getElementById('openInviteBtn').addEventListener('click', async () => {
+    inviteOverlay.classList.add('open');
+    inviteRoomCode.textContent = '·····';
+    inviteOfferQr.innerHTML = '';
     try {
-      inviteStatus.textContent = 'Conectando…';
-      await pendingHost.acceptAnswerCode(answerCode);
-    } catch (err) {
-      inviteStatus.textContent = 'Código de resposta inválido.';
+      const h = await ensureHost();
+      inviteRoomCode.textContent = h.code;
+      renderQr(inviteOfferQr, joinUrlFor(h.code), inviteStatus);
+    } catch (_) {
+      inviteRoomCode.textContent = '—';
     }
+  });
+
+  document.getElementById('inviteCloseBtn').addEventListener('click', () => {
+    // Only closes the dialog — the room stays open so connected players and
+    // already-shared codes keep working.
+    inviteOverlay.classList.remove('open');
+  });
+
+  inviteOverlay.addEventListener('click', (e) => {
+    if (e.target === inviteOverlay) inviteOverlay.classList.remove('open');
   });
 
   const updatePlayerBtn = document.getElementById('updatePlayerBtn');

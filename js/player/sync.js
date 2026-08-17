@@ -1,8 +1,7 @@
 /* ============================================================
-   Player sync: entry screen (name + WebRTC invite code handshake, via
-   pasted text or camera QR scan), then consumes 'rpg-state'/'rpg-fx'/
-   'rpg-theme' messages over the data channel. Loads absolute last among
-   player files.
+   Player sync: entry screen (name + short room code, typed or scanned from
+   the GM's QR), then consumes 'rpg-state'/'rpg-fx'/'rpg-theme' messages over
+   the PeerJS data connection. Loads absolute last among player files.
    ============================================================ */
 
 (() => {
@@ -14,29 +13,34 @@
   const NAME_KEY = 'rpg-player-name';
 
   const entryOverlay = document.getElementById('entryOverlay');
-  const entryStep1 = document.getElementById('entryStep1');
-  const entryStep2 = document.getElementById('entryStep2');
   const entryNameInput = document.getElementById('entryNameInput');
-  const entryOfferInput = document.getElementById('entryOfferInput');
+  const entryCodeInput = document.getElementById('entryCodeInput');
   const entryJoinBtn = document.getElementById('entryJoinBtn');
-  const entryAnswerCode = document.getElementById('entryAnswerCode');
-  const entryAnswerQr = document.getElementById('entryAnswerQr');
   const entryStatus = document.getElementById('entryStatus');
   const viewport = document.getElementById('viewport');
 
-  const entryModeTextBtn = document.getElementById('entryModeTextBtn');
   const entryModeScanBtn = document.getElementById('entryModeScanBtn');
-  const entryModeText = document.getElementById('entryModeText');
   const entryModeScan = document.getElementById('entryModeScan');
   const entryScanVideo = document.getElementById('entryScanVideo');
   const entryScanHint = document.getElementById('entryScanHint');
 
   entryNameInput.value = localStorage.getItem(NAME_KEY) || '';
 
-  // ---------- Text vs camera-scan mode toggle ----------
+  // Scanning the GM's QR opens player.html?mesa=CODE, so prefill from the URL
+  // and jump straight to joining — a scanned player never types anything.
+  const urlCode = new URLSearchParams(location.search).get('mesa');
+  if (urlCode) entryCodeInput.value = window.RPG.normalizeRoomCode(urlCode);
+
+  entryCodeInput.addEventListener('input', () => {
+    entryCodeInput.value = entryCodeInput.value.toUpperCase();
+  });
+  entryCodeInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') entryJoinBtn.click();
+  });
+
+  // ---------- Optional camera QR scan ----------
   let scanStream = null;
   let scanRafId = null;
-  let scannedOfferCode = null;
 
   // js/vendor/jsQR.js is a webpack UMD bundle with an ESM default export, so
   // window.jsQR is the module OBJECT, not the decode function — the callable
@@ -51,32 +55,42 @@
   function stopScan() {
     if (scanRafId !== null) { cancelAnimationFrame(scanRafId); scanRafId = null; }
     if (scanStream) { scanStream.getTracks().forEach((t) => t.stop()); scanStream = null; }
+    entryModeScan.classList.add('hidden');
+  }
+
+  // The GM's QR holds a full player.html?mesa=CODE URL; accept a bare code too.
+  function codeFromScan(text) {
+    try {
+      const u = new URL(text);
+      const m = u.searchParams.get('mesa');
+      if (m) return window.RPG.normalizeRoomCode(m);
+    } catch (_) { /* not a URL */ }
+    return window.RPG.normalizeRoomCode(text);
   }
 
   async function startScan() {
-    scannedOfferCode = null;
-    entryScanHint.textContent = 'Aponte a câmera para o QR do mestre.';
+    const decode = getJsQR();
+    if (!decode) {
+      entryScanHint.textContent = 'Leitor de QR não carregou — digite o código.';
+      return;
+    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      entryScanHint.textContent = 'Câmera indisponível neste navegador — use "Digitar/colar".';
+      entryScanHint.textContent = 'Câmera indisponível neste navegador — digite o código.';
       return;
     }
     try {
       scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     } catch (err) {
-      const name = err && err.name;
+      const n = err && err.name;
       entryScanHint.textContent =
-        name === 'NotAllowedError' ? 'Permissão de câmera negada — libere no navegador ou use "Digitar/colar".'
-        : name === 'NotFoundError' ? 'Nenhuma câmera encontrada — use "Digitar/colar".'
-        : 'Não foi possível acessar a câmera — use "Digitar/colar".';
-      return;
-    }
-    const decode = getJsQR();
-    if (!decode) {
-      entryScanHint.textContent = 'Leitor de QR não carregou — use a opção "Digitar/colar".';
-      stopScan();
+        n === 'NotAllowedError' ? 'Permissão de câmera negada — digite o código.'
+        : n === 'NotFoundError' ? 'Nenhuma câmera encontrada — digite o código.'
+        : 'Não foi possível acessar a câmera — digite o código.';
       return;
     }
 
+    entryModeScan.classList.remove('hidden');
+    entryScanHint.textContent = 'Aponte a câmera para o QR do mestre.';
     entryScanVideo.srcObject = scanStream;
     try {
       await entryScanVideo.play();
@@ -91,7 +105,7 @@
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     function tick() {
-      if (!scanStream) return;   // stopScan() ran (mode switch / connected)
+      if (!scanStream) return;   // stopScan() ran
       const w = entryScanVideo.videoWidth;
       const h = entryScanVideo.videoHeight;
       // videoWidth/Height stay 0 until the first frame actually arrives
@@ -99,12 +113,12 @@
         canvas.width = w;
         canvas.height = h;
         ctx.drawImage(entryScanVideo, 0, 0, w, h);
-        const imageData = ctx.getImageData(0, 0, w, h);
-        const code = decode(imageData.data, w, h);
+        const code = decode(ctx.getImageData(0, 0, w, h).data, w, h);
         if (code && code.data) {
-          scannedOfferCode = code.data;
-          entryScanHint.textContent = 'QR lido ✓ — clique em Entrar.';
+          entryCodeInput.value = codeFromScan(code.data);
+          entryScanHint.textContent = 'Código lido ✓';
           stopScan();
+          join();
           return;
         }
       }
@@ -113,18 +127,10 @@
     scanRafId = requestAnimationFrame(tick);
   }
 
-  function setMode(mode) {
-    stopScan();
-    const isScan = mode === 'scan';
-    entryModeTextBtn.classList.toggle('active', !isScan);
-    entryModeScanBtn.classList.toggle('active', isScan);
-    entryModeText.classList.toggle('hidden', isScan);
-    entryModeScan.classList.toggle('hidden', !isScan);
-    if (isScan) startScan();
-  }
-
-  entryModeTextBtn.addEventListener('click', () => setMode('text'));
-  entryModeScanBtn.addEventListener('click', () => setMode('scan'));
+  entryModeScanBtn.addEventListener('click', () => {
+    if (scanStream) { stopScan(); entryScanHint.textContent = ''; }
+    else startScan();
+  });
 
   function handleMessage(msg) {
     if (msg && msg.type === 'rpg-fx') {
@@ -184,7 +190,7 @@
     window.RPG.draw();
   }
 
-  function onConnected(channel) {
+  function onConnected(conn) {
     stopScan();
     entryOverlay.classList.remove('open');
     viewport.classList.remove('hidden');
@@ -192,80 +198,60 @@
     if (window.RPG.showFullscreenUI) window.RPG.showFullscreenUI();
 
     // Announce who we are so the GM's player list can label this connection —
-    // the only message the player ever sends over the channel.
+    // the only message the player ever sends.
     const myName = (entryNameInput.value.trim() || localStorage.getItem(NAME_KEY) || '').slice(0, 40);
     if (myName) {
-      try { channel.send(JSON.stringify({ type: 'rpg-hello', name: myName })); } catch (_) {}
+      try { conn.send({ type: 'rpg-hello', name: myName }); } catch (_) {}
     }
 
-    channel.addEventListener('message', (e) => {
-      try { handleMessage(JSON.parse(e.data)); } catch (_) {}
-    });
-    channel.addEventListener('close', () => {
+    conn.on('data', handleMessage);
+
+    const lost = () => {
       showStatus('Conexão com o mestre perdida.');
       entryOverlay.classList.add('open');
       viewport.classList.add('hidden');
-      entryStep1.classList.remove('hidden');
-      entryStep2.classList.add('hidden');
-      entryStatus.textContent = 'Conexão perdida — cole um novo código de convite para reconectar.';
-    });
+      entryStatus.textContent = 'Conexão perdida — entre novamente com o código da mesa.';
+      entryJoinBtn.disabled = false;
+    };
+    conn.on('close', lost);
+    conn.on('error', lost);
   }
 
-  entryJoinBtn.addEventListener('click', async () => {
+  let joining = false;
+
+  async function join() {
+    if (joining) return;
     const name = entryNameInput.value.trim();
     if (name) localStorage.setItem(NAME_KEY, name);
 
-    const isScanMode = !entryModeScan.classList.contains('hidden');
-    const offerCode = isScanMode ? (scannedOfferCode || '') : entryOfferInput.value.trim();
-    if (!offerCode) {
-      entryStatus.textContent = isScanMode ? 'Escaneie o QR do mestre primeiro.' : 'Cole o código de convite primeiro.';
+    const code = window.RPG.normalizeRoomCode(entryCodeInput.value);
+    if (!code) {
+      entryStatus.textContent = 'Digite o código da mesa.';
       return;
     }
 
-    stopScan();
-    entryStatus.textContent = 'Gerando resposta…';
-    let guest;
+    joining = true;
+    entryJoinBtn.disabled = true;
+    entryStatus.textContent = 'Conectando…';
+
+    const guest = window.RPG.joinHost(code);
     try {
-      guest = window.RPG.createGuestConnection(offerCode);
+      const conn = await guest.connection;
+      entryStatus.textContent = '';
+      onConnected(conn);
     } catch (err) {
-      entryStatus.textContent = 'Código de convite inválido.';
-      return;
+      entryStatus.textContent = window.RPG.describePeerError(err);
+      try { guest.destroy(); } catch (_) {}
+      entryJoinBtn.disabled = false;
+    } finally {
+      joining = false;
     }
+  }
 
-    let answerCode;
-    try {
-      answerCode = await guest.createAnswerCode();
-    } catch (err) {
-      entryStatus.textContent = 'Não foi possível processar o código de convite.';
-      return;
-    }
+  entryJoinBtn.addEventListener('click', join);
 
-    entryAnswerCode.value = answerCode;
-    entryStatus.textContent = 'Envie o código de resposta acima ao mestre. Aguardando conexão…';
-    entryStep1.classList.add('hidden');
-    entryStep2.classList.remove('hidden');
-    // Codes are kept compact by js/shared/webrtc.js so this QR stays scannable
-    // off a screen; a QR failure must never block the reliable text path.
-    entryAnswerQr.innerHTML = '';
-    if (window.QRCode) {
-      try {
-        new QRCode(entryAnswerQr, {
-          text: answerCode, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M,
-        });
-      } catch (err) {
-        entryAnswerQr.innerHTML = '';
-        entryStatus.textContent = 'Não foi possível gerar o QR — envie o código de texto acima ao mestre.';
-      }
-    }
-
-    guest.channelPromise.then((channel) => {
-      if (channel.readyState === 'open') {
-        onConnected(channel);
-      } else {
-        channel.addEventListener('open', () => onConnected(channel), { once: true });
-      }
-    });
-  });
+  // Scanned/shared link already carries the code — join without another tap.
+  if (urlCode) join();
 
   // ---------- Init ----------
   window.RPG.resizeCanvas();

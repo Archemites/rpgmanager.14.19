@@ -11,42 +11,31 @@
 <link rel="stylesheet" href="css/theme.css">
 <link rel="stylesheet" href="css/crt-effects.css">
 <link rel="stylesheet" href="css/layout.css">
-<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/components.css?v=5">
 <link rel="stylesheet" href="css/modals.css">
-<link rel="stylesheet" href="css/player.css">
+<link rel="stylesheet" href="css/player.css?v=5">
 </head>
 <body>
 <div id="entryOverlay" class="modal-overlay open">
   <div class="modal-dialog">
     <h3>Entrar na mesa</h3>
-    <div class="hint hint-m0">&gt; Conexão direta (P2P) com o mestre, sem servidor.</div>
-    <div id="entryStep1">
-      <div class="field">
-        <label for="entryNameInput">Seu nome</label>
-        <input type="text" id="entryNameInput" placeholder="Ex: Aragorn">
-      </div>
-      <div class="field">
-        <label>Código de convite do mestre</label>
-        <div id="entryModeTabs" class="tab-row">
-          <button type="button" class="secondary tab-btn active" id="entryModeTextBtn">⌨️ Digitar/colar</button>
-          <button type="button" class="secondary tab-btn" id="entryModeScanBtn">📷 Escanear QR</button>
-        </div>
-        <div id="entryModeText">
-          <textarea id="entryOfferInput" rows="4" placeholder="Cole aqui o código enviado pelo mestre"></textarea>
-        </div>
-        <div id="entryModeScan" class="hidden">
-          <video id="entryScanVideo" playsinline muted></video>
-          <div class="hint hint-m0" id="entryScanHint">Aponte a câmera para o QR do mestre.</div>
-        </div>
-      </div>
-      <button type="button" id="entryJoinBtn">Entrar</button>
+    <div class="hint hint-m0">&gt; Peça ao mestre o código da mesa.</div>
+    <div class="field">
+      <label for="entryNameInput">Seu nome</label>
+      <input type="text" id="entryNameInput" placeholder="Ex: Aragorn">
     </div>
-    <div id="entryStep2" class="hidden">
-      <div class="field">
-        <label for="entryAnswerCode">Código de resposta (envie ao mestre)</label>
-        <textarea id="entryAnswerCode" rows="4" readonly aria-label="Código de resposta"></textarea>
-        <div id="entryAnswerQr" class="qr-center"></div>
+    <div class="field">
+      <label for="entryCodeInput">Código da mesa</label>
+      <input type="text" id="entryCodeInput" class="room-code-input" placeholder="ABC12"
+             maxlength="8" autocapitalize="characters" autocomplete="off" spellcheck="false">
+      <div id="entryModeScan" class="hidden">
+        <video id="entryScanVideo" playsinline muted></video>
       </div>
+      <div class="hint hint-m0" id="entryScanHint"></div>
+    </div>
+    <div id="entryActions">
+      <button type="button" class="secondary" id="entryModeScanBtn">📷 Escanear QR</button>
+      <button type="button" id="entryJoinBtn">Entrar</button>
     </div>
     <div id="entryStatus" class="hint hint-m0"></div>
   </div>
@@ -64,13 +53,14 @@
 
 <!-- Shared modules (both windows) -->
 <script src="js/vendor/qrcode.min.js"></script>
+<script src="js/vendor/peerjs.min.js"></script>
 <script src="js/vendor/jsQR.js"></script>
-<script src="js/shared/webrtc.js?v=4"></script>
+<script src="js/shared/webrtc.js?v=5"></script>
 <script src="js/shared/camera.js"></script>
 <script src="js/shared/photo-cache.js"></script>
 <script src="js/shared/object-cache.js"></script>
 <script src="js/shared/bars.js"></script>
-<script src="js/shared/scene-render.js?v=4"></script>
+<script src="js/shared/scene-render.js?v=5"></script>
 <script src="js/shared/vision-math.js"></script>
 <script src="js/shared/fx-trail.js"></script>
 
@@ -79,9 +69,9 @@
 <script src="js/player/memory.js"></script>
 <script src="js/player/vision-fog.js"></script>
 <script src="js/player/combat.js"></script>
-<script src="js/player/draw.js?v=4"></script>
-<script src="js/player/fullscreen.js?v=4"></script>
-<script src="js/player/sync.js?v=4"></script>
+<script src="js/player/draw.js?v=5"></script>
+<script src="js/player/fullscreen.js?v=5"></script>
+<script src="js/player/sync.js?v=5"></script>
 
 </body>
 </html>

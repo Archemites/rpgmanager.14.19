@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="css/theme.css">
 <link rel="stylesheet" href="css/crt-effects.css">
 <link rel="stylesheet" href="css/layout.css">
-<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/components.css?v=5">
 <link rel="stylesheet" href="css/modals.css">
 </head>
 <body>
@@ -374,26 +374,9 @@
 <div id="inviteOverlay" class="modal-overlay">
   <div id="inviteModal" class="modal-dialog">
     <h3>Convidar jogador</h3>
-    <div id="inviteStep1">
-      <div class="hint hint-m0">&gt; Conexão direta (P2P), sem servidor.</div>
-      <button type="button" id="inviteGenerateBtn">Gerar convite</button>
-    </div>
-    <div id="inviteStep2" class="hidden">
-      <div id="inviteOfferQr" class="qr-center"></div>
-      <textarea id="inviteOfferCode" rows="3" readonly aria-label="Código de convite"></textarea>
-      <div class="hint hint-m0">&gt; Mostre o QR ou envie o código ao jogador.</div>
-      <button type="button" class="secondary" id="inviteHaveAnswerBtn">Já tenho a resposta do jogador</button>
-    </div>
-    <div id="inviteStep3" class="hidden">
-      <div class="field">
-        <label for="inviteAnswerInput">Cole aqui o código de resposta do jogador</label>
-        <textarea id="inviteAnswerInput" rows="4" placeholder="Cole o código de resposta aqui"></textarea>
-      </div>
-      <div id="inviteActions">
-        <button type="button" class="secondary" id="inviteBackBtn">Voltar</button>
-        <button type="button" id="inviteConnectBtn">Conectar</button>
-      </div>
-    </div>
+    <div id="inviteOfferQr" class="qr-center"></div>
+    <div id="inviteRoomCode">------</div>
+    <div class="hint hint-m0">&gt; O jogador escaneia o QR ou digita este código. Mantenha esta mesa aberta.</div>
     <div id="inviteStatus" class="hint hint-m0"></div>
     <div id="inviteCloseRow">
       <button type="button" class="secondary" id="inviteCloseBtn">Fechar</button>
@@ -662,24 +645,25 @@
 
 <!-- Shared modules (both windows) -->
 <script src="js/vendor/qrcode.min.js"></script>
-<script src="js/shared/webrtc.js?v=4"></script>
+<script src="js/vendor/peerjs.min.js"></script>
+<script src="js/shared/webrtc.js?v=5"></script>
 <script src="js/shared/camera.js"></script>
 <script src="js/shared/photo-cache.js"></script>
 <script src="js/shared/object-cache.js"></script>
 <script src="js/shared/bars.js"></script>
-<script src="js/shared/scene-render.js?v=4"></script>
+<script src="js/shared/scene-render.js?v=5"></script>
 <script src="js/shared/vision-math.js"></script>
 <script src="js/shared/fx-trail.js"></script>
 
 <!-- GM modules -->
 <script src="js/gm/state.js"></script>
 <script src="js/gm/history.js"></script>
-<script src="js/gm/scenes.js?v=4"></script>
-<script src="js/gm/sync.js?v=4"></script>
+<script src="js/gm/scenes.js?v=5"></script>
+<script src="js/gm/sync.js?v=5"></script>
 <script src="js/gm/hit-test.js"></script>
 <script src="js/gm/vision-preview.js"></script>
-<script src="js/gm/draw.js?v=4"></script>
-<script src="js/gm/map-grid-lighting.js?v=4"></script>
+<script src="js/gm/draw.js?v=5"></script>
+<script src="js/gm/map-grid-lighting.js?v=5"></script>
 <script src="js/gm/token-modal.js"></script>
 <script src="js/gm/crop-editor.js"></script>
 <script src="js/gm/context-menu.js"></script>
@@ -696,7 +680,7 @@
 <script src="js/gm/tools.js"></script>
 <script src="js/gm/fx-settings.js"></script>
 <script src="js/gm/session-io.js"></script>
-<script src="js/gm/theme.js?v=4"></script>
+<script src="js/gm/theme.js?v=5"></script>
 <script src="js/gm/mouse.js"></script>
 <script src="js/gm/hotkeys.js"></script>
 

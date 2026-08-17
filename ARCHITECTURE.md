@@ -37,17 +37,17 @@ of `import`/`export`.
   token CRUD, fog/wall drawing tools, scene switching, combat tracker, party
   panel, glossary, bar editor, photo crop editor.
 - **`player.html` + `js/player/*`** — a read-only render target. It never
-  mutates shared game state on its own; it only receives a `'rpg-state'`
-  `postMessage` from the GM window and redraws. Its one genuinely original
+  mutates shared game state on its own; it only receives `'rpg-state'`
+  messages from the GM and redraws. Its one genuinely original
   subsystem is the vision/fog-of-war raycasting + exploration-memory engine,
   which has no counterpart on the GM side (see "Vision & fog of war" below).
 - The two windows are **not** iframes or tabs in the same document, and are
   no longer required to be on the same machine/browser. Each player opens
-  `player.html` independently (their own device) and pairs with the GM via a
-  manual WebRTC offer/answer handshake (`js/shared/webrtc.js`, no signaling
-  server); once paired, GM → player traffic flows over an `RTCDataChannel`
-  instead of `postMessage`. Nothing but the synced state crosses the
-  boundary. See "Player sync protocol" below.
+  `player.html` independently (their own device) and joins the GM's short
+  room code via PeerJS (`js/shared/webrtc.js`); once paired, GM → player
+  traffic flows over a WebRTC data connection instead of `postMessage`.
+  Nothing but the synced state crosses the boundary. See "Player sync
+  protocol" below.
 
 ## Directory layout
 
@@ -64,16 +64,18 @@ js/shared/            Used by BOTH windows — loaded first, before js/gm or js/
   scene-render.js       drawMapAndGrid, drawTokenBasic (photo/color+ring+initials+name — no bars/effects)
   vision-math.js        tokenVisionReach(t) — the reach formula both windows need
   fx-trail.js           cosmetic FX trail (explosion/fire/smoke/heal): FX_TYPES defs, spawnFx/drawFx/hasActiveFx, self-driven rAF loop that keeps calling window.RPG.draw() while any effect is animating. Never touches tokens/walls/fog/state — purely visual, drawn on top of everything in both draw() loops
-  webrtc.js             createHostConnection (GM) / createGuestConnection (player) — RTCPeerConnection + manual offer/answer SDP<->base64 code encoding, no signaling server. Pure plumbing, no state/allTokens dependency — see "Player sync protocol"
+  webrtc.js             createHost (GM) / joinHost (player) — thin wrapper over PeerJS: short room-code generation, code<->peer-id mapping, STUN config, describePeerError. Pure plumbing, no state/allTokens dependency — see "Player sync protocol"
 
 js/vendor/              third-party code vendored on disk (no CDN, no bundler/npm)
-  qrcode.min.js          davidshimjs/qrcodejs — renders a code string as a QR <canvas>, used by both js/gm/sync.js's invite modal and js/player/sync.js's entry screen
+  peerjs.min.js          PeerJS 1.5.4 — WebRTC + public signaling broker; exposes window.Peer. Wrapped by js/shared/webrtc.js
+  qrcode.min.js          davidshimjs/qrcodejs — renders the join URL as a QR <canvas> in js/gm/sync.js's invite modal
+  jsQR.js                cozmo/jsQR — decodes QR from camera frames in js/player/sync.js. NOTE: webpack UMD bundle with an ESM default export, so window.jsQR is the module object; the callable is window.jsQR.default
 
 js/gm/                 GM-only — master.html
   state.js              allTokens, state (current-scene view), constants, DOM canvas/viewport refs
   history.js            undo/redo: snapshot-based, scoped to current scene's tokens/fog/walls — captureBeforeChange/undo/redo
   scenes.js             scenes[], currentSceneId, switchScene/createScene/bringTokenToCurrentScene, bringCarry, scene folders[] + multi-select (see "Scenes" below)
-  sync.js               sendState/sendStateForced, sceneSyncPending gate, "🔗 Convidar jogador" modal (WebRTC offer/answer handshake), broadcasts state to every connected peer's RTCDataChannel — see "Player sync protocol"
+  sync.js               sendState/sendStateForced, sceneSyncPending gate, "🔗 Convidar jogador" modal (room code + QR), broadcasts state to every connected PeerJS DataConnection — see "Player sync protocol"
   draw.js               draw() — the GM canvas render loop (map, grid, tokens, fog tint, walls, cones, handles)
   vision-preview.js      GM-only cosmetic vision-cone glow (NOT occluded by walls — preview only)
   hit-test.js           tokenAt/fogRectAt/wallAt/effectDotAt/distToSegment/snapToCardinal/snapWallEndpoint
@@ -100,7 +102,7 @@ js/gm/                 GM-only — master.html
 
 js/player/              Player-only — player.html
   state.js              state (received-from-GM view), cam, drag, exploredCells
-  sync.js               entry screen (#entryOverlay: name + WebRTC offer/answer handshake), RTCDataChannel message receiver ('rpg-state'/'rpg-fx'/'rpg-theme'), status banner, init
+  sync.js               entry screen (#entryOverlay: name + room code, typed or camera-scanned; ?mesa=CODE auto-joins), PeerJS message receiver ('rpg-state'/'rpg-fx'/'rpg-theme'), status banner, init
   draw.js               draw() — the player canvas render loop (live scene + fog compositing)
   vision-fog.js         wall-occlusion raycasting engine (segmentsIntersect, punchVisionCone, occludeConeMaskBy{Cell,Raycast})
   memory.js             frozen exploration-memory canvas (world-space, grows/re-anchors, per-cell snapshot freeze)
@@ -134,7 +136,7 @@ anything when you test it, that's why — you're editing dead code. Check
 
 `master.html`:
 ```
-js/vendor/qrcode.min.js → js/shared/webrtc.js
+js/vendor/qrcode.min.js → js/vendor/peerjs.min.js → js/shared/webrtc.js
 → js/shared/camera.js → js/shared/photo-cache.js → js/shared/object-cache.js → js/shared/bars.js
 → js/shared/scene-render.js → js/shared/vision-math.js → js/shared/fx-trail.js
 → js/gm/state.js → js/gm/history.js → js/gm/scenes.js → js/gm/sync.js
@@ -150,7 +152,7 @@ js/vendor/qrcode.min.js → js/shared/webrtc.js
 
 `player.html`:
 ```
-js/vendor/qrcode.min.js → js/shared/webrtc.js
+js/vendor/qrcode.min.js → js/vendor/peerjs.min.js → js/shared/webrtc.js
 → js/shared/camera.js → js/shared/photo-cache.js → js/shared/object-cache.js → js/shared/bars.js
 → js/shared/scene-render.js → js/shared/vision-math.js → js/shared/fx-trail.js
 → js/player/state.js → js/player/memory.js → js/player/vision-fog.js
@@ -363,22 +365,39 @@ know scenes exist at all.
 
 ## Player sync protocol
 
-**Transport**: no signaling server exists (GitHub Pages is static hosting),
-so GM↔player pairing is a manual WebRTC offer/answer handshake
-(`js/shared/webrtc.js`'s `createHostConnection`/`createGuestConnection`,
-STUN-only via a public Google STUN server, no TURN). The GM's "🔗 Convidar
-jogador" modal (`js/gm/sync.js`) generates an offer code (shown as text +
-QR via `js/vendor/qrcode.min.js`) per player; the player's entry screen
-(`player.html`'s `#entryOverlay`, handled in `js/player/sync.js`) pastes
-that code, generates an answer code, and sends it back to the GM to paste
-into the same modal. Once the `RTCDataChannel` opens, all messages below
-flow over it as JSON strings instead of `postMessage`. The GM can have
-**N simultaneous peer connections** (`js/gm/sync.js`'s `peers[]`), one per
-player device — this replaced the old single `window.open('player.html', ...)`
-same-browser model entirely; there is no `openPlayerBtn`/child window anymore.
+**Transport**: **PeerJS** (`js/vendor/peerjs.min.js`, wrapped by
+`js/shared/webrtc.js`'s `createHost`/`joinHost`). The GM claims one short
+room code (5 chars from an unambiguous alphabet — no 0/O/1/I/L — namespaced
+as `rpgmesa-<CODE>` on the broker) and every player joins that same code.
+Game data still travels peer-to-peer over WebRTC; the public PeerJS broker
+carries only the handshake. STUN-only (Google), no TURN — so symmetric-NAT
+to symmetric-NAT can still fail, which would need a relay we don't host.
 
-GM broadcasts message type `'rpg-state'` to every open peer channel (see
-`js/gm/sync.js`'s `doSendState`/`broadcast`):
+**Why not raw `RTCPeerConnection`:** a manual offer/answer handshake has to
+move the whole SDP in **both** directions — and a 32-byte random DTLS
+fingerprint is incompressible, flooring each code near ~100 chars even after
+stripping SDP to its essential fields and deflating. That produced QR codes
+too dense for a phone camera to read off a monitor, plus forced the player to
+hand a second code back to the GM. Trading the "zero servers" purity for a
+signaling-only broker is what buys the one-way, 5-character flow.
+
+The GM's "🔗 Convidar jogador" modal (`js/gm/sync.js`) shows the room code
+big, plus a QR of `player.html?mesa=<CODE>` (via `js/vendor/qrcode.min.js`)
+— scanning it lands the player straight in the game, no typing. The player's
+entry screen (`player.html`'s `#entryOverlay`, handled in
+`js/player/sync.js`) takes a name + the code, typed or read from the camera
+(`js/vendor/jsQR.js`), and **nothing goes back to the GM**. The room is
+opened lazily on first invite and kept alive for the session — closing the
+dialog does not tear it down, or codes already handed out would break.
+
+The GM can have **N simultaneous connections** (`js/gm/sync.js`'s `peers[]`),
+one per player device. This replaced the old single
+`window.open('player.html', ...)` same-browser model entirely; there is no
+`openPlayerBtn`/child window anymore.
+
+GM broadcasts message type `'rpg-state'` to every open connection (see
+`js/gm/sync.js`'s `doSendState`/`broadcast`). PeerJS serializes objects
+itself, so these are sent as plain objects, not `JSON.stringify`'d strings:
 ```js
 {
   type: 'rpg-state',
@@ -387,11 +406,16 @@ GM broadcasts message type `'rpg-state'` to every open peer channel (see
   map: { scalePct, dataUrl? } // dataUrl: string = new, null = removed, absent = unchanged
 }
 ```
-A newly-opened data channel triggers a forced full sync (`sendStateForced(true)`)
-the moment it reaches `readyState === 'open'` — equivalent to the old
-`'rpg-player-ready'` handshake, but peer-initiated by the channel's `open`
-event instead of an explicit ready message (there's no `window.opener` to
-message back through anymore).
+A newly-opened connection triggers a forced full sync (`sendStateForced(true)`)
+from `attachPeer()` — equivalent to the old `'rpg-player-ready'` handshake,
+but driven by PeerJS's `connection`/`open` events rather than an explicit
+ready message.
+
+The player sends exactly one message ever, on connect — everything else is
+one-way GM→player:
+```js
+{ type: 'rpg-hello', name }   // labels the GM's player list; GM never types a player's name
+```
 
 **Only `js/gm/sync.js`'s `sendState()`/`broadcast()` send updates; every
 player peer is read-only** and never sends anything back over the channel
