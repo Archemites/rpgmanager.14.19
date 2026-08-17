@@ -33,7 +33,7 @@
     const w = canvas.width, h = canvas.height;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = state.map.bgColor || '#03140a';
+    ctx.fillStyle = state.map.bgColor || window.RPG.getThemeMapBg();
     ctx.fillRect(0, 0, w, h);
 
     const s = cam.zoom * dpr;

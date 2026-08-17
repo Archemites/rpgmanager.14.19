@@ -21,8 +21,8 @@
 
   let nextSceneId = 2;
   const scenes = [
-    { id: 1, name: 'Cena 1', map: { img: null, scalePct: 100, dataUrl: null, bgColor: '#03140a' }, fog: [], walls: [], notes: [], objects: [],
-      grid: { show: true, size: 48, color: '#45ff78' }, combat: { active: false, order: [] },
+    { id: 1, name: 'Cena 1', map: { img: null, scalePct: 100, dataUrl: null, bgColor: null }, fog: [], walls: [], notes: [], objects: [],
+      grid: { show: true, size: 48, color: null }, combat: { active: false, order: [] },
       nextFogId: 1, nextWallId: 1, nextNoteId: 1, nextObjectId: 1, folderId: null },
   ];
   let currentSceneId = 1;
@@ -125,9 +125,10 @@
     const sc = {
       id: nextSceneId++,
       name: name || `Cena ${scenes.length + 1}`,
-      map: { img: null, scalePct: 100, dataUrl: null, bgColor: '#03140a' },
+      // bgColor: null = no manual override, follows the current theme's --map-bg
+      map: { img: null, scalePct: 100, dataUrl: null, bgColor: null },
       fog: [], walls: [], notes: [], objects: [],
-      grid: { show: true, size: 48, color: '#45ff78' },
+      grid: { show: true, size: 48, color: null },  // null = no manual override, follows theme's --accent
       combat: { active: false, order: [] },
       nextFogId: 1, nextWallId: 1, nextNoteId: 1, nextObjectId: 1,
       folderId: null,
@@ -339,7 +340,7 @@
   function drawSceneThumb(canvasEl, sc) {
     const tctx = canvasEl.getContext('2d');
     tctx.clearRect(0, 0, THUMB_W, THUMB_H);
-    tctx.fillStyle = sc.map.bgColor || '#03140a';
+    tctx.fillStyle = sc.map.bgColor || window.RPG.getThemeMapBg();
     tctx.fillRect(0, 0, THUMB_W, THUMB_H);
     if (sc.map.img) {
       const scale = sc.map.scalePct / 100;

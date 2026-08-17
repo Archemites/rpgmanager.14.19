@@ -32,8 +32,8 @@
     window.RPG.createCamera(canvas, viewport);
 
   const state = {
-    grid: { show: true, size: 48, color: '#45ff78' },
-    map: { img: null, scalePct: 100, bgColor: '#03140a' },
+    grid: { show: true, size: 48, color: null },  // null = follow theme's --accent
+    map: { img: null, scalePct: 100, bgColor: null },  // null = no GM override, follow theme's --map-bg
     tokens: [],
     fog: [],
     walls: [],   // GM-only line-of-sight blockers: {id, x1, y1, x2, y2}, used only to occlude vision here
@@ -155,6 +155,21 @@
 
   window.RPG.state = state;
   window.RPG.getState = () => state;
+
+  // Resolves the active theme's default map background (--map-bg), mirrored
+  // from js/gm/theme.js's rpg-theme message. Fallback when a scene has no
+  // GM-set bgColor override.
+  window.RPG.getThemeMapBg = () => {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--map-bg').trim();
+    return v || '#03140a';
+  };
+
+  // Resolves the active theme's accent color, used as the default grid line
+  // color. Fallback when a scene has no GM-set grid.color override.
+  window.RPG.getThemeGridColor = () => {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    return v || '#45ff78';
+  };
 
   window.RPG.getTokenPhotoImg = getTokenPhotoImg;
   window.RPG.getObjectImg = getObjectImg;

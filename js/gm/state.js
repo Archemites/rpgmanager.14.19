@@ -34,8 +34,8 @@
   const allTokens = [];
 
   const state = {
-    grid: { show: true, size: 48, color: '#45ff78' },
-    map: { img: null, scalePct: 100, dataUrl: null, bgColor: '#03140a' },  // image is centered on world origin (0,0); bgColor fills the canvas behind/around it, per-scene
+    grid: { show: true, size: 48, color: null },  // null = follow theme's --accent
+    map: { img: null, scalePct: 100, dataUrl: null, bgColor: null },  // image is centered on world origin (0,0); bgColor fills the canvas behind/around it, per-scene; null = follow theme's --map-bg
     tokens: [],                          // VIEW: tokens present in the open scene — see refreshVisibleTokens()
     fog: [],                             // {id, x, y, w, h} rects hiding the map, world coords
     // Walls = GM-only line-of-sight blockers. {id, x1, y1, x2, y2} world-coord segments.

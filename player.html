@@ -15,6 +15,32 @@
 <link rel="stylesheet" href="css/player.css">
 </head>
 <body>
+<div id="entryOverlay" class="modal-overlay open">
+  <div class="modal-dialog">
+    <h3>Entrar na mesa</h3>
+    <div class="hint hint-m0">&gt; Conexão direta (P2P) com o mestre, sem servidor. Peça ao mestre o código de convite.</div>
+    <div id="entryStep1">
+      <div class="field">
+        <label for="entryNameInput">Seu nome</label>
+        <input type="text" id="entryNameInput" placeholder="Ex: Aragorn">
+      </div>
+      <div class="field">
+        <label for="entryOfferInput">Código de convite do mestre</label>
+        <textarea id="entryOfferInput" rows="4" placeholder="Cole aqui o código enviado pelo mestre"></textarea>
+      </div>
+      <button type="button" id="entryJoinBtn">Entrar</button>
+    </div>
+    <div id="entryStep2" class="hidden">
+      <div class="field">
+        <label for="entryAnswerCode">Código de resposta (envie ao mestre)</label>
+        <textarea id="entryAnswerCode" rows="4" readonly aria-label="Código de resposta"></textarea>
+        <div id="entryAnswerQr"></div>
+      </div>
+    </div>
+    <div id="entryStatus" class="hint hint-m0"></div>
+  </div>
+</div>
+
 <div id="viewport">
   <canvas id="canvas"></canvas>
   <div id="status">Aguardando conexão com o mestre…</div>
@@ -26,6 +52,8 @@
 </div>
 
 <!-- Shared modules (both windows) -->
+<script src="js/vendor/qrcode.min.js"></script>
+<script src="js/shared/webrtc.js"></script>
 <script src="js/shared/camera.js"></script>
 <script src="js/shared/photo-cache.js"></script>
 <script src="js/shared/object-cache.js"></script>

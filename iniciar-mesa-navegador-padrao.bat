@@ -23,4 +23,4 @@ start "mesa-server" cmd /c "cd /d "%DIR%" && npx serve -l %PORT%"
 REM  Da um tempo para o servidor subir antes de abrir o navegador.
 timeout /t 2 /nobreak >nul
 
-start "" "http://localhost:%PORT%/index.html"
+start "" "http://localhost:%PORT%/login.html"

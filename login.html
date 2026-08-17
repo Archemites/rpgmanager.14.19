@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mesa de RPG — Entrar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<!-- Stylesheets -->
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/crt-effects.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/modals.css">
+<style>
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+  }
+  #loginCard {
+    width: 100%;
+    max-width: 380px;
+    margin: 24px;
+  }
+  #loginCard h1 {
+    margin: 0 0 4px;
+    font-size: 20px;
+    text-transform: var(--text-transform);
+    letter-spacing: var(--head-letter-spacing);
+    text-shadow: var(--glow-strong);
+  }
+  #roleButtons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #roleButtons button { width: 100%; padding: 14px; font-size: 15px; }
+</style>
+</head>
+<body>
+<div id="loginCard" class="modal-dialog">
+  <div>
+    <h1>MESA://RPG v0.1</h1>
+    <div class="hint hint-m0">&gt; Selecione seu papel para entrar na mesa.</div>
+  </div>
+  <div id="roleButtons">
+    <button type="button" id="roleMasterBtn">🎲 Sou o Mestre</button>
+    <button type="button" class="secondary" id="rolePlayerBtn">🧙 Sou Jogador</button>
+  </div>
+</div>
+<script>
+  document.getElementById('roleMasterBtn').addEventListener('click', () => {
+    window.location.href = 'master.html';
+  });
+  document.getElementById('rolePlayerBtn').addEventListener('click', () => {
+    window.location.href = 'player.html';
+  });
+</script>
+</body>
+</html>

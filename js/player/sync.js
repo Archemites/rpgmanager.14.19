@@ -1,6 +1,7 @@
 /* ============================================================
-   Player sync: postMessage receiver ('rpg-state'), 'rpg-player-ready'
-   handshake, status banner, init. Loads absolute last among player files.
+   Player sync: entry screen (name + WebRTC invite code handshake), then
+   consumes 'rpg-state'/'rpg-fx'/'rpg-theme' messages over the data channel.
+   Loads absolute last among player files.
    ============================================================ */
 
 (() => {
@@ -9,8 +10,21 @@
   const state = window.RPG.state;
   const showStatus = window.RPG.showStatus;
 
-  window.addEventListener('message', (e) => {
-    const msg = e.data;
+  const NAME_KEY = 'rpg-player-name';
+
+  const entryOverlay = document.getElementById('entryOverlay');
+  const entryStep1 = document.getElementById('entryStep1');
+  const entryStep2 = document.getElementById('entryStep2');
+  const entryNameInput = document.getElementById('entryNameInput');
+  const entryOfferInput = document.getElementById('entryOfferInput');
+  const entryJoinBtn = document.getElementById('entryJoinBtn');
+  const entryAnswerCode = document.getElementById('entryAnswerCode');
+  const entryAnswerQr = document.getElementById('entryAnswerQr');
+  const entryStatus = document.getElementById('entryStatus');
+
+  entryNameInput.value = localStorage.getItem(NAME_KEY) || '';
+
+  function handleMessage(msg) {
     if (msg && msg.type === 'rpg-fx') {
       if (window.RPG.spawnFx) window.RPG.spawnFx(msg.fxType, msg.x, msg.y, msg.opts);
       return;
@@ -20,6 +34,7 @@
       const THEMES = ['cyberpunk', 'dnd', 'cthulhu', 'black', 'cream'];
       const theme = THEMES.includes(msg.theme) ? msg.theme : 'cyberpunk';
       document.documentElement.setAttribute('data-theme', theme);
+      window.RPG.draw();
       return;
     }
     if (!msg || msg.type !== 'rpg-state') return;
@@ -37,7 +52,7 @@
     state.wallOcclusionMethod = msg.wallOcclusionMethod || 'cell';
     state.activeVisionTokenId = ('activeVisionTokenId' in msg) ? msg.activeVisionTokenId : null;
     state.map.scalePct = msg.map.scalePct;
-    state.map.bgColor = msg.map.bgColor || '#03140a';
+    state.map.bgColor = msg.map.bgColor || null;
     state.combat = msg.combat || { active: false, order: [] };
     state.partyBars = msg.partyBars || [];
     state.lighting = (typeof msg.lighting === 'number') ? msg.lighting : 1;
@@ -65,14 +80,63 @@
 
     showStatus('Conectado ao mestre ✓', true);
     window.RPG.draw();
-  });
-
-  // ask the master (opener) for the current state
-  if (window.opener) {
-    window.opener.postMessage({ type: 'rpg-player-ready' }, '*');
-  } else {
-    showStatus('Abra esta tela pelo botão "Tela do jogador" no app do mestre.');
   }
+
+  function onConnected(channel) {
+    entryOverlay.classList.add('hidden');
+    channel.addEventListener('message', (e) => {
+      try { handleMessage(JSON.parse(e.data)); } catch (_) {}
+    });
+    channel.addEventListener('close', () => {
+      showStatus('Conexão com o mestre perdida.');
+      entryOverlay.classList.remove('hidden');
+      entryStep1.classList.remove('hidden');
+      entryStep2.classList.add('hidden');
+      entryStatus.textContent = 'Conexão perdida — cole um novo código de convite para reconectar.';
+    });
+  }
+
+  entryJoinBtn.addEventListener('click', async () => {
+    const name = entryNameInput.value.trim();
+    if (name) localStorage.setItem(NAME_KEY, name);
+
+    const offerCode = entryOfferInput.value.trim();
+    if (!offerCode) return;
+
+    entryStatus.textContent = 'Gerando resposta…';
+    let guest;
+    try {
+      guest = window.RPG.createGuestConnection(offerCode);
+    } catch (err) {
+      entryStatus.textContent = 'Código de convite inválido.';
+      return;
+    }
+
+    let answerCode;
+    try {
+      answerCode = await guest.createAnswerCode();
+    } catch (err) {
+      entryStatus.textContent = 'Não foi possível processar o código de convite.';
+      return;
+    }
+
+    entryAnswerCode.value = answerCode;
+    entryAnswerQr.innerHTML = '';
+    if (window.QRCode) {
+      new QRCode(entryAnswerQr, { text: answerCode, width: 200, height: 200 });
+    }
+    entryStatus.textContent = 'Envie o código de resposta acima ao mestre. Aguardando conexão…';
+    entryStep1.classList.add('hidden');
+    entryStep2.classList.remove('hidden');
+
+    guest.channelPromise.then((channel) => {
+      if (channel.readyState === 'open') {
+        onConnected(channel);
+      } else {
+        channel.addEventListener('open', () => onConnected(channel), { once: true });
+      }
+    });
+  });
 
   // ---------- Init ----------
   window.RPG.resizeCanvas();

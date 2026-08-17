@@ -25,8 +25,9 @@
 
     <div class="section">
       <h2>Jogadores</h2>
-      <button class="full" id="openPlayerBtn">🖥️ Abrir tela do jogador</button>
-      <button class="full mt-10" id="updatePlayerBtn" title="Envia o estado atual (mapa, tokens, névoa, paredes) para a tela do jogador. Necessário depois de trocar de cena — a troca fica retida até você confirmar aqui.">🔄 Atualizar tela do jogador</button>
+      <button class="full" id="openInviteBtn">🔗 Convidar jogador</button>
+      <button class="full mt-10" id="updatePlayerBtn" title="Envia o estado atual (mapa, tokens, névoa, paredes) para todos os jogadores conectados. Necessário depois de trocar de cena — a troca fica retida até você confirmar aqui.">🔄 Atualizar telas dos jogadores</button>
+      <div id="peerList"></div>
       <button class="full mt-10" id="openGlossaryBtn">📖 Glossário de efeitos</button>
       <button class="full mt-10" id="openDiceBtn">🎲 Rolar dados</button>
     </div>
@@ -369,6 +370,40 @@
   </div>
 </div>
 
+<!-- Invite player modal -->
+<div id="inviteOverlay" class="modal-overlay">
+  <div id="inviteModal" class="modal-dialog">
+    <h3>Convidar jogador</h3>
+    <div class="hint hint-m0">&gt; Conexão direta (P2P), sem servidor. Compartilhe o código/QR abaixo com o jogador; ele vai colar um código de resposta para completar a conexão.</div>
+    <div class="field">
+      <label for="inviteNameInput">Nome do jogador (opcional, só para sua referência)</label>
+      <input type="text" id="inviteNameInput" placeholder="Ex: Aragorn">
+    </div>
+    <div id="inviteStep1">
+      <button type="button" id="inviteGenerateBtn">Gerar convite</button>
+    </div>
+    <div id="inviteStep2" class="hidden">
+      <div class="field">
+        <label for="inviteOfferCode">Código de convite (envie ao jogador)</label>
+        <textarea id="inviteOfferCode" rows="4" readonly aria-label="Código de convite"></textarea>
+        <div id="inviteOfferQr"></div>
+      </div>
+      <div class="field">
+        <label for="inviteAnswerInput">Cole aqui o código de resposta do jogador</label>
+        <textarea id="inviteAnswerInput" rows="4" placeholder="Cole o código de resposta aqui"></textarea>
+      </div>
+      <div id="inviteActions">
+        <button type="button" class="secondary" id="inviteCancelBtn">Cancelar</button>
+        <button type="button" id="inviteConnectBtn">Conectar</button>
+      </div>
+      <div id="inviteStatus" class="hint hint-m0"></div>
+    </div>
+    <div id="inviteCloseRow">
+      <button type="button" class="secondary" id="inviteCloseBtn">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Dice roller modal -->
 <div id="diceOverlay" class="modal-overlay">
   <div id="diceModal" class="modal-dialog">
@@ -629,6 +664,8 @@
 </div>
 
 <!-- Shared modules (both windows) -->
+<script src="js/vendor/qrcode.min.js"></script>
+<script src="js/shared/webrtc.js"></script>
 <script src="js/shared/camera.js"></script>
 <script src="js/shared/photo-cache.js"></script>
 <script src="js/shared/object-cache.js"></script>

@@ -1,7 +1,7 @@
 /* ============================================================
-   GM sync: sendState/sendStateForced, sceneSyncPending gate, postMessage to
-   the player window. See ARCHITECTURE.md "Player sync protocol" +
-   "Player sync gate".
+   GM sync: sendState/sendStateForced, sceneSyncPending gate, broadcasts
+   over WebRTC data channels to every connected player peer. See
+   ARCHITECTURE.md "Player sync protocol" + "Player sync gate".
    ============================================================ */
 
 (() => {
@@ -9,23 +9,26 @@
 
   const state = window.RPG.state;
 
-  let playerWin = null;
+  // Each entry: { id, name, pc, channel, connected }. One RTCPeerConnection
+  // per player — there's no signaling server, so each connects via a
+  // manually-exchanged offer/answer code (see js/shared/webrtc.js).
+  let peers = [];
+  let nextPeerId = 1;
 
   // Gate that holds back sendState() after a scene switch: the GM may need to
   // set up fog/tokens in the new scene before the players see it. While
-  // pending, every sendState() call is silently dropped — the player window
-  // keeps showing the OLD scene exactly as it was — until the GM clicks
-  // "🔄 Atualizar tela do jogador", which clears the gate and force-sends.
+  // pending, every sendState() call is silently dropped — the player windows
+  // keep showing the OLD scene exactly as it was — until the GM clicks
+  // "🔄 Atualizar telas dos jogadores", which clears the gate and force-sends.
   let sceneSyncPending = false;
 
   // Dozens of call sites (token drag, wall/fog drawing, rotation) call
-  // sendState() on every 'mousemove' — postMessage structured-clones the
-  // whole tokens/fog/walls/objects payload AND makes the player window redo
-  // its full draw()+fog composite, so firing it on every pixel of mouse
-  // movement was costing real frame time on both windows for no visible
-  // benefit (the player only ever sees the latest position anyway).
-  // Coalesce to at most one send per animation frame; sendStateForced always
-  // bypasses this (immediate) since it's a deliberate one-off user action.
+  // sendState() on every 'mousemove' — serializing/broadcasting the whole
+  // tokens/fog/walls/objects payload to every peer on every pixel of mouse
+  // movement was costing real frame time for no visible benefit (players
+  // only ever see the latest position anyway). Coalesce to at most one send
+  // per animation frame; sendStateForced always bypasses this (immediate)
+  // since it's a deliberate one-off user action.
   let pendingIncludeMap = false;
   let sendRafId = null;
 
@@ -38,18 +41,25 @@
 
   // includeMap: send the (heavy) map image too — only on map changes / player connect
   function sendState(includeMap) {
-    if (!playerWin || playerWin.closed) return;
     if (sceneSyncPending) return;
     if (includeMap) pendingIncludeMap = true;
     if (sendRafId === null) sendRafId = requestAnimationFrame(flushSendState);
   }
 
+  function broadcast(msg) {
+    const json = JSON.stringify(msg);
+    for (const peer of peers) {
+      if (peer.channel && peer.channel.readyState === 'open') {
+        peer.channel.send(json);
+      }
+    }
+  }
+
   function doSendState(includeMap) {
-    if (!playerWin || playerWin.closed) return;
     if (sceneSyncPending) return;
-    const map = { scalePct: state.map.scalePct, bgColor: state.map.bgColor || '#03140a' };
+    const map = { scalePct: state.map.scalePct, bgColor: state.map.bgColor || null };
     if (includeMap) map.dataUrl = state.map.dataUrl; // string or null (null = remove map)
-    playerWin.postMessage({
+    broadcast({
       type: 'rpg-state',
       grid: state.grid,
       tokens: state.tokens,
@@ -65,11 +75,11 @@
       // player window — lets the GM control which party member is "active"
       // when there are several, instead of all of them revealing at once.
       activeVisionTokenId: state.selectedTokenId,
-    }, '*');
+    });
   }
 
-  // Force-send regardless of the pending gate — used when the player window
-  // just opened (it has nothing yet) and by the "update player view" button.
+  // Force-send regardless of the pending gate — used when a new peer just
+  // connected (it has nothing yet) and by the "update player screens" button.
   function sendStateForced(includeMap) {
     sceneSyncPending = false;
     updatePlayerBtn.classList.remove('pending');
@@ -78,44 +88,142 @@
     doSendState(includeMap);
   }
 
-  window.addEventListener('message', (e) => {
-    if (e.data && e.data.type === 'rpg-player-ready') {
-      sendStateForced(true);
-      // the freshly-opened player window has the default theme — push the
-      // GM's current one so both windows match immediately
-      if (window.RPG.getTheme) sendTheme(window.RPG.getTheme());
-    }
-  });
-
-  // Broadcast the current table theme to the player window (the whole-app CSS
-  // skin — see js/gm/theme.js). Separate one-shot message like sendFx, not
-  // part of the scene state / sync gate.
+  // Broadcast the current table theme to every player peer (the whole-app
+  // CSS skin — see js/gm/theme.js). Separate one-shot message like sendFx,
+  // not part of the scene state / sync gate.
   function sendTheme(theme) {
-    if (!playerWin || playerWin.closed) return;
-    playerWin.postMessage({ type: 'rpg-theme', theme }, '*');
+    broadcast({ type: 'rpg-theme', theme });
   }
 
-  document.getElementById('openPlayerBtn').addEventListener('click', () => {
-    if (playerWin && !playerWin.closed) { playerWin.focus(); return; }
-    // popup=yes + toolbar/location/menubar=no strips as much browser chrome as
-    // the browser allows from script; the rest (Chromium's read-only URL strip)
-    // only goes away in fullscreen — js/player/fullscreen.js handles that.
-    playerWin = window.open(
-      'player.html', 'rpg-player',
-      'popup=yes,width=1024,height=768,toolbar=no,location=no,menubar=no,status=no,scrollbars=no,resizable=yes'
-    );
+  // Broadcast a cosmetic FX spawn — separate from sendState/the scene-sync
+  // gate on purpose: a one-shot animation trigger, not persistent state, so
+  // it always fires immediately even mid-gate.
+  function sendFx(type, x, y, opts) {
+    broadcast({ type: 'rpg-fx', fxType: type, x, y, opts });
+  }
+
+  function renderPeerList() {
+    const el = document.getElementById('peerList');
+    el.innerHTML = '';
+    for (const peer of peers) {
+      const row = document.createElement('div');
+      row.className = 'peer-row';
+      const status = peer.connected ? '🟢' : '⏳';
+      row.textContent = `${status} ${peer.name || 'Jogador'}`;
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'secondary';
+      removeBtn.textContent = '✕';
+      removeBtn.title = 'Desconectar';
+      removeBtn.addEventListener('click', () => removePeer(peer.id));
+      row.appendChild(removeBtn);
+      el.appendChild(row);
+    }
+  }
+
+  function removePeer(peerId) {
+    const idx = peers.findIndex((p) => p.id === peerId);
+    if (idx === -1) return;
+    try { peers[idx].pc.close(); } catch (_) {}
+    peers.splice(idx, 1);
+    renderPeerList();
+  }
+
+  // ---------- Invite modal (offer/answer handshake, no signaling server) ----------
+  const inviteOverlay = document.getElementById('inviteOverlay');
+  const inviteNameInput = document.getElementById('inviteNameInput');
+  const inviteStep1 = document.getElementById('inviteStep1');
+  const inviteStep2 = document.getElementById('inviteStep2');
+  const inviteOfferCode = document.getElementById('inviteOfferCode');
+  const inviteOfferQr = document.getElementById('inviteOfferQr');
+  const inviteAnswerInput = document.getElementById('inviteAnswerInput');
+  const inviteStatus = document.getElementById('inviteStatus');
+
+  let pendingHost = null; // { pc, channel, createOfferCode, acceptAnswerCode }
+  let pendingPeerId = null;
+
+  function resetInviteModal() {
+    inviteStep1.classList.remove('hidden');
+    inviteStep2.classList.add('hidden');
+    inviteNameInput.value = '';
+    inviteOfferCode.value = '';
+    inviteOfferQr.innerHTML = '';
+    inviteAnswerInput.value = '';
+    inviteStatus.textContent = '';
+    pendingHost = null;
+    pendingPeerId = null;
+  }
+
+  document.getElementById('openInviteBtn').addEventListener('click', () => {
+    resetInviteModal();
+    inviteOverlay.classList.add('open');
+  });
+
+  document.getElementById('inviteCloseBtn').addEventListener('click', () => {
+    inviteOverlay.classList.remove('open');
+    if (pendingPeerId !== null) removePeer(pendingPeerId);
+    resetInviteModal();
+  });
+
+  inviteOverlay.addEventListener('click', (e) => {
+    if (e.target !== inviteOverlay) return;
+    inviteOverlay.classList.remove('open');
+    if (pendingPeerId !== null) removePeer(pendingPeerId);
+    resetInviteModal();
+  });
+
+  document.getElementById('inviteCancelBtn').addEventListener('click', () => {
+    if (pendingPeerId !== null) removePeer(pendingPeerId);
+    resetInviteModal();
+  });
+
+  document.getElementById('inviteGenerateBtn').addEventListener('click', async () => {
+    const name = inviteNameInput.value.trim() || 'Jogador';
+    pendingHost = window.RPG.createHostConnection();
+    const peerId = nextPeerId++;
+    pendingPeerId = peerId;
+    const peer = { id: peerId, name, pc: pendingHost.pc, channel: pendingHost.channel, connected: false };
+    peers.push(peer);
+    renderPeerList();
+
+    peer.channel.addEventListener('open', () => {
+      peer.connected = true;
+      renderPeerList();
+      inviteStatus.textContent = `Conectado a ${peer.name} ✓`;
+      // freshly-connected peer has never seen any state — force a full sync
+      sendStateForced(true);
+      if (window.RPG.getTheme) sendTheme(window.RPG.getTheme());
+    });
+    peer.channel.addEventListener('close', () => {
+      peer.connected = false;
+      renderPeerList();
+    });
+
+    inviteStatus.textContent = 'Gerando código…';
+    const offerCode = await pendingHost.createOfferCode();
+    inviteOfferCode.value = offerCode;
+    if (window.QRCode) {
+      inviteOfferQr.innerHTML = '';
+      new QRCode(inviteOfferQr, { text: offerCode, width: 200, height: 200 });
+    }
+    inviteStatus.textContent = 'Envie o código acima ao jogador e cole a resposta dele abaixo.';
+    inviteStep1.classList.add('hidden');
+    inviteStep2.classList.remove('hidden');
+  });
+
+  document.getElementById('inviteConnectBtn').addEventListener('click', async () => {
+    if (!pendingHost) return;
+    const answerCode = inviteAnswerInput.value.trim();
+    if (!answerCode) return;
+    try {
+      inviteStatus.textContent = 'Conectando…';
+      await pendingHost.acceptAnswerCode(answerCode);
+    } catch (err) {
+      inviteStatus.textContent = 'Código de resposta inválido.';
+    }
   });
 
   const updatePlayerBtn = document.getElementById('updatePlayerBtn');
   updatePlayerBtn.addEventListener('click', () => sendStateForced(true));
-
-  // Broadcast a cosmetic FX spawn to the player window — separate from
-  // sendState/the scene-sync gate on purpose: a one-shot animation trigger,
-  // not persistent state, so it always fires immediately even mid-gate.
-  function sendFx(type, x, y, opts) {
-    if (!playerWin || playerWin.closed) return;
-    playerWin.postMessage({ type: 'rpg-fx', fxType: type, x, y, opts }, '*');
-  }
 
   // ---------- Expose to window.RPG ----------
   window.RPG.sendState = sendState;

@@ -30,11 +30,11 @@
     mapScale.disabled = !hasMap;
     removeMapBtn.disabled = !hasMap;
     mapLabel.textContent = hasMap ? (state.map.name || 'mapa') : 'nenhum';
-    mapBgColor.value = state.map.bgColor || '#03140a';
+    mapBgColor.value = state.map.bgColor || window.RPG.getThemeMapBg();
     gridToggle.checked = state.grid.show;
     gridSize.value = state.grid.size;
     gridSizeVal.textContent = state.grid.size + 'px';
-    gridColor.value = state.grid.color;
+    gridColor.value = state.grid.color || window.RPG.getThemeGridColor();
   }
 
   // ---------- Map import ----------

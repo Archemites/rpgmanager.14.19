@@ -57,7 +57,7 @@
     ctx.clearRect(0, 0, w, h);
 
     // background — per-scene, GM-configurable (Ajustes > Mapa)
-    ctx.fillStyle = state.map.bgColor || '#03140a';
+    ctx.fillStyle = state.map.bgColor || window.RPG.getThemeMapBg();
     ctx.fillRect(0, 0, w, h);
 
     // camera transform (world → device pixels)
@@ -92,7 +92,7 @@
 
       if (gr > gl && gb > gt) {
         const g = state.grid.size;
-        ctx.strokeStyle = state.grid.color;
+        ctx.strokeStyle = state.grid.color || window.RPG.getThemeGridColor();
         ctx.globalAlpha = 0.3;
         ctx.lineWidth = 1 / cam.zoom;
         ctx.beginPath();

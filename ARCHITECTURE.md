@@ -19,13 +19,21 @@ of `import`/`export`.
   `window.RPG.thing = thing` near the end of its own script; a file that wants
   to consume it reads `window.RPG.thing`, and can only safely do so once its
   own code runs *after* the producing script tag.
+- **`login.html`** is the real entry point (what GitHub Pages/the .bat script
+  opens first): a role picker ("Sou o Mestre" / "Sou Jogador") that just
+  redirects to `master.html` or `player.html` — no shared state, no
+  `window.RPG`, plain `<script>` inline in the file itself. Visiting
+  `master.html`/`player.html` directly still works (no guard/redirect back to
+  `login.html`), it's just no longer the advertised link.
 - There are two independent apps sharing the same `js/shared/*` modules:
-  `index.html` (the GM/master window) and `player.html` (the read-only player
-  window, opened via `window.open` and kept in sync over `postMessage`).
+  `master.html` (the GM/master window) and `player.html` (the read-only
+  player window). They are separate page loads on potentially separate
+  machines now, paired via WebRTC (see "Player sync protocol" below) —
+  not `window.open`/`postMessage` between two windows in one browser.
 
 ## Two-window system
 
-- **`index.html` + `js/gm/*`** — the GM's full editing interface: map import,
+- **`master.html` + `js/gm/*`** — the GM's full editing interface: map import,
   token CRUD, fog/wall drawing tools, scene switching, combat tracker, party
   panel, glossary, bar editor, photo crop editor.
 - **`player.html` + `js/player/*`** — a read-only render target. It never
@@ -33,15 +41,18 @@ of `import`/`export`.
   `postMessage` from the GM window and redraws. Its one genuinely original
   subsystem is the vision/fog-of-war raycasting + exploration-memory engine,
   which has no counterpart on the GM side (see "Vision & fog of war" below).
-- The two windows are **not** iframes or tabs in the same document — the GM
-  opens the player window with `window.open('player.html', 'rpg-player', ...)`
-  and the two communicate purely through `postMessage`. Nothing but the
-  synced state crosses the boundary.
+- The two windows are **not** iframes or tabs in the same document, and are
+  no longer required to be on the same machine/browser. Each player opens
+  `player.html` independently (their own device) and pairs with the GM via a
+  manual WebRTC offer/answer handshake (`js/shared/webrtc.js`, no signaling
+  server); once paired, GM → player traffic flows over an `RTCDataChannel`
+  instead of `postMessage`. Nothing but the synced state crosses the
+  boundary. See "Player sync protocol" below.
 
 ## Directory layout
 
 ```
-index.html            GM window shell — loads js/shared/*, js/gm/*, js/features/measure.js
+master.html            GM window shell — loads js/shared/*, js/gm/*, js/features/measure.js
 player.html           Player window shell — loads js/shared/*, js/player/*
 css/                  theme.css, crt-effects.css, layout.css, components.css, modals.css
 
@@ -53,12 +64,16 @@ js/shared/            Used by BOTH windows — loaded first, before js/gm or js/
   scene-render.js       drawMapAndGrid, drawTokenBasic (photo/color+ring+initials+name — no bars/effects)
   vision-math.js        tokenVisionReach(t) — the reach formula both windows need
   fx-trail.js           cosmetic FX trail (explosion/fire/smoke/heal): FX_TYPES defs, spawnFx/drawFx/hasActiveFx, self-driven rAF loop that keeps calling window.RPG.draw() while any effect is animating. Never touches tokens/walls/fog/state — purely visual, drawn on top of everything in both draw() loops
+  webrtc.js             createHostConnection (GM) / createGuestConnection (player) — RTCPeerConnection + manual offer/answer SDP<->base64 code encoding, no signaling server. Pure plumbing, no state/allTokens dependency — see "Player sync protocol"
 
-js/gm/                 GM-only — index.html
+js/vendor/              third-party code vendored on disk (no CDN, no bundler/npm)
+  qrcode.min.js          davidshimjs/qrcodejs — renders a code string as a QR <canvas>, used by both js/gm/sync.js's invite modal and js/player/sync.js's entry screen
+
+js/gm/                 GM-only — master.html
   state.js              allTokens, state (current-scene view), constants, DOM canvas/viewport refs
   history.js            undo/redo: snapshot-based, scoped to current scene's tokens/fog/walls — captureBeforeChange/undo/redo
   scenes.js             scenes[], currentSceneId, switchScene/createScene/bringTokenToCurrentScene, bringCarry, scene folders[] + multi-select (see "Scenes" below)
-  sync.js               sendState/sendStateForced, sceneSyncPending gate, postMessage to the player window
+  sync.js               sendState/sendStateForced, sceneSyncPending gate, "🔗 Convidar jogador" modal (WebRTC offer/answer handshake), broadcasts state to every connected peer's RTCDataChannel — see "Player sync protocol"
   draw.js               draw() — the GM canvas render loop (map, grid, tokens, fog tint, walls, cones, handles)
   vision-preview.js      GM-only cosmetic vision-cone glow (NOT occluded by walls — preview only)
   hit-test.js           tokenAt/fogRectAt/wallAt/effectDotAt/distToSegment/snapToCardinal/snapWallEndpoint
@@ -85,7 +100,7 @@ js/gm/                 GM-only — index.html
 
 js/player/              Player-only — player.html
   state.js              state (received-from-GM view), cam, drag, exploredCells
-  sync.js               postMessage receiver ('rpg-state'), 'rpg-player-ready' handshake, status banner, init
+  sync.js               entry screen (#entryOverlay: name + WebRTC offer/answer handshake), RTCDataChannel message receiver ('rpg-state'/'rpg-fx'/'rpg-theme'), status banner, init
   draw.js               draw() — the player canvas render loop (live scene + fog compositing)
   vision-fog.js         wall-occlusion raycasting engine (segmentsIntersect, punchVisionCone, occludeConeMaskBy{Cell,Raycast})
   memory.js             frozen exploration-memory canvas (world-space, grows/re-anchors, per-cell snapshot freeze)
@@ -96,7 +111,7 @@ js/features/
   measure.js            GM-only distance measuring tool — self-contained, exports via window.RPG (measureState/measureClick/measureUpdate/measureRelease/measureEnd/drawMeasure). Template for how a feature module SHOULD integrate.
 
 js/core/, js/render/    STALE, UNUSED, KEPT ON DISK ONLY — see "Dead files" below. Do not import from here.
-bckp/                   Pre-refactor monolith snapshots (index.html/player.html). Rollback safety net — do not delete without asking, do not treat as active code.
+bckp/                   Pre-refactor monolith snapshots (master.html/player.html). Rollback safety net — do not delete without asking, do not treat as active code.
 ```
 
 ## Dead files — do not use, do not assume they're wired up
@@ -104,7 +119,7 @@ bckp/                   Pre-refactor monolith snapshots (index.html/player.html)
 `js/core/state.js`, `js/core/camera.js`, `js/core/sync.js`,
 `js/render/photo-cache.js`, `js/render/bars.js`, `js/render/draw.js`, and
 `js/features/map.js` were an earlier, abandoned attempt at the same
-modularization this file now describes. **Neither `index.html` nor
+modularization this file now describes. **Neither `master.html` nor
 `player.html`'s actual logic reads from them** — `main.js`/`player-main.js`
 (pre-split) each had their own richer local copies that drifted ahead (walls,
 scenes, lighting, wall-occlusion method, scene-sync gating — none of which
@@ -117,9 +132,10 @@ anything when you test it, that's why — you're editing dead code. Check
 
 ## Load order (must match script tags exactly)
 
-`index.html`:
+`master.html`:
 ```
-js/shared/camera.js → js/shared/photo-cache.js → js/shared/object-cache.js → js/shared/bars.js
+js/vendor/qrcode.min.js → js/shared/webrtc.js
+→ js/shared/camera.js → js/shared/photo-cache.js → js/shared/object-cache.js → js/shared/bars.js
 → js/shared/scene-render.js → js/shared/vision-math.js → js/shared/fx-trail.js
 → js/gm/state.js → js/gm/history.js → js/gm/scenes.js → js/gm/sync.js
 → js/gm/hit-test.js → js/gm/vision-preview.js → js/gm/draw.js
@@ -134,7 +150,8 @@ js/shared/camera.js → js/shared/photo-cache.js → js/shared/object-cache.js �
 
 `player.html`:
 ```
-js/shared/camera.js → js/shared/photo-cache.js → js/shared/object-cache.js → js/shared/bars.js
+js/vendor/qrcode.min.js → js/shared/webrtc.js
+→ js/shared/camera.js → js/shared/photo-cache.js → js/shared/object-cache.js → js/shared/bars.js
 → js/shared/scene-render.js → js/shared/vision-math.js → js/shared/fx-trail.js
 → js/player/state.js → js/player/memory.js → js/player/vision-fog.js
 → js/player/combat.js → js/player/draw.js → js/player/fullscreen.js → js/player/sync.js
@@ -346,7 +363,22 @@ know scenes exist at all.
 
 ## Player sync protocol
 
-GM sends `postMessage` type `'rpg-state'` (see `js/gm/sync.js`):
+**Transport**: no signaling server exists (GitHub Pages is static hosting),
+so GM↔player pairing is a manual WebRTC offer/answer handshake
+(`js/shared/webrtc.js`'s `createHostConnection`/`createGuestConnection`,
+STUN-only via a public Google STUN server, no TURN). The GM's "🔗 Convidar
+jogador" modal (`js/gm/sync.js`) generates an offer code (shown as text +
+QR via `js/vendor/qrcode.min.js`) per player; the player's entry screen
+(`player.html`'s `#entryOverlay`, handled in `js/player/sync.js`) pastes
+that code, generates an answer code, and sends it back to the GM to paste
+into the same modal. Once the `RTCDataChannel` opens, all messages below
+flow over it as JSON strings instead of `postMessage`. The GM can have
+**N simultaneous peer connections** (`js/gm/sync.js`'s `peers[]`), one per
+player device — this replaced the old single `window.open('player.html', ...)`
+same-browser model entirely; there is no `openPlayerBtn`/child window anymore.
+
+GM broadcasts message type `'rpg-state'` to every open peer channel (see
+`js/gm/sync.js`'s `doSendState`/`broadcast`):
 ```js
 {
   type: 'rpg-state',
@@ -355,17 +387,19 @@ GM sends `postMessage` type `'rpg-state'` (see `js/gm/sync.js`):
   map: { scalePct, dataUrl? } // dataUrl: string = new, null = removed, absent = unchanged
 }
 ```
-Player sends `postMessage` type `'rpg-player-ready'` once on open, to request
-the full current state (handled via `sendStateForced`, bypassing any pending
-gate — a freshly-opened window has never seen ANY scene, so there's nothing
-to hold back).
+A newly-opened data channel triggers a forced full sync (`sendStateForced(true)`)
+the moment it reaches `readyState === 'open'` — equivalent to the old
+`'rpg-player-ready'` handshake, but peer-initiated by the channel's `open`
+event instead of an explicit ready message (there's no `window.opener` to
+message back through anymore).
 
-**Only `js/gm/sync.js`'s `sendState()` sends updates; the player window is
-read-only** and never calls back except for that one initial handshake.
+**Only `js/gm/sync.js`'s `sendState()`/`broadcast()` send updates; every
+player peer is read-only** and never sends anything back over the channel
+after the initial WebRTC handshake.
 
-GM also sends `postMessage` type `'rpg-fx'` (see `js/gm/sync.js`'s `sendFx`)
-to trigger a cosmetic FX trail (explosion/fire/smoke/heal) on the player
-window: `{ type: 'rpg-fx', fxType, x, y, opts: { scale, durationMult } }` —
+GM also broadcasts message type `'rpg-fx'` (see `js/gm/sync.js`'s `sendFx`)
+to trigger a cosmetic FX trail (explosion/fire/smoke/heal) on player
+screens: `{ type: 'rpg-fx', fxType, x, y, opts: { scale, durationMult } }` —
 `opts` comes from `js/gm/fx-settings.js`'s right-click size/duration popup.
 Deliberately separate from `sendState`/the `sceneSyncPending` gate — it's a
 one-shot animation trigger, not persistent state, so it always fires
@@ -380,9 +414,10 @@ may need to set up fog, reposition tokens, or otherwise prepare the new scene
 before the players see it. `sceneSyncPending = true` after `switchScene()`
 makes `sendState()` a no-op (every call site elsewhere in `js/gm/*` keeps
 calling it as normal; they just don't have an effect while the gate is up).
-The **"🔄 Atualizar tela do jogador"** button (`js/gm/sync.js`'s
-`sendStateForced`) clears the gate and force-sends. The player window keeps
-rendering the previous scene, unchanged, for as long as the gate is up.
+The **"🔄 Atualizar telas dos jogadores"** button (`js/gm/sync.js`'s
+`sendStateForced`) clears the gate and force-sends to every connected peer.
+Player windows keep rendering the previous scene, unchanged, for as long as
+the gate is up.
 
 ## Canvas rendering
 
@@ -490,7 +525,7 @@ player side do genuinely different things, on purpose:
 ## Map objects (props/scenery — distinct from tokens)
 
 - **`js/gm/objects.js`**: "Objetos" sidebar section (parallel to the Tokens/Party
-  sections), add/edit modal (`#objectOverlay` in `index.html` — image upload
+  sections), add/edit modal (`#objectOverlay` in `master.html` — image upload
   only, no color/vision/isPlayer fields, no crop editor), resize buttons
   (`topObjectShrinkBtn`/`topObjectGrowBtn` in `js/gm/tools.js`, same
   ×1.15/÷1.15 factor pattern as token resize), `removeObject`.
@@ -630,7 +665,7 @@ which scene is open:
 ## Development notes
 
 ### No build, no dependencies
-- Open in browser: double-click `index.html`, or serve locally
+- Open in browser: double-click `master.html`, or serve locally
   (`python -m http.server`) if `file://` popup/window restrictions get in the
   way of opening the player window.
 - All assets inline; only Google Fonts (VT323) is an external load.
@@ -726,7 +761,7 @@ which scene is open:
   design if a scene switch is pending (see "Player sync gate"). Otherwise,
   confirm the mutation site calls `sendState()`.
 - **A new module's functions are `undefined` when called?** Check the
-  `<script>` load order in `index.html`/`player.html` against "Load order"
+  `<script>` load order in `master.html`/`player.html` against "Load order"
   above — a file can only call something defined in a file that loaded
   *before* it (or that's called later than both finish loading, per "Known
   forward-reference hazards").
