@@ -374,30 +374,31 @@
 <div id="inviteOverlay" class="modal-overlay">
   <div id="inviteModal" class="modal-dialog">
     <h3>Convidar jogador</h3>
-    <div class="hint hint-m0">&gt; Conexão direta (P2P), sem servidor. Compartilhe o código/QR abaixo com o jogador; ele vai colar um código de resposta para completar a conexão.</div>
-    <div class="field">
-      <label for="inviteNameInput">Nome do jogador (opcional, só para sua referência)</label>
-      <input type="text" id="inviteNameInput" placeholder="Ex: Aragorn">
-    </div>
     <div id="inviteStep1">
+      <div class="hint hint-m0">&gt; Conexão direta (P2P), sem servidor.</div>
+      <div class="field">
+        <label for="inviteNameInput">Nome do jogador (opcional, só para sua referência)</label>
+        <input type="text" id="inviteNameInput" placeholder="Ex: Aragorn">
+      </div>
       <button type="button" id="inviteGenerateBtn">Gerar convite</button>
     </div>
     <div id="inviteStep2" class="hidden">
-      <div class="field">
-        <label for="inviteOfferCode">Código de convite (envie ao jogador)</label>
-        <textarea id="inviteOfferCode" rows="4" readonly aria-label="Código de convite"></textarea>
-        <div id="inviteOfferQr"></div>
-      </div>
+      <div id="inviteOfferQr" class="qr-center"></div>
+      <textarea id="inviteOfferCode" rows="3" readonly aria-label="Código de convite"></textarea>
+      <div class="hint hint-m0">&gt; Mostre o QR ou envie o código ao jogador.</div>
+      <button type="button" class="secondary" id="inviteHaveAnswerBtn">Já tenho a resposta do jogador</button>
+    </div>
+    <div id="inviteStep3" class="hidden">
       <div class="field">
         <label for="inviteAnswerInput">Cole aqui o código de resposta do jogador</label>
         <textarea id="inviteAnswerInput" rows="4" placeholder="Cole o código de resposta aqui"></textarea>
       </div>
       <div id="inviteActions">
-        <button type="button" class="secondary" id="inviteCancelBtn">Cancelar</button>
+        <button type="button" class="secondary" id="inviteBackBtn">Voltar</button>
         <button type="button" id="inviteConnectBtn">Conectar</button>
       </div>
-      <div id="inviteStatus" class="hint hint-m0"></div>
     </div>
+    <div id="inviteStatus" class="hint hint-m0"></div>
     <div id="inviteCloseRow">
       <button type="button" class="secondary" id="inviteCloseBtn">Fechar</button>
     </div>

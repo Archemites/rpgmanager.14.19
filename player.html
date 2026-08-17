@@ -12,21 +12,32 @@
 <link rel="stylesheet" href="css/crt-effects.css">
 <link rel="stylesheet" href="css/layout.css">
 <link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/modals.css">
 <link rel="stylesheet" href="css/player.css">
 </head>
 <body>
 <div id="entryOverlay" class="modal-overlay open">
   <div class="modal-dialog">
     <h3>Entrar na mesa</h3>
-    <div class="hint hint-m0">&gt; Conexão direta (P2P) com o mestre, sem servidor. Peça ao mestre o código de convite.</div>
+    <div class="hint hint-m0">&gt; Conexão direta (P2P) com o mestre, sem servidor.</div>
     <div id="entryStep1">
       <div class="field">
         <label for="entryNameInput">Seu nome</label>
         <input type="text" id="entryNameInput" placeholder="Ex: Aragorn">
       </div>
       <div class="field">
-        <label for="entryOfferInput">Código de convite do mestre</label>
-        <textarea id="entryOfferInput" rows="4" placeholder="Cole aqui o código enviado pelo mestre"></textarea>
+        <label>Código de convite do mestre</label>
+        <div id="entryModeTabs" class="tab-row">
+          <button type="button" class="secondary tab-btn active" id="entryModeTextBtn">⌨️ Digitar/colar</button>
+          <button type="button" class="secondary tab-btn" id="entryModeScanBtn">📷 Escanear QR</button>
+        </div>
+        <div id="entryModeText">
+          <textarea id="entryOfferInput" rows="4" placeholder="Cole aqui o código enviado pelo mestre"></textarea>
+        </div>
+        <div id="entryModeScan" class="hidden">
+          <video id="entryScanVideo" playsinline muted></video>
+          <div class="hint hint-m0" id="entryScanHint">Aponte a câmera para o QR do mestre.</div>
+        </div>
       </div>
       <button type="button" id="entryJoinBtn">Entrar</button>
     </div>
@@ -41,7 +52,7 @@
   </div>
 </div>
 
-<div id="viewport">
+<div id="viewport" class="hidden">
   <canvas id="canvas"></canvas>
   <div id="status">Aguardando conexão com o mestre…</div>
   <div id="combatBar">
@@ -53,6 +64,7 @@
 
 <!-- Shared modules (both windows) -->
 <script src="js/vendor/qrcode.min.js"></script>
+<script src="js/vendor/jsQR.js"></script>
 <script src="js/shared/webrtc.js"></script>
 <script src="js/shared/camera.js"></script>
 <script src="js/shared/photo-cache.js"></script>

@@ -22,6 +22,8 @@
 
 .row:last-child { margin-bottom: 0; }
 
+.qr-center { display: flex; justify-content: center; margin: 4px 0; }
+
 .peer-row {
   display: flex;
   align-items: center;

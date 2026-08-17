@@ -56,12 +56,23 @@
   btn.textContent = '⛶';
   btn.addEventListener('click', toggle);
 
+  // Both stay hidden until js/player/sync.js calls window.RPG.showFullscreenUI()
+  // once the WebRTC handshake completes — the entry screen owns the page
+  // before that, and showing "click for fullscreen" over it is confusing.
+  prompt.classList.add('hidden');
+  btn.classList.add('hidden');
+
   if (supported) {
     document.body.appendChild(prompt);
     document.body.appendChild(btn);
-    // already fullscreen (e.g. window reloaded inside F11)? skip the overlay
-    if (isFullscreen()) dismissPrompt();
   }
+
+  window.RPG.showFullscreenUI = () => {
+    if (!supported) return;
+    btn.classList.remove('hidden');
+    // already fullscreen (e.g. window reloaded inside F11)? skip the overlay
+    if (!isFullscreen()) prompt.classList.remove('hidden');
+  };
 
   // ---------- Keyboard ----------
   window.addEventListener('keydown', (e) => {

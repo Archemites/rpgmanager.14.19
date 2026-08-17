@@ -129,10 +129,13 @@
   }
 
   // ---------- Invite modal (offer/answer handshake, no signaling server) ----------
+  // 3 steps: (1) optional name + generate, (2) QR + code only, (3) paste the
+  // player's answer code to complete the connection.
   const inviteOverlay = document.getElementById('inviteOverlay');
   const inviteNameInput = document.getElementById('inviteNameInput');
   const inviteStep1 = document.getElementById('inviteStep1');
   const inviteStep2 = document.getElementById('inviteStep2');
+  const inviteStep3 = document.getElementById('inviteStep3');
   const inviteOfferCode = document.getElementById('inviteOfferCode');
   const inviteOfferQr = document.getElementById('inviteOfferQr');
   const inviteAnswerInput = document.getElementById('inviteAnswerInput');
@@ -141,9 +144,14 @@
   let pendingHost = null; // { pc, channel, createOfferCode, acceptAnswerCode }
   let pendingPeerId = null;
 
+  function showInviteStep(n) {
+    inviteStep1.classList.toggle('hidden', n !== 1);
+    inviteStep2.classList.toggle('hidden', n !== 2);
+    inviteStep3.classList.toggle('hidden', n !== 3);
+  }
+
   function resetInviteModal() {
-    inviteStep1.classList.remove('hidden');
-    inviteStep2.classList.add('hidden');
+    showInviteStep(1);
     inviteNameInput.value = '';
     inviteOfferCode.value = '';
     inviteOfferQr.innerHTML = '';
@@ -171,11 +179,6 @@
     resetInviteModal();
   });
 
-  document.getElementById('inviteCancelBtn').addEventListener('click', () => {
-    if (pendingPeerId !== null) removePeer(pendingPeerId);
-    resetInviteModal();
-  });
-
   document.getElementById('inviteGenerateBtn').addEventListener('click', async () => {
     const name = inviteNameInput.value.trim() || 'Jogador';
     pendingHost = window.RPG.createHostConnection();
@@ -198,16 +201,22 @@
       renderPeerList();
     });
 
-    inviteStatus.textContent = 'Gerando código…';
     const offerCode = await pendingHost.createOfferCode();
     inviteOfferCode.value = offerCode;
     if (window.QRCode) {
       inviteOfferQr.innerHTML = '';
-      new QRCode(inviteOfferQr, { text: offerCode, width: 200, height: 200 });
+      new QRCode(inviteOfferQr, { text: offerCode, width: 220, height: 220 });
     }
-    inviteStatus.textContent = 'Envie o código acima ao jogador e cole a resposta dele abaixo.';
-    inviteStep1.classList.add('hidden');
-    inviteStep2.classList.remove('hidden');
+    showInviteStep(2);
+  });
+
+  document.getElementById('inviteHaveAnswerBtn').addEventListener('click', () => {
+    inviteStatus.textContent = '';
+    showInviteStep(3);
+  });
+
+  document.getElementById('inviteBackBtn').addEventListener('click', () => {
+    showInviteStep(2);
   });
 
   document.getElementById('inviteConnectBtn').addEventListener('click', async () => {
