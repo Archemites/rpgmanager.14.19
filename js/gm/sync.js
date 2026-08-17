@@ -232,6 +232,7 @@
       // Their token may live in another scene from a previous session; leave
       // that alone — the GM decides where party members are via the scene
       // sidebar / "bring to scene", not the player's reconnect.
+      sendMyToken(peer);
       return;
     }
 
@@ -272,11 +273,20 @@
     if (window.RPG.logEvent) window.RPG.logEvent(`Token de jogador criado: "${name}"`);
     window.RPG.draw();
     sendState();
+    sendMyToken(peer);
+  }
+
+  // Tells a peer which token is theirs to drag — a player may only ever move
+  // this one token (see 'rpg-token-move' handling in attachPeer below).
+  function sendMyToken(peer) {
+    if (peer.conn && peer.conn.open) {
+      try { peer.conn.send({ type: 'rpg-my-token', tokenId: peer.tokenId }); } catch (_) {}
+    }
   }
 
   // Wires a freshly-opened DataConnection into the peer list + sync loop.
   function attachPeer(conn) {
-    const peer = { id: nextPeerId++, name: null, conn, connected: true };
+    const peer = { id: nextPeerId++, name: null, conn, connected: true, tokenId: null };
     peers.push(peer);
     renderPeerList();
     inviteStatus.textContent = 'Jogador conectado ✓';
@@ -285,12 +295,27 @@
     sendStateForced(true);
     if (window.RPG.getTheme) sendTheme(window.RPG.getTheme());
 
-    // Players are read-only except for announcing their name on join.
+    // Players are read-only except for announcing their name on join and
+    // dragging their own token (validated server-side by peer.tokenId — a
+    // player can never move anyone else's).
     conn.on('data', (msg) => {
-      if (msg && msg.type === 'rpg-hello' && typeof msg.name === 'string') {
+      if (!msg) return;
+      if (msg.type === 'rpg-hello' && typeof msg.name === 'string') {
         peer.name = msg.name.slice(0, 40);
         renderPeerList();
         ensurePlayerToken(peer);
+        return;
+      }
+      if (msg.type === 'rpg-token-move' && typeof msg.x === 'number' && typeof msg.y === 'number') {
+        if (!peer.tokenId) return;
+        const allTokens = window.RPG.allTokens;
+        const t = allTokens && allTokens.find((tk) => tk.id === peer.tokenId);
+        if (!t) return;
+        t.x = msg.x;
+        t.y = msg.y;
+        window.RPG.draw();
+        sendState();
+        return;
       }
     });
 

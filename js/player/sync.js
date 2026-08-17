@@ -155,6 +155,10 @@
   const rehydrateObjectImages = makeImageRehydrator('dataUrl');
 
   function handleMessage(msg) {
+    if (msg && msg.type === 'rpg-my-token') {
+      window.RPG.setMyTokenId(typeof msg.tokenId === 'number' ? msg.tokenId : null);
+      return;
+    }
     if (msg && msg.type === 'rpg-fx') {
       if (window.RPG.spawnFx) window.RPG.spawnFx(msg.fxType, msg.x, msg.y, msg.opts);
       return;
@@ -188,7 +192,6 @@
     if ('dataUrl' in msg.map) {
       if (msg.map.dataUrl) {
         if (state.map._loadedUrl !== msg.map.dataUrl) {
-          window.RPG.resetExplorationMemory();  // new map: old explored coordinates no longer apply
           const img = new Image();
           img.onload = () => {
             state.map.img = img;
@@ -200,7 +203,6 @@
       } else {
         state.map.img = null;
         state.map._loadedUrl = null;
-        window.RPG.resetExplorationMemory();
       }
     }
 
@@ -223,6 +225,7 @@
     }
 
     conn.on('data', handleMessage);
+    window.RPG.setActiveConnection(conn);
 
     const lost = () => {
       showStatus('Conexão com o mestre perdida.');
@@ -230,6 +233,8 @@
       viewport.classList.add('hidden');
       entryStatus.textContent = 'Conexão perdida — entre novamente com o código da mesa.';
       entryJoinBtn.disabled = false;
+      window.RPG.setActiveConnection(null);
+      window.RPG.setMyTokenId(null);
       // No cache to clear here: js/gm/sync.js's sendStateForced (used on
       // every (re)connect) always sends every image at least once, which
       // naturally overwrites whatever the rehydrators remembered from before.

@@ -45,8 +45,17 @@
       ctx.restore();
     }
 
+    const myTokenId = window.RPG.getMyTokenId ? window.RPG.getMyTokenId() : null;
     for (const t of state.tokens) {
       drawTokenBasic(ctx, t, cam.zoom);
+      // highlight the player's own draggable token so it's clear what can be moved
+      if (t.id === myTokenId) {
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, t.r + 3 / cam.zoom, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ffd24a';
+        ctx.lineWidth = 2.5 / cam.zoom;
+        ctx.stroke();
+      }
       drawTokenBars(t);
     }
 

@@ -35,6 +35,48 @@
     camStartX: 0, camStartY: 0,
   };
 
+  // ---------- Own-token drag ----------
+  // The GM assigns which token belongs to this player right after it
+  // announces its name (js/player/sync.js's 'rpg-my-token' handler) and
+  // tells us again on reconnect — a player can only ever drag THIS token,
+  // enforced again server-side in js/gm/sync.js (never trust the client).
+  let myTokenId = null;
+  let activeConnection = null;
+  const tokenDrag = {
+    active: false,
+    offsetX: 0, offsetY: 0,   // world-space grab offset from the token's center
+  };
+
+  // Movement is optimistic: applied to the local token immediately (so it
+  // feels instant) and echoed to the GM, throttled the same way GM→player
+  // state pushes are (js/gm/sync.js's SEND_MIN_INTERVAL_MS) — the GM is the
+  // authority and will broadcast back the same or a corrected position.
+  const MOVE_MIN_INTERVAL_MS = 120;
+  let moveTimerId = null;
+  let lastMoveAt = 0;
+  let pendingMove = null; // { x, y } or null
+
+  function flushMove() {
+    moveTimerId = null;
+    if (!pendingMove || !activeConnection || !activeConnection.open) { pendingMove = null; return; }
+    lastMoveAt = performance.now();
+    try { activeConnection.send({ type: 'rpg-token-move', x: pendingMove.x, y: pendingMove.y }); } catch (_) {}
+    pendingMove = null;
+  }
+
+  function scheduleMove(x, y) {
+    pendingMove = { x, y };
+    if (moveTimerId !== null) return;
+    const elapsed = performance.now() - lastMoveAt;
+    const delay = Math.max(0, MOVE_MIN_INTERVAL_MS - elapsed);
+    moveTimerId = setTimeout(flushMove, delay);
+  }
+
+  function myToken() {
+    if (myTokenId === null) return null;
+    return state.tokens.find((t) => t.id === myTokenId) || null;
+  }
+
   // ---------- Canvas sizing ----------
   let dpr = 1;
   function getDpr() { return dpr; }
@@ -53,11 +95,30 @@
     centerViewRaw(() => window.RPG.draw());
   }
 
-  // ---------- View-only interaction: middle-drag pan + scroll zoom ----------
+  // ---------- Interaction: drag own token, middle/left-drag pan, scroll zoom ----------
   canvas.addEventListener('mousedown', (e) => {
     if (e.button !== 1 && e.button !== 0) return;
-    e.preventDefault();
     const sp = eventScreenPos(e);
+
+    // Left-click on your own token grabs it instead of panning — checked
+    // first so clicking the token never starts a pan.
+    if (e.button === 0) {
+      const t = myToken();
+      if (t) {
+        const wp = screenToWorld(sp.x, sp.y);
+        const dx = wp.x - t.x, dy = wp.y - t.y;
+        if (dx * dx + dy * dy <= t.r * t.r) {
+          e.preventDefault();
+          tokenDrag.active = true;
+          tokenDrag.offsetX = dx;
+          tokenDrag.offsetY = dy;
+          canvas.classList.add('panning');
+          return;
+        }
+      }
+    }
+
+    e.preventDefault();
     drag.active = true;
     drag.startScreenX = sp.x;
     drag.startScreenY = sp.y;
@@ -67,6 +128,17 @@
   });
 
   window.addEventListener('mousemove', (e) => {
+    if (tokenDrag.active) {
+      const t = myToken();
+      if (!t) { tokenDrag.active = false; return; }
+      const sp = eventScreenPos(e);
+      const wp = screenToWorld(sp.x, sp.y);
+      t.x = wp.x - tokenDrag.offsetX;
+      t.y = wp.y - tokenDrag.offsetY;
+      window.RPG.draw();
+      scheduleMove(t.x, t.y);
+      return;
+    }
     if (!drag.active) return;
     const sp = eventScreenPos(e);
     cam.x = drag.camStartX - (sp.x - drag.startScreenX) / cam.zoom;
@@ -75,6 +147,15 @@
   });
 
   window.addEventListener('mouseup', () => {
+    if (tokenDrag.active) {
+      tokenDrag.active = false;
+      canvas.classList.remove('panning');
+      // flush immediately so the GM sees the final drop position without
+      // waiting out the throttle window
+      if (moveTimerId !== null) { clearTimeout(moveTimerId); moveTimerId = null; }
+      flushMove();
+      return;
+    }
     drag.active = false;
     canvas.classList.remove('panning');
   });
@@ -150,4 +231,8 @@
   window.RPG.drawTokenBasic = sceneRenderer.drawTokenBasic;
 
   window.RPG.showStatus = showStatus;
+
+  window.RPG.setMyTokenId = (id) => { myTokenId = id; };
+  window.RPG.getMyTokenId = () => myTokenId;
+  window.RPG.setActiveConnection = (conn) => { activeConnection = conn; };
 })();
