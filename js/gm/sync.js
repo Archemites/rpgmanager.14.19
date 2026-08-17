@@ -149,6 +149,78 @@
     renderPeerList();
   }
 
+  // Colors handed out to auto-created player tokens, cycled by join order so
+  // two players never land on the same color back-to-back. Same palette the
+  // token modal offers (js/gm/token-modal.js's PRESET_COLORS), player-ish
+  // hues first.
+  const AUTO_TOKEN_COLORS = ['#4b8ee0', '#4be08f', '#e0c94b', '#a04be0', '#e08a4b', '#4be0d8', '#e04ba0', '#e04b4b'];
+  let autoColorIdx = 0;
+
+  // Creates the party token for a player that just announced its name, unless
+  // one already exists for that name — a player refreshing the page or
+  // reconnecting must land back on their existing token, not spawn a duplicate.
+  // Token shape mirrors js/gm/token-modal.js's create branch; keep in sync.
+  function ensurePlayerToken(peer) {
+    const name = (peer.name || '').trim();
+    if (!name) return;
+
+    const allTokens = window.RPG.allTokens;
+    const state_ = window.RPG.state;
+    if (!allTokens || !window.RPG.getCurrentSceneId) return;
+
+    // Match case-insensitively so "aragorn" reconnects onto "Aragorn".
+    const existing = allTokens.find((t) =>
+      t.isPlayer && (t.name || '').trim().toLowerCase() === name.toLowerCase());
+    if (existing) {
+      peer.tokenId = existing.id;
+      // Their token may live in another scene from a previous session; leave
+      // that alone — the GM decides where party members are via the scene
+      // sidebar / "bring to scene", not the player's reconnect.
+      return;
+    }
+
+    if (window.RPG.captureBeforeChange) {
+      window.RPG.captureBeforeChange(`Jogador "${name}" entrou`);
+    }
+
+    // Spawn near the middle of the GM's current view, jittered so several
+    // players joining at once don't stack exactly on top of each other.
+    const vp = window.RPG.viewport;
+    const c = window.RPG.screenToWorld(vp.clientWidth / 2, vp.clientHeight / 2);
+    const x = c.x + (Math.random() * 60 - 30);
+    const y = c.y + (Math.random() * 60 - 30);
+    const sceneId = window.RPG.getCurrentSceneId();
+
+    const token = {
+      id: state_.nextId++,
+      x, y,
+      scenes: { [sceneId]: { x, y } },
+      r: window.RPG.BASE_TOKEN_RADIUS,
+      color: AUTO_TOKEN_COLORS[autoColorIdx++ % AUTO_TOKEN_COLORS.length],
+      name,
+      photoDataUrl: null,
+      note: '',
+      createdAt: Date.now(),
+      isPlayer: true,          // joins the Party panel — this is the point
+      barValues: {},
+      effects: [],
+      facing: -Math.PI / 2,
+      visionAngle: 120,
+      visionMult: 1,
+    };
+    if (window.RPG.syncTokenBarValues) window.RPG.syncTokenBarValues(token);
+    allTokens.push(token);
+    peer.tokenId = token.id;
+
+    if (window.RPG.refreshVisibleTokens) window.RPG.refreshVisibleTokens();
+    if (window.RPG.renderTokenList) window.RPG.renderTokenList();
+    if (window.RPG.renderParty) window.RPG.renderParty();
+    if (window.RPG.renderSceneList) window.RPG.renderSceneList();
+    if (window.RPG.logEvent) window.RPG.logEvent(`Token de jogador criado: "${name}"`);
+    window.RPG.draw();
+    sendState();
+  }
+
   // Wires a freshly-opened DataConnection into the peer list + sync loop.
   function attachPeer(conn) {
     const peer = { id: nextPeerId++, name: null, conn, connected: true };
@@ -165,6 +237,7 @@
       if (msg && msg.type === 'rpg-hello' && typeof msg.name === 'string') {
         peer.name = msg.name.slice(0, 40);
         renderPeerList();
+        ensurePlayerToken(peer);
       }
     });
 

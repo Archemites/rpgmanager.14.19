@@ -414,8 +414,22 @@ ready message.
 The player sends exactly one message ever, on connect — everything else is
 one-way GM→player:
 ```js
-{ type: 'rpg-hello', name }   // labels the GM's player list; GM never types a player's name
+{ type: 'rpg-hello', name }   // the CHARACTER name, typed on the entry screen
 ```
+That name drives two things on the GM side: the label in the connected-players
+list, and **automatic party-token creation** (`js/gm/sync.js`'s
+`ensurePlayerToken`). On `'rpg-hello'` the GM looks for an existing
+`isPlayer` token whose name matches case-insensitively; if none exists it
+creates one (`isPlayer: true`, so it joins the Party panel) in the currently
+open scene, near the center of the GM's view with a small random jitter, in
+the next color from a rotating palette. Because the lookup is by name, a
+player refreshing or reconnecting lands back on their existing token instead
+of spawning a duplicate — and their token is left in whatever scene it
+already occupies, since scene placement is the GM's call (scene sidebar /
+"bring to scene"), not something a reconnect should override. The token shape
+is duplicated from `js/gm/token-modal.js`'s create branch — **keep the two in
+sync when adding a token field**. The character name is required on the entry
+screen precisely because it is the token's identity.
 
 **Only `js/gm/sync.js`'s `sendState()`/`broadcast()` send updates; every
 player peer is read-only** and never sends anything back over the channel

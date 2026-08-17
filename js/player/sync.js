@@ -221,12 +221,21 @@
 
   async function join() {
     if (joining) return;
+
+    // Required: the GM auto-creates this player's party token from this name
+    // (js/gm/sync.js's ensurePlayerToken), and reuses it on reconnect.
     const name = entryNameInput.value.trim();
-    if (name) localStorage.setItem(NAME_KEY, name);
+    if (!name) {
+      entryStatus.textContent = 'Digite o nome do seu personagem.';
+      entryNameInput.focus();
+      return;
+    }
+    localStorage.setItem(NAME_KEY, name);
 
     const code = window.RPG.normalizeRoomCode(entryCodeInput.value);
     if (!code) {
       entryStatus.textContent = 'Digite o código da mesa.';
+      entryCodeInput.focus();
       return;
     }
 
@@ -249,9 +258,17 @@
   }
 
   entryJoinBtn.addEventListener('click', join);
+  entryNameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') join();
+  });
 
-  // Scanned/shared link already carries the code — join without another tap.
-  if (urlCode) join();
+  // A scanned/shared link carries the code, so only the character name is
+  // still missing — auto-join if we already know it from a previous session,
+  // otherwise focus the name field and wait.
+  if (urlCode) {
+    if (entryNameInput.value.trim()) join();
+    else entryNameInput.focus();
+  }
 
   // ---------- Init ----------
   window.RPG.resizeCanvas();
