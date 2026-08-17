@@ -14,14 +14,7 @@
 
   const BASE_TOKEN_RADIUS = 20;
   const MAX_ACTIVE_BARS = 2;   // how many party bars can render on the map at once
-
-  // Vision / lighting defaults
-  const DEFAULT_VISION_ANGLE = window.RPG.DEFAULT_VISION_ANGLE;   // cone width in degrees
-  const DEFAULT_VISION_MULT = window.RPG.DEFAULT_VISION_MULT;      // per-token range multiplier
-  // Global lighting factor → base vision reach in WORLD px. 0 = tokens see nothing
-  // beyond their own body; higher = the cone reaches deeper into the fog.
-  const BASE_VISION_RANGE = window.RPG.BASE_VISION_RANGE;      // world px at lighting = 1
-  const ROTATE_HANDLE_R = 7;          // rotation knob radius in SCREEN px
+  const ROTATE_HANDLE_R = 7;          // rotation knob radius in SCREEN px — used by the object rotate handle
 
   // Camera (shared factory — js/shared/camera.js)
   const { cam, screenToWorld, eventScreenPos, zoomAt: zoomAtRaw, centerView: centerViewRaw } =
@@ -37,11 +30,7 @@
     grid: { show: true, size: 48, color: null },  // null = follow theme's --accent
     map: { img: null, scalePct: 100, dataUrl: null, bgColor: null },  // image is centered on world origin (0,0); bgColor fills the canvas behind/around it, per-scene; null = follow theme's --map-bg
     tokens: [],                          // VIEW: tokens present in the open scene — see refreshVisibleTokens()
-    fog: [],                             // {id, x, y, w, h} rects hiding the map, world coords
-    // Walls = GM-only line-of-sight blockers. {id, x1, y1, x2, y2} world-coord segments.
-    // Never sent to the player visually — only used there to truncate vision cones
-    // (raycasting), so occluded areas stay dark even inside a token's nominal reach.
-    walls: [],
+    fog: [],                             // {id, x, y, w, h} rects hiding the map, world coords — GM-manual only, painted fully opaque on the player side
     // Background annotations — GM-only sticky notes pinned to a world point.
     // {id, x, y, text}, per-scene like fog/walls. Never sent to the player.
     notes: [],
@@ -66,19 +55,9 @@
     //     ("-1d4", "+2d6"); parsed/rolled each turn by rollDeltaExpr() in js/gm/combat.js.
     // Applied to a token via token.effects = [{id, remaining}], remaining decremented each nextTurn().
     glossary: [],
-    // Fog of war = the area OUTSIDE the players' vision (not necessarily darkness).
-    // `lighting` scales how far a token's vision cone reaches into the fog:
-    //   reach(px) = BASE_VISION_RANGE * lighting * token.visionMult
-    lighting: 1,
-    // How walls occlude the player's vision cones (rendered client-side on the
-    // player window): 'cell' snaps occlusion to the same 48px grid used for
-    // exploration memory (cheap, blocky); 'raycast' builds a precise shadow
-    // polygon from wall endpoints (sharper, costs more per frame).
-    wallOcclusionMethod: 'cell',
     snapToGrid: false,  // GM-only drag behavior — not synced to the player window
     nextId: 1,
     nextFogId: 1,
-    nextWallId: 1,
     nextNoteId: 1,
     nextObjectId: 1,
     nextBarId: 1,
@@ -87,7 +66,6 @@
     selectedTokenIds: [],   // multi-select via drag box; selectedTokenId stays the "primary" (rotate handle/vision preview)
     selectedObjectId: null,
     fogMode: false,
-    wallMode: false,
     moveMode: false,  // when on, dragging a token never changes state.selectedTokenId
     combat: { active: false, order: [] },  // order: array of token ids, leftmost = current turn
   };
@@ -188,17 +166,9 @@
     document.body.style.cursor = '';
   });
 
-  // ---------- Vision helpers ----------
-  // Fill in vision fields on tokens that predate this feature.
-  function ensureTokenVision(t) {
-    if (typeof t.facing !== 'number') t.facing = -Math.PI / 2;
-    if (typeof t.visionAngle !== 'number') t.visionAngle = DEFAULT_VISION_ANGLE;
-    if (typeof t.visionMult !== 'number') t.visionMult = DEFAULT_VISION_MULT;
-  }
-
   // ---------- Interaction state (shared across gm/* files) ----------
   const drag = {
-    mode: null,          // 'pan' | 'token' | 'rotate' | 'box' | 'object' | 'object-rotate' | null
+    mode: null,          // 'pan' | 'token' | 'box' | 'object' | 'object-rotate' | null
     tokenId: null,
     objectId: null,      // used by 'object' / 'object-rotate' modes
     offsetX: 0, offsetY: 0,      // token grab offset (world units)
@@ -216,13 +186,6 @@
     startX: 0, startY: 0,   // world coords
     curX: 0, curY: 0,
   };
-
-  const wallDraw = {
-    active: false,
-    startX: 0, startY: 0,   // world coords
-    curX: 0, curY: 0,
-  };
-  const WALL_HIT_DIST = 8;  // screen px tolerance for right-click removal
 
   let measureMode = false;
   let measureSelectedTokenId = null;  // para manter token selecionado na medição
@@ -266,12 +229,8 @@
   window.RPG.state = state;
   window.RPG.getState = () => state;
 
-  window.RPG.ensureTokenVision = ensureTokenVision;
-
   window.RPG.drag = drag;
   window.RPG.fogDraw = fogDraw;
-  window.RPG.wallDraw = wallDraw;
-  window.RPG.WALL_HIT_DIST = WALL_HIT_DIST;
   window.RPG.getMeasureMode = () => measureMode;
   window.RPG.setMeasureMode = (v) => { measureMode = v; };
   window.RPG.getMeasureSelectedTokenId = () => measureSelectedTokenId;

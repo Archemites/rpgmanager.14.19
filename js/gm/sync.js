@@ -24,37 +24,95 @@
   // "🔄 Atualizar telas dos jogadores", which clears the gate and force-sends.
   let sceneSyncPending = false;
 
-  // Dozens of call sites (token drag, wall/fog drawing, rotation) call
-  // sendState() on every 'mousemove' — serializing/broadcasting the whole
-  // tokens/fog/walls/objects payload to every peer on every pixel of mouse
-  // movement was costing real frame time for no visible benefit (players
-  // only ever see the latest position anyway). Coalesce to at most one send
-  // per animation frame; sendStateForced always bypasses this (immediate)
-  // since it's a deliberate one-off user action.
+  // Dozens of call sites (token drag, fog drawing) call sendState() on every
+  // 'mousemove'. Two problems compound here:
+  //
+  // 1) Coalescing only per animation frame (~60/s) still means the FULL
+  //    tokens/fog/objects payload — including every token's
+  //    photoDataUrl, which can be hundreds of KB each — gets re-serialized
+  //    and re-sent 60 times a second while dragging. PeerJS data channels
+  //    default to a RELIABLE, ORDERED transport (like TCP): a peer that
+  //    can't drain the socket as fast as we produce messages builds an
+  //    ever-growing send queue, so what the player sees gets progressively
+  //    MORE stale over time instead of just occasionally skipping a frame —
+  //    this is the "atrasado, às vezes nem atualiza" symptom.
+  // 2) Photos never change mid-drag, so re-sending them on every state push
+  //    was pure waste; they only need to go out when they actually change.
+  //
+  // Fix: throttle real wall-clock time (not just one send per rAF), skip a
+  // scheduled send entirely while the channel's own send buffer is still
+  // backed up (bufferedAmount), and never inline heavy assets (photos) into
+  // the routine per-move payload — see makeImageDedupe() below.
+  const SEND_MIN_INTERVAL_MS = 120; // ~8/s ceiling while dragging — plenty for token movement
+  const MAX_BUFFERED_BYTES = 256 * 1024; // skip a send while a peer's queue is this backed up
+
   let pendingIncludeMap = false;
-  let sendRafId = null;
+  let sendTimerId = null;   // setTimeout handle, or null if nothing scheduled
+  let lastSendAt = 0;
 
   function flushSendState() {
-    sendRafId = null;
+    sendTimerId = null;
     const includeMap = pendingIncludeMap;
     pendingIncludeMap = false;
+    lastSendAt = performance.now();
     doSendState(includeMap);
+  }
+
+  function scheduleSend() {
+    if (sendTimerId !== null) return; // already scheduled — the pending flags above cover any new changes
+    const elapsed = performance.now() - lastSendAt;
+    const delay = Math.max(0, SEND_MIN_INTERVAL_MS - elapsed);
+    sendTimerId = setTimeout(flushSendState, delay);
   }
 
   // includeMap: send the (heavy) map image too — only on map changes / player connect
   function sendState(includeMap) {
     if (sceneSyncPending) return;
     if (includeMap) pendingIncludeMap = true;
-    if (sendRafId === null) sendRafId = requestAnimationFrame(flushSendState);
+    scheduleSend();
   }
 
   function broadcast(msg) {
     for (const peer of peers) {
-      if (peer.conn && peer.conn.open) {
-        try { peer.conn.send(msg); } catch (_) { /* peer dropped mid-send */ }
-      }
+      if (!peer.conn || !peer.conn.open) continue;
+      // A peer whose send queue is still backed up from earlier messages
+      // gets skipped this round rather than piling on yet another payload —
+      // the next scheduled send will carry current data anyway, so a queued
+      // stale one is pure waste that only pushes the peer further behind.
+      if ((peer.conn.bufferedAmount || 0) > MAX_BUFFERED_BYTES) continue;
+      try { peer.conn.send(msg); } catch (_) { /* peer dropped mid-send */ }
     }
   }
+
+  // Token photos and object images are the things in state.tokens/objects big
+  // enough to matter (hundreds of KB each) and neither changes from a
+  // drag/rotate/fog edit — only from their respective modals. Strip the
+  // image field from the routine payload and only (re-)send it when the
+  // dataURL actually changes, so a player who already has it isn't re-sent
+  // the same bytes on every move. Generic over the field name since tokens
+  // use photoDataUrl and objects use dataUrl.
+  function makeImageDedupe(field) {
+    const sentByCollectionId = new Map(); // id -> last-sent value for `field`
+    return {
+      forWire(list) {
+        return list.map((item) => {
+          const value = item[field];
+          if (!value) { sentByCollectionId.delete(item.id); return item; }
+          if (sentByCollectionId.get(item.id) !== value) {
+            sentByCollectionId.set(item.id, value);
+            return item; // first time / changed — include this once
+          }
+          const rest = { ...item };
+          delete rest[field];
+          return rest; // unchanged — player already has this cached
+        });
+      },
+      clear() { sentByCollectionId.clear(); },
+    };
+  }
+
+  const tokenPhotoDedupe = makeImageDedupe('photoDataUrl');
+  const objectImageDedupe = makeImageDedupe('dataUrl');
 
   function doSendState(includeMap) {
     if (sceneSyncPending) return;
@@ -63,29 +121,27 @@
     broadcast({
       type: 'rpg-state',
       grid: state.grid,
-      tokens: state.tokens,
+      tokens: tokenPhotoDedupe.forWire(state.tokens),
       fog: state.fog,
-      walls: state.walls,
-      objects: state.objects,
+      objects: objectImageDedupe.forWire(state.objects),
       map,
       combat: state.combat,
       partyBars: state.partyBars,
-      lighting: state.lighting,
-      wallOcclusionMethod: state.wallOcclusionMethod,
-      // Only this player token projects a vision cone / reveals fog on the
-      // player window — lets the GM control which party member is "active"
-      // when there are several, instead of all of them revealing at once.
-      activeVisionTokenId: state.selectedTokenId,
     });
   }
 
   // Force-send regardless of the pending gate — used when a new peer just
   // connected (it has nothing yet) and by the "update player screens" button.
+  // Always includes every token's current photo: a fresh peer (or one that
+  // just reconnected) has no cache to dedupe against.
   function sendStateForced(includeMap) {
     sceneSyncPending = false;
     updatePlayerBtn.classList.remove('pending');
-    if (sendRafId !== null) { cancelAnimationFrame(sendRafId); sendRafId = null; }
+    if (sendTimerId !== null) { clearTimeout(sendTimerId); sendTimerId = null; }
     pendingIncludeMap = false;
+    tokenPhotoDedupe.clear();
+    objectImageDedupe.clear();
+    lastSendAt = performance.now();
     doSendState(includeMap);
   }
 
@@ -204,9 +260,6 @@
       isPlayer: true,          // joins the Party panel — this is the point
       barValues: {},
       effects: [],
-      facing: -Math.PI / 2,
-      visionAngle: 120,
-      visionMult: 1,
     };
     if (window.RPG.syncTokenBarValues) window.RPG.syncTokenBarValues(token);
     allTokens.push(token);

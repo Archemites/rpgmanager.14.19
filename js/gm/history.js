@@ -1,7 +1,7 @@
 /* ============================================================
    GM undo/redo history: snapshot-based, scoped to the CURRENT scene's
-   mutable content (token existence/position/scenes-map, fog, walls).
-   Map image/grid/lighting/combat are intentionally excluded — undo is for
+   mutable content (token existence/position/scenes-map, fog).
+   Map image/grid/combat are intentionally excluded — undo is for
    "oops I moved/deleted/pasted the wrong thing", not a full time machine.
    Consumed by js/gm/hotkeys.js (Ctrl+Z/Ctrl+Y) and called by any action
    that should be undoable (drag-move, delete, paste, box-select move, ...).
@@ -64,7 +64,7 @@
     }
   }
 
-  // Snapshot = current scene's tokens (existence/position/scenes-map) + fog + walls.
+  // Snapshot = current scene's tokens (existence/position/scenes-map) + fog.
   // Tokens from OTHER scenes are captured by reference-preserving clone of the
   // full allTokens array so cross-scene "scenes" maps stay intact on restore.
   function snapshot() {
@@ -72,12 +72,10 @@
       sceneId: window.RPG.getCurrentSceneId(),
       tokens: JSON.parse(JSON.stringify(allTokens)),
       fog: JSON.parse(JSON.stringify(state.fog)),
-      walls: JSON.parse(JSON.stringify(state.walls)),
       notes: JSON.parse(JSON.stringify(state.notes)),
       objects: JSON.parse(JSON.stringify(state.objects)),
       nextId: state.nextId,
       nextFogId: state.nextFogId,
-      nextWallId: state.nextWallId,
       nextNoteId: state.nextNoteId,
       nextObjectId: state.nextObjectId,
     };
@@ -89,12 +87,10 @@
     allTokens.length = 0;
     for (const t of snap.tokens) allTokens.push(t);
     state.fog = JSON.parse(JSON.stringify(snap.fog));
-    state.walls = JSON.parse(JSON.stringify(snap.walls));
     state.notes = JSON.parse(JSON.stringify(snap.notes || []));
     state.objects = JSON.parse(JSON.stringify(snap.objects || []));
     state.nextId = snap.nextId;
     state.nextFogId = snap.nextFogId;
-    state.nextWallId = snap.nextWallId;
     state.nextNoteId = snap.nextNoteId || 1;
     state.nextObjectId = snap.nextObjectId || 1;
     state.selectedTokenId = null;

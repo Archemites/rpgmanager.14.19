@@ -1,5 +1,5 @@
 /* ============================================================
-   Player state: state (received-from-GM view), cam, drag, exploredCells.
+   Player state: state (received-from-GM view), cam, drag.
    Read-only mirror of whatever the GM last sent — never mutated locally
    except by the incoming 'rpg-state' message handler in js/player/sync.js.
    See ARCHITECTURE.md "State management" > "Player side".
@@ -14,18 +14,6 @@
   const statusEl = document.getElementById('status');
 
   const MAX_ACTIVE_BARS = 2;
-  const EXPLORED_CELL = 48;       // world-px grid used to remember explored ground
-  const EXPLORED_DIM_ALPHA = 0.55; // fog opacity over explored-but-not-visible ground (0 = clear, 1 = opaque)
-  const MEMORY_SCALE = 0.5;       // memory canvas px per world px (kept < 1 to bound its size)
-  const MEMORY_MARGIN_CELLS = 8;  // extra cells of headroom when the memory canvas grows
-
-  // Cells a player token has ever seen, keyed by "cellX,cellY" (world grid coords).
-  // Persists for the life of the tab — never cleared, so exploration accumulates
-  // like classic fog-of-war memory: once seen, a cell keeps showing a FROZEN
-  // snapshot of what was there (map + tokens) at the moment it was last inside a
-  // vision cone — not the live scene. Only cells currently inside a cone show the
-  // live scene; stepping away freezes that cell's last look until re-visited.
-  const exploredCells = new Set();
 
   // Camera (shared factory — js/shared/camera.js)
   const { cam, screenToWorld, eventScreenPos, zoomAt: zoomAtRaw, centerView: centerViewRaw } =
@@ -35,14 +23,10 @@
     grid: { show: true, size: 48, color: null },  // null = follow theme's --accent
     map: { img: null, scalePct: 100, bgColor: null },  // null = no GM override, follow theme's --map-bg
     tokens: [],
-    fog: [],
-    walls: [],   // GM-only line-of-sight blockers: {id, x1, y1, x2, y2}, used only to occlude vision here
+    fog: [],     // opaque rectangles hiding the map/tokens beneath — GM-manual only, see js/player/draw.js
     objects: [], // map props/scenery: {id, x, y, w, h, rotation, dataUrl, name}
     combat: { active: false, order: [] },
     partyBars: [],
-    lighting: 1,
-    wallOcclusionMethod: 'cell',  // 'cell' (grid-snapped, cheap) | 'raycast' (precise shadow polygon)
-    activeVisionTokenId: null,    // only this player token's cone reveals/updates fog
   };
 
   const drag = {
@@ -115,14 +99,6 @@
   // ---------- Scene renderer (shared factory) ----------
   const sceneRenderer = window.RPG.createSceneRenderer(() => state, getTokenPhotoImg, contrastColor);
 
-  // Total world-px reach of a token's vision cone (mirrors the GM). Captures
-  // the shared js/shared/vision-math.js implementation before overwriting
-  // window.RPG.tokenVisionReach below with this lighting-bound wrapper.
-  const sharedTokenVisionReach = window.RPG.tokenVisionReach;
-  function tokenVisionReach(t) {
-    return sharedTokenVisionReach(t, state.lighting);
-  }
-
   // ---------- Status banner ----------
   let statusTimer = null;
   function showStatus(text, autoHide) {
@@ -147,11 +123,6 @@
   window.RPG.resizeCanvas = resizeCanvas;
 
   window.RPG.MAX_ACTIVE_BARS = MAX_ACTIVE_BARS;
-  window.RPG.EXPLORED_CELL = EXPLORED_CELL;
-  window.RPG.EXPLORED_DIM_ALPHA = EXPLORED_DIM_ALPHA;
-  window.RPG.MEMORY_SCALE = MEMORY_SCALE;
-  window.RPG.MEMORY_MARGIN_CELLS = MEMORY_MARGIN_CELLS;
-  window.RPG.exploredCells = exploredCells;
 
   window.RPG.state = state;
   window.RPG.getState = () => state;
@@ -177,7 +148,6 @@
   window.RPG.drawTokenBars = barRenderer.drawTokenBars;
   window.RPG.drawMapAndGrid = sceneRenderer.drawMapAndGrid;
   window.RPG.drawTokenBasic = sceneRenderer.drawTokenBasic;
-  window.RPG.tokenVisionReach = tokenVisionReach;
 
   window.RPG.showStatus = showStatus;
 })();

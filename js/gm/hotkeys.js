@@ -1,6 +1,6 @@
 /* ============================================================
    GM global hotkeys: Ctrl+C/Ctrl+V (copy/paste tokens), Delete (delete
-   whatever's under the cursor — token, wall, or fog rect), Ctrl+Z/Ctrl+Y
+   whatever's under the cursor — token or fog rect), Ctrl+Z/Ctrl+Y
    (undo/redo via js/gm/history.js). Loads after mouse.js so it can reuse
    hit-test + the shared world-cursor tracking.
    ============================================================ */
@@ -14,7 +14,6 @@
   const screenToWorld = window.RPG.screenToWorld;
   const eventScreenPos = window.RPG.eventScreenPos;
   const tokenAt = window.RPG.tokenAt;
-  const wallAt = window.RPG.wallAt;
   const fogRectAt = window.RPG.fogRectAt;
 
   // Track the cursor's last known world position (canvas-relative) so Delete
@@ -86,19 +85,11 @@
   }
 
   // Delete whatever's under the cursor: a token first (also clears it from
-  // any active multi-selection), else a wall, else a fog rect.
+  // any active multi-selection), else a fog rect.
   function deleteUnderCursor() {
     const hitToken = tokenAt(lastWorldX, lastWorldY);
     if (hitToken) {
       window.RPG.removeToken(hitToken.id);
-      return;
-    }
-    const wall = wallAt(lastWorldX, lastWorldY);
-    if (wall) {
-      window.RPG.captureBeforeChange('Removeu parede (Delete)');
-      state.walls = state.walls.filter(w => w.id !== wall.id);
-      window.RPG.draw();
-      window.RPG.sendState();
       return;
     }
     const fog = fogRectAt(lastWorldX, lastWorldY);

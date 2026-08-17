@@ -1,5 +1,5 @@
 /* ============================================================
-   GM tool-mode toggles (fog/wall/move/measure) + top toolbar
+   GM tool-mode toggles (fog/move/measure) + top toolbar
    (import/sliders panel), zoom buttons, help modal.
    ============================================================ */
 
@@ -33,8 +33,6 @@
 
   const fogModeBtn = document.getElementById('topFogBtn');
   const clearFogBtn = document.getElementById('topClearFogBtn');
-  const wallModeBtn = document.getElementById('topWallBtn');
-  const clearWallsBtn = document.getElementById('topClearWallsBtn');
   const moveModeBtn = document.getElementById('topMoveBtn');
   const measureBtn = document.getElementById('topMeasureBtn');
   const fxModeBtn = document.getElementById('topFxBtn');
@@ -42,7 +40,6 @@
   function toggleFogMode() {
     state.fogMode = !state.fogMode;
     if (state.fogMode) {
-      state.wallMode = false; wallModeBtn.classList.remove('active');
       state.moveMode = false; moveModeBtn.classList.remove('active');
       window.RPG.setFxMode(false); fxModeBtn.classList.remove('active');
     }
@@ -59,31 +56,10 @@
     window.RPG.sendState();
   });
 
-  function toggleWallMode() {
-    state.wallMode = !state.wallMode;
-    if (state.wallMode) {
-      state.fogMode = false; fogModeBtn.classList.remove('active');
-      state.moveMode = false; moveModeBtn.classList.remove('active');
-      window.RPG.setFxMode(false); fxModeBtn.classList.remove('active');
-    }
-    wallModeBtn.classList.toggle('active', state.wallMode);
-    canvas.classList.toggle('fog-mode', state.fogMode);
-    canvas.classList.remove('over-token');
-  }
-  wallModeBtn.addEventListener('click', toggleWallMode);
-
-  clearWallsBtn.addEventListener('click', () => {
-    if (state.walls.length === 0) return;
-    state.walls = [];
-    window.RPG.draw();
-    window.RPG.sendState();
-  });
-
   function toggleMoveMode() {
     state.moveMode = !state.moveMode;
     if (state.moveMode) {
       state.fogMode = false; fogModeBtn.classList.remove('active');
-      state.wallMode = false; wallModeBtn.classList.remove('active');
       window.RPG.setFxMode(false); fxModeBtn.classList.remove('active');
       canvas.classList.remove('fog-mode');
     }
@@ -113,7 +89,6 @@
     fxModeBtn.classList.toggle('active', newMode);
     if (newMode) {
       state.fogMode = false; fogModeBtn.classList.remove('active');
-      state.wallMode = false; wallModeBtn.classList.remove('active');
       state.moveMode = false; moveModeBtn.classList.remove('active');
       canvas.classList.remove('fog-mode');
     }
@@ -215,7 +190,6 @@
 
   // ---------- Expose to window.RPG ----------
   window.RPG.toggleFogMode = toggleFogMode;
-  window.RPG.toggleWallMode = toggleWallMode;
   window.RPG.toggleMoveMode = toggleMoveMode;
   window.RPG.toggleMeasureMode = toggleMeasureMode;
 })();

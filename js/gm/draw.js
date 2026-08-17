@@ -1,9 +1,6 @@
 /* ============================================================
-   GM draw(): the GM canvas render loop — map, grid, tokens, fog tint, walls,
-   vision-cone preview, facing indicators, rotation handle, in-progress
-   fog/wall drag previews, measure overlay, "bring carry" ghost.
-   Depends on hit-test.js (none directly) and vision-preview.js (drawVisionCone,
-   drawFacingIndicator, rotateHandlePos) having already run.
+   GM draw(): the GM canvas render loop — map, grid, tokens, fog tint,
+   in-progress fog drag preview, measure overlay, "bring carry" ghost.
    See ARCHITECTURE.md "Canvas rendering" > "GM view".
    ============================================================ */
 
@@ -21,7 +18,6 @@
   const tokenBarExtents = window.RPG.tokenBarExtents;
   const effectDotHitboxes = window.RPG.effectDotHitboxes;
   const fogDraw = window.RPG.fogDraw;
-  const wallDraw = window.RPG.wallDraw;
   const ROTATE_HANDLE_R = window.RPG.ROTATE_HANDLE_R;
 
   // status dots stacked at the token's top-right corner, clear of its bars, colored by effect
@@ -213,55 +209,9 @@
       ctx.strokeRect(f.x, f.y, f.w, f.h);
     }
 
-    // walls — GM-only line-of-sight blockers, never sent to the player visually
-    if (state.walls.length > 0) {
-      ctx.strokeStyle = '#ff5a5a';
-      ctx.lineWidth = 3 / cam.zoom;
-      ctx.lineCap = 'round';
-      for (const wall of state.walls) {
-        ctx.beginPath();
-        ctx.moveTo(wall.x1, wall.y1);
-        ctx.lineTo(wall.x2, wall.y2);
-        ctx.stroke();
-      }
-    }
-
-    // vision cones (master preview) — drawn on top of the light fog so the GM
-    // can see exactly where each player token can see into the fog.
-    for (const t of state.tokens) {
-      if (!t.isPlayer) continue;
-      window.RPG.drawVisionCone(ctx, t);
-    }
-
-    // facing indicators for every token
-    for (const t of state.tokens) {
-      window.RPG.drawFacingIndicator(ctx, t);
-    }
-
-    // rotation handle for the selected token
-    const sel = state.tokens.find(t => t.id === state.selectedTokenId);
-    if (sel && !state.fogMode && !state.wallMode && !window.RPG.getMeasureMode()) {
-      const hp = window.RPG.rotateHandlePos(sel);
-      ctx.beginPath();
-      ctx.moveTo(sel.x, sel.y);
-      ctx.lineTo(hp.x, hp.y);
-      ctx.strokeStyle = 'rgba(255,210,74,0.7)';
-      ctx.lineWidth = 1.5 / cam.zoom;
-      ctx.setLineDash([4 / cam.zoom, 3 / cam.zoom]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.arc(hp.x, hp.y, ROTATE_HANDLE_R / cam.zoom, 0, Math.PI * 2);
-      ctx.fillStyle = '#ffd24a';
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-      ctx.lineWidth = 1.5 / cam.zoom;
-      ctx.fill();
-      ctx.stroke();
-    }
-
     // rotation handle for the selected object
     const selObj = state.objects.find(o => o.id === state.selectedObjectId);
-    if (selObj && !state.fogMode && !state.wallMode && !window.RPG.getMeasureMode()) {
+    if (selObj && !state.fogMode && !window.RPG.getMeasureMode()) {
       const hp = window.RPG.objectRotateHandlePos(selObj);
       ctx.beginPath();
       ctx.moveTo(selObj.x, selObj.y);
@@ -307,19 +257,6 @@
       ctx.setLineDash([6 / cam.zoom, 4 / cam.zoom]);
       ctx.fillRect(rx, ry, rw, rh);
       ctx.strokeRect(rx, ry, rw, rh);
-      ctx.setLineDash([]);
-    }
-
-    // in-progress wall segment being drawn
-    if (wallDraw.active) {
-      ctx.beginPath();
-      ctx.moveTo(wallDraw.startX, wallDraw.startY);
-      ctx.lineTo(wallDraw.curX, wallDraw.curY);
-      ctx.strokeStyle = '#ff5a5a';
-      ctx.lineWidth = 3 / cam.zoom;
-      ctx.lineCap = 'round';
-      ctx.setLineDash([6 / cam.zoom, 4 / cam.zoom]);
-      ctx.stroke();
       ctx.setLineDash([]);
     }
 

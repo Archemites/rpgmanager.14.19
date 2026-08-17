@@ -34,13 +34,13 @@ of `import`/`export`.
 ## Two-window system
 
 - **`master.html` + `js/gm/*`** — the GM's full editing interface: map import,
-  token CRUD, fog/wall drawing tools, scene switching, combat tracker, party
+  token CRUD, fog drawing tool, scene switching, combat tracker, party
   panel, glossary, bar editor, photo crop editor.
 - **`player.html` + `js/player/*`** — a read-only render target. It never
   mutates shared game state on its own; it only receives `'rpg-state'`
-  messages from the GM and redraws. Its one genuinely original
-  subsystem is the vision/fog-of-war raycasting + exploration-memory engine,
-  which has no counterpart on the GM side (see "Vision & fog of war" below).
+  messages from the GM and redraws. Fog of war is GM-manual only (see
+  "Fog of war (GM-manual)" below) — the player side has no vision logic of
+  its own beyond painting `state.fog[]` opaque.
 - The two windows are **not** iframes or tabs in the same document, and are
   no longer required to be on the same machine/browser. Each player opens
   `player.html` independently (their own device) and joins the GM's short
@@ -62,8 +62,7 @@ js/shared/            Used by BOTH windows — loaded first, before js/gm or js/
   object-cache.js       createObjectImgCache → getObjectImg (dataURL → cached <img>, keyed off o.dataUrl not t.photoDataUrl) — used by js/gm/draw.js and js/player/draw.js to render state.objects
   bars.js               drawTokenBars + drawHorizontalBar/drawVerticalBar/drawRadialBar/tokenBarExtents
   scene-render.js       drawMapAndGrid, drawTokenBasic (photo/color+ring+initials+name — no bars/effects)
-  vision-math.js        tokenVisionReach(t) — the reach formula both windows need
-  fx-trail.js           cosmetic FX trail (explosion/fire/smoke/heal): FX_TYPES defs, spawnFx/drawFx/hasActiveFx, self-driven rAF loop that keeps calling window.RPG.draw() while any effect is animating. Never touches tokens/walls/fog/state — purely visual, drawn on top of everything in both draw() loops
+  fx-trail.js           cosmetic FX trail (explosion/fire/smoke/heal): FX_TYPES defs, spawnFx/drawFx/hasActiveFx, self-driven rAF loop that keeps calling window.RPG.draw() while any effect is animating. Never touches tokens/fog/state — purely visual, drawn on top of everything in both draw() loops
   webrtc.js             createHost (GM) / joinHost (player) — thin wrapper over PeerJS: short room-code generation, code<->peer-id mapping, STUN config, describePeerError. Pure plumbing, no state/allTokens dependency — see "Player sync protocol"
 
 js/vendor/              third-party code vendored on disk (no CDN, no bundler/npm)
@@ -73,22 +72,21 @@ js/vendor/              third-party code vendored on disk (no CDN, no bundler/np
 
 js/gm/                 GM-only — master.html
   state.js              allTokens, state (current-scene view), constants, DOM canvas/viewport refs
-  history.js            undo/redo: snapshot-based, scoped to current scene's tokens/fog/walls — captureBeforeChange/undo/redo
+  history.js            undo/redo: snapshot-based, scoped to current scene's tokens/fog — captureBeforeChange/undo/redo
   scenes.js             scenes[], currentSceneId, switchScene/createScene/bringTokenToCurrentScene, bringCarry, scene folders[] + multi-select (see "Scenes" below)
   sync.js               sendState/sendStateForced, sceneSyncPending gate, "🔗 Convidar jogador" modal (room code + QR), broadcasts state to every connected PeerJS DataConnection — see "Player sync protocol"
-  draw.js               draw() — the GM canvas render loop (map, grid, tokens, fog tint, walls, cones, handles)
-  vision-preview.js      GM-only cosmetic vision-cone glow (NOT occluded by walls — preview only)
-  hit-test.js           tokenAt/fogRectAt/wallAt/effectDotAt/distToSegment/snapToCardinal/snapWallEndpoint
-  mouse.js              canvas mouse/keyboard interaction dispatch (pan/drag/rotate/fog/wall/bring-carry/measure)
-  tools.js              fog/wall/move/measure tool-mode toggles + top toolbar (import/sliders panel), token resize buttons
-  hotkeys.js            global keyboard shortcuts: Ctrl+C/V (copy/paste tokens), Delete/Backspace (delete token/wall/fog under cursor), Ctrl+Z/Ctrl+Y (undo/redo via history.js)
-  map-grid-lighting.js  map import/scale, grid controls, global lighting slider, wall-occlusion-method select
+  draw.js               draw() — the GM canvas render loop (map, grid, tokens, fog tint, object rotate handle)
+  hit-test.js           tokenAt/fogRectAt/effectDotAt/noteAt/objectAt/objectRotateHandlePos/objectRotateHandleAt
+  mouse.js              canvas mouse/keyboard interaction dispatch (pan/drag/fog/bring-carry/measure)
+  tools.js              fog/move/measure tool-mode toggles + top toolbar (import/sliders panel), token resize buttons
+  hotkeys.js            global keyboard shortcuts: Ctrl+C/V (copy/paste tokens), Delete/Backspace (delete token/fog under cursor), Ctrl+Z/Ctrl+Y (undo/redo via history.js)
+  map-grid-lighting.js  map import/scale, grid controls
   token-modal.js        create/edit token modal
   context-menu.js       generic right-click popup (Windows-style) — openContextMenu(x,y,items)/closeContextMenu
   note-modal.js         shared annotation textarea modal — token.note (per-token) + state.notes[] (per-scene, background pins, GM-only)
   note-postit.js        floating sticky-note alternative to note-modal.js — anchored to a world point, tracks pan/zoom, auto-saves
   token-list.js         sidebar token list + delete confirmation
-  objects.js             map objects (props/scenery, NOT tokens): "Objetos" sidebar section, add/edit modal (image upload, no crop), resize buttons, remove. Per-scene like fog/walls/notes. See "Map objects" below
+  objects.js             map objects (props/scenery, NOT tokens): "Objetos" sidebar section, add/edit modal (image upload, no crop), resize buttons, remove. Per-scene like fog/notes. See "Map objects" below
   party.js              Party panel (universal bars, per-member values, cross-scene "bring here")
   combat.js             combat tracker (start/stop/next-turn, draggable reorder bar)
   glossary.js           GM effects glossary modal (reference notes, not applied automatically)
@@ -101,11 +99,9 @@ js/gm/                 GM-only — master.html
   init.js               window.RPG exports + final init calls (resizeCanvas/centerView/renderParty/renderSceneList)
 
 js/player/              Player-only — player.html
-  state.js              state (received-from-GM view), cam, drag, exploredCells
+  state.js              state (received-from-GM view), cam, drag
   sync.js               entry screen (#entryOverlay: name + room code, typed or camera-scanned; ?mesa=CODE auto-joins), PeerJS message receiver ('rpg-state'/'rpg-fx'/'rpg-theme'), status banner, init
   draw.js               draw() — the player canvas render loop (live scene + fog compositing)
-  vision-fog.js         wall-occlusion raycasting engine (segmentsIntersect, punchVisionCone, occludeConeMaskBy{Cell,Raycast})
-  memory.js             frozen exploration-memory canvas (world-space, grows/re-anchors, per-cell snapshot freeze)
   fullscreen.js         removes the browser navigation bar: click-to-enter fullscreen overlay (#fsPrompt) shown on load + persistent ⛶ toggle (#fsBtn) + F key. Fullscreen needs a user gesture *in the player window*, so the GM can't trigger it over postMessage — hence the overlay. Self-contained; only calls window.RPG.resizeCanvas on fullscreenchange
   combat.js             read-only combat bar display (no drag-reorder — player can't reorder initiative)
 
@@ -124,7 +120,8 @@ bckp/                   Pre-refactor monolith snapshots (master.html/player.html
 modularization this file now describes. **Neither `master.html` nor
 `player.html`'s actual logic reads from them** — `main.js`/`player-main.js`
 (pre-split) each had their own richer local copies that drifted ahead (walls,
-scenes, lighting, wall-occlusion method, scene-sync gating — none of which
+scenes, lighting, wall-occlusion method, scene-sync gating — all since removed
+again along with the vision-cone system, but the drift is why none of it
 exist in the stale versions). They are left on disk as historical artifacts,
 not deleted, but **the real implementations now live in `js/shared/`,
 `js/gm/`, and `js/player/` as described above.** If you find yourself editing
@@ -138,9 +135,9 @@ anything when you test it, that's why — you're editing dead code. Check
 ```
 js/vendor/qrcode.min.js → js/vendor/peerjs.min.js → js/shared/webrtc.js
 → js/shared/camera.js → js/shared/photo-cache.js → js/shared/object-cache.js → js/shared/bars.js
-→ js/shared/scene-render.js → js/shared/vision-math.js → js/shared/fx-trail.js
+→ js/shared/scene-render.js → js/shared/fx-trail.js
 → js/gm/state.js → js/gm/history.js → js/gm/scenes.js → js/gm/sync.js
-→ js/gm/hit-test.js → js/gm/vision-preview.js → js/gm/draw.js
+→ js/gm/hit-test.js → js/gm/draw.js
 → js/gm/map-grid-lighting.js → js/gm/token-modal.js → js/gm/crop-editor.js
 → js/gm/context-menu.js → js/gm/note-modal.js → js/gm/note-postit.js
 → js/gm/token-list.js → js/gm/objects.js → js/gm/effects-picker.js → js/gm/glossary.js
@@ -154,15 +151,15 @@ js/vendor/qrcode.min.js → js/vendor/peerjs.min.js → js/shared/webrtc.js
 ```
 js/vendor/qrcode.min.js → js/vendor/peerjs.min.js → js/shared/webrtc.js
 → js/shared/camera.js → js/shared/photo-cache.js → js/shared/object-cache.js → js/shared/bars.js
-→ js/shared/scene-render.js → js/shared/vision-math.js → js/shared/fx-trail.js
-→ js/player/state.js → js/player/memory.js → js/player/vision-fog.js
+→ js/shared/scene-render.js → js/shared/fx-trail.js
+→ js/player/state.js
 → js/player/combat.js → js/player/draw.js → js/player/fullscreen.js → js/player/sync.js
 ```
 
 **Why this order:** `js/shared/*` has zero dependencies on anything else and
 must load first. Within `js/gm/*`, `state.js`/`scenes.js`/`sync.js` declare
 the mutable state every other GM file reads or mutates, so they load first;
-`draw.js` depends on `hit-test.js` and `vision-preview.js` having already
+`draw.js` depends on `hit-test.js` having already
 defined the functions it calls; UI modules (modals, party, combat, tools,
 mouse) come after `draw.js` since they call `draw()`/`sendState()` but aren't
 called by it; `mouse.js` loads last among interaction code because it's the
@@ -225,10 +222,9 @@ state = {
   grid: { show, size, color },              // per-scene
   map: { img, scalePct, dataUrl, name, bgColor },  // per-scene; bgColor fills the canvas behind/around the map image (default '#03140a'), configurable in Ajustes, synced to the player
   tokens: [...],                             // VIEW — filtered by refreshVisibleTokens(), not a source of truth
-  fog: [ { id, x, y, w, h }, ... ],          // per-scene
-  walls: [ { id, x1, y1, x2, y2 }, ... ],    // per-scene, GM-only visually
+  fog: [ { id, x, y, w, h }, ... ],          // per-scene, GM-manual — see "Fog of war (GM-manual)"
   notes: [ { id, x, y, text }, ... ],        // per-scene, GM-only background annotations, never sent to player
-  objects: [ { id, x, y, w, h, rotation, dataUrl, name }, ... ],  // per-scene map props/scenery — x/y = CENTER, w/h = world px, rotation in radians. Sent to player (unlike walls/notes)
+  objects: [ { id, x, y, w, h, rotation, dataUrl, name }, ... ],  // per-scene map props/scenery — x/y = CENTER, w/h = world px, rotation in radians. Sent to player (unlike notes)
   nextNoteId,
   nextObjectId,
   partyBars: [ { id, name, color, defaultMax, active, display, side, direction }, ... ],  // GLOBAL (all scenes)
@@ -238,18 +234,16 @@ state = {
     // barMods: [ { barId, delta } ], applied to the token's own barValues[barId].current each nextTurn()
     // delta is a string: plain signed number ("-2") or signed dice notation ("-1d4", "+2d6"),
     // rolled fresh each turn by rollDeltaExpr() in js/gm/combat.js
-  lighting,                // GLOBAL — reach(px) = BASE_VISION_RANGE * lighting * token.visionMult
-  wallOcclusionMethod,     // GLOBAL — 'cell' | 'raycast', controls the PLAYER window's occlusion rendering
-  nextId, nextFogId, nextWallId, nextBarId, nextEffectId,
-  selectedTokenId,         // also doubles as "active vision token" sent to the player
+  nextId, nextFogId, nextBarId, nextEffectId,
+  selectedTokenId,
   selectedObjectId,
-  fogMode, wallMode, moveMode,
+  fogMode, moveMode,
   combat: { active, order },  // per-scene
 }
 
 allTokens = [
   { id, x, y, r, color, name, photoDataUrl, isPlayer, barValues, effects,  // effects: [ { id, remaining }, ... ] glossary applications on this token
-    facing, visionAngle, visionMult, createdAt, note,   // note: GM-only free-text annotation
+    createdAt, note,   // note: GM-only free-text annotation
     scenes: { [sceneId]: { x, y } } },  // PRESENCE + per-scene position map
 ]
 // A token with no entry for a scene's id in `scenes` simply doesn't appear
@@ -258,7 +252,7 @@ allTokens = [
 // behind in its old scene.
 
 scenes = [
-  { id, name, map, fog, walls, notes, objects, grid, combat, nextFogId, nextWallId, nextNoteId, nextObjectId }
+  { id, name, map, fog, notes, objects, grid, combat, nextFogId, nextNoteId, nextObjectId }
 ]
 currentSceneId
 ```
@@ -270,15 +264,9 @@ by the incoming `'rpg-state'` message handler in `js/player/sync.js`:
 
 ```js
 state = {
-  grid, map: { img, scalePct, bgColor }, tokens, fog, walls, objects, combat, partyBars,
-  lighting, wallOcclusionMethod, activeVisionTokenId,
+  grid, map: { img, scalePct, bgColor }, tokens, fog, objects, combat, partyBars,
 }
 ```
-
-`activeVisionTokenId` (mirrors the GM's `state.selectedTokenId`) — **only this
-one token's** vision cone reveals/updates fog on the player window, even if
-several tokens are marked `isPlayer`. This lets the GM control which party
-member is "active" instead of every player token revealing fog at once.
 
 ## Photo handling
 
@@ -297,7 +285,7 @@ on reload), never explicitly evicted.
 
 ## Scenes
 
-Each scene owns its own `map`, `fog`, `walls`, `grid`, and `combat` — tokens
+Each scene owns its own `map`, `fog`, `grid`, and `combat` — tokens
 are the one thing that's global, with per-scene presence/position (see
 "State management" above). `js/gm/scenes.js` is the only file that touches
 `scenes[]`/`currentSceneId` directly; everything else reads the *current*
@@ -401,8 +389,7 @@ itself, so these are sent as plain objects, not `JSON.stringify`'d strings:
 ```js
 {
   type: 'rpg-state',
-  grid, tokens, fog, walls, objects, combat, partyBars, lighting, wallOcclusionMethod,
-  activeVisionTokenId,        // = state.selectedTokenId
+  grid, tokens, fog, objects, combat, partyBars,
   map: { scalePct, dataUrl? } // dataUrl: string = new, null = removed, absent = unchanged
 }
 ```
@@ -457,19 +444,47 @@ The **"🔄 Atualizar telas dos jogadores"** button (`js/gm/sync.js`'s
 Player windows keep rendering the previous scene, unchanged, for as long as
 the gate is up.
 
+### Send throttling and image dedup
+
+`sendState()` is called from dozens of sites, several of them on every
+`mousemove` while dragging a token/object (`js/gm/mouse.js`). Two things
+kept this from meaning "60 full-state sends a second":
+
+- **Time-based throttling**: `scheduleSend()` enforces `SEND_MIN_INTERVAL_MS`
+  (120ms, ~8/s) of real wall-clock time between sends, via `setTimeout` —
+  not just one send per animation frame, which at 60fps was still far too
+  often for a PeerJS `reliable: true` data connection to keep up with.
+- **`bufferedAmount` back-pressure**: `broadcast()` skips a peer entirely
+  for a given send if `conn.bufferedAmount` exceeds `MAX_BUFFERED_BYTES`
+  (256KB) — a reliable/ordered WebRTC data channel behaves like TCP: if the
+  receiver can't drain the socket as fast as we produce messages, unsent
+  messages queue up and every new one becomes MORE stale than the last
+  instead of just occasionally dropping a frame. Skipping means the next
+  scheduled send (which will carry current data) isn't queued behind stale
+  ones.
+- **Image dedup** (`makeImageDedupe()`): a token's `photoDataUrl` and an
+  object's `dataUrl` can be hundreds of KB, and neither changes from a
+  drag/rotate/fog edit — only from the token/object modal. `tokenPhotoDedupe`/
+  `objectImageDedupe` strip the image field from an item once it's already
+  been sent unchanged, keyed by item `id`; `sendStateForced()` clears both
+  (a fresh/reconnected peer has nothing cached to dedupe against). On the
+  receiving end, `js/player/sync.js`'s `rehydrateTokenPhotos`/
+  `rehydrateObjectImages` reattach the last-known image for any item that
+  arrives without one, so `js/shared/photo-cache.js`'s `getTokenPhotoImg` /
+  `js/shared/object-cache.js`'s `getObjectImg` (which read the field
+  directly) never see an image "disappear" between pushes.
+
+If sync ever feels laggy again, check these three things first before
+assuming it's a network/NAT problem.
+
 ## Canvas rendering
 
 - **GM view** (`js/gm/draw.js`): fog rects rendered semi-transparent
-  (`rgba(3,20,10,0.32)`, GM sees the map underneath); walls drawn as solid
-  red lines (GM-only, never sent to the player visually); vision-cone
-  *preview* glow drawn on top for every `isPlayer` token (soft, NOT occluded
-  by walls — see "Vision & fog of war" below); facing-direction indicators
-  and the yellow rotation handle for the selected token; in-progress fog/wall
-  drag previews; the "bring carry" ghost token.
-- **Player view** (`js/player/draw.js`): fog rects fully opaque black by
-  default; the currently-active vision token's cone is the only thing that
-  reveals the live scene; previously-explored-but-not-currently-visible
-  ground shows a *frozen* memory snapshot instead (see "Vision & fog of war").
+  (`rgba(3,20,10,0.32)`, GM sees the map underneath); the yellow rotation
+  handle for a selected map object; in-progress fog drag preview; the
+  "bring carry" ghost token.
+- **Player view** (`js/player/draw.js`): fog rects rendered fully opaque
+  black — see "Fog of war (GM-manual)" below.
 - CRT effects (scanlines, RGB mask, vignette, flicker) are pure CSS via
   `body::before`/`body::after` — unrelated to the canvas, unaffected by any of
   this split.
@@ -491,74 +506,29 @@ the gate is up.
   below) — HP bars and applied effects are live combat state and shouldn't
   linger stale in a memory snapshot.
 
-## Vision & fog of war
+## Fog of war (GM-manual)
 
-This is the most asymmetric subsystem in the codebase — the GM side and
-player side do genuinely different things, on purpose:
+There is no automatic reveal-by-vision, no cone, no wall occlusion, no
+raycasting, no exploration memory. Fog is a plain GM-controlled overlay:
 
-- **GM side** (`js/gm/vision-preview.js`): draws a soft, non-occluded glow
-  for every `isPlayer` token's cone, purely so the GM can see at a glance
-  where each token's vision reaches. **Walls do NOT block this preview** —
-  it's cosmetic reference only, not the real occlusion calculation.
-- **Player side** (`js/player/vision-fog.js` + `js/player/memory.js`) does
-  the real work:
-  - Only the token matching `state.activeVisionTokenId` projects a cone that
-    reveals/updates fog (see "Player side" state above).
-  - **Vision cone shape**: `facing` (radians) + `visionAngle` (degrees, 20
-    up to 360 = full circle) + `visionMult` (per-token range multiplier).
-    Reach = `t.r + BASE_VISION_RANGE * state.lighting * visionMult`
-    (`js/shared/vision-math.js`'s `tokenVisionReach`).
-  - **Wall occlusion**: `state.wallOcclusionMethod` (GM-controlled, in the
-    Ajustes panel) picks between two occlusion strategies:
-    - `'cell'` (default): snaps occlusion to the same 48px grid used by
-      exploration memory — a cell is blocked if a straight line from the
-      token to its center crosses any wall segment. Cheap, blocky.
-    - `'raycast'`: casts a precise shadow polygon behind each wall segment
-      (quad from the two endpoints projected out past the cone's reach).
-      Sharper silhouette, costs more per frame.
-  - **Wall endpoint snapping**: when the GM draws a new wall
-    (`js/gm/hit-test.js`'s `snapWallEndpoint`, 2px world-space tolerance),
-    its endpoints snap onto any existing wall endpoint within range — this
-    closes sub-pixel gaps between wall segments drawn in separate strokes
-    (e.g. a room corner drawn as two lines) so the raycast occlusion can't
-    leak light through a sliver too thin to see.
-  - **Frozen exploration memory** (`js/player/memory.js`): a world-space
-    canvas (fixed scale `MEMORY_SCALE`, independent of the live camera,
-    grows/re-anchors its origin on demand) records the last-seen appearance
-    of every explored 48px cell. Ground the party has explored before stays
-    **dimmed but visible** (`EXPLORED_DIM_ALPHA`) once the active token moves
-    away — it shows the FROZEN snapshot (map + `drawTokenBasic`-only tokens,
-    no bars/effects) from the moment it was last actually inside the cone,
-    not the live scene. Only the current cone shows the live, up-to-date
-    scene. The observing token itself is excluded from its own snapshot (a
-    token can't see itself standing in a room from outside it), and the
-    cell the token's own body stands on is always freshly visited regardless
-    of facing/angle (plus a small always-visible circle around its body in
-    the live cone, so a narrow cone never leaves the token's own square dark).
-  - Exploration memory resets (`resetExplorationMemory()`) whenever the map
-    changes or is removed — old world coordinates no longer mean anything.
-- **Only player (Party) tokens** ever reveal fog; enemy/NPC tokens' cones and
-  facing indicators show only on the GM's `vision-preview.js` glow, never
-  occlude or reveal anything on the player side.
-- **Rotation**: select a token → drag the yellow handle around it, or press
-  ←/→ (Shift = 15° steps) to rotate `facing` 360° — the token's image itself
-  never rotates, only the cone direction.
-- Fog rectangles: drawn via toggle button + drag; a drag under 4px screen
-  distance is discarded (accidental click, not a real rectangle). Right-click
-  a rect to remove it.
-
-## Walls (line-of-sight blockers)
-
-- GM-only tool (`js/gm/tools.js` toggle + `js/gm/mouse.js` drag handling):
-  click-drag draws a segment; **Shift** snaps the drag angle to the nearest
-  45° (cardinal/diagonal) for straight walls; right-click removes one.
-  New endpoints snap onto existing wall endpoints within 2px world-space
-  (see "Vision & fog of war" above).
-- Rendered as solid red lines on the GM canvas only — **never sent to the
-  player window visually**; the player only ever sees their *effect*
-  (occluding vision cones), via `state.walls` being used purely as
-  raycasting input in `js/player/vision-fog.js`.
-- Per-scene (`scenes[].walls`), like fog.
+- **Drawing** (`js/gm/tools.js`'s fog-mode toggle + `js/gm/mouse.js`'s
+  drag handling): with "▓ Névoa" active, click-drag on the GM canvas adds a
+  `{ id, x, y, w, h }` rect to `state.fog[]`; a drag under 4px screen
+  distance is discarded (accidental click, not a real rectangle).
+  Right-click an existing rect removes it; "Limpar névoa" clears all of them.
+- **GM view** (`js/gm/draw.js`): fog rects render semi-transparent
+  (`rgba(3,20,10,0.32)`) so the GM can still see the map underneath while
+  knowing which areas are hidden from players.
+- **Player view** (`js/player/draw.js`): every `state.fog[]` rect is painted
+  fully opaque black — no holes, no reveal, no per-token logic of any kind.
+  Whatever is under a fog rect stays hidden until the GM erases it.
+- Per-scene (`scenes[].fog`), like every other per-scene field — see "Add a
+  new per-scene field" in Common tasks below.
+- Tokens have no `facing`/rotation and there is no rotate handle for them —
+  that machinery existed only to aim the old vision cone. Object rotation
+  (`js/gm/hit-test.js`'s `objectRotateHandlePos`/`objectRotateHandleAt`) is
+  unrelated and still works exactly as before — it orients a scenery image,
+  not a token.
 
 ## Map objects (props/scenery — distinct from tokens)
 
@@ -571,10 +541,10 @@ player side do genuinely different things, on purpose:
   shape* — drawn as an unclipped rectangle (`ctx.drawImage` inside a
   `translate`+`rotate`, no circular clip), not cropped into a circle. No
   vision cone, no bars, no effects, no `isPlayer` — objects are pure scenery.
-- **Data shape** (`state.objects`, per-scene like fog/walls/notes — see
+- **Data shape** (`state.objects`, per-scene like fog/notes — see
   `js/gm/scenes.js`): `{ id, x, y, w, h, rotation, dataUrl, name }`. `x`/`y`
   are the CENTER (unlike fog rects, which are top-left + w/h); `w`/`h` are
-  world px; `rotation` is radians, same convention as `token.facing`.
+  world px; `rotation` is radians (0 = unrotated).
 - **Hit-testing** (`js/gm/hit-test.js`'s `objectAt`): rotates the click point
   into the object's local (unrotated) space around its center, then a plain
   AABB check against `±w/2`/`±h/2` — needed because, unlike a token's circle,
@@ -597,13 +567,13 @@ player side do genuinely different things, on purpose:
   (`js/gm/state.js` and `js/player/state.js`) and exposed as
   `window.RPG.getObjectImg`, used by both `js/gm/draw.js` and
   `js/player/draw.js`.
-- **Rendered on the player window too** (unlike walls/notes, which are
-  GM-only) — see `js/player/draw.js`, drawn right after the map/grid and
-  before tokens, same unclipped rotated-rect approach, no selection ring.
+- **Rendered on the player window too** (unlike notes, which are GM-only) —
+  see `js/player/draw.js`, drawn right after the map/grid and before tokens,
+  same unclipped rotated-rect approach, no selection ring.
   Included in the `sendState()` payload (`js/gm/sync.js`) and mirrored in
   `js/player/state.js`/`js/player/sync.js` as `state.objects`.
 - **Undo/redo, session export/import**: captured by `js/gm/history.js`'s
-  snapshot (`state.objects`/`nextObjectId` alongside fog/walls/notes) and
+  snapshot (`state.objects`/`nextObjectId` alongside fog/notes) and
   round-tripped through `js/gm/session-io.js` the same way — `objects`/
   `nextObjectId` pass through `sceneForExport`'s `{ ...sc }` spread for free
   since they're plain per-scene fields, but `applySessionPayload`'s explicit
@@ -618,7 +588,7 @@ player side do genuinely different things, on purpose:
   **double-clicking the token on the canvas** (opens the floating post-it —
   see below). Not synced to the player window — it's GM reference text, like
   the effects glossary.
-- **Background annotations** (`state.notes[]`, per-scene like fog/walls):
+- **Background annotations** (`state.notes[]`, per-scene like fog):
   right-clicking empty map space (no token, no existing note marker) opens a
   context menu with "📝 Criar anotação" — confirms into a new
   `{id, x, y, text}` pinned at that world point. Rendered on the GM canvas
@@ -647,10 +617,10 @@ player side do genuinely different things, on purpose:
   builds the item list per right-click target (token / note marker / empty
   map) rather than each target owning its own menu markup.
 - Both annotation types are captured by `js/gm/history.js`'s undo/redo
-  snapshot (`state.notes`/`nextNoteId` alongside fog/walls) and trigger
+  snapshot (`state.notes`/`nextNoteId` alongside fog) and trigger
   `sendState()`, but the player-side payload (`js/gm/sync.js`) does not
-  include `notes` or `token.note` — see "Player sync protocol": this is
-  intentionally asymmetric, matching how walls are GM-only visually.
+  include `notes` or `token.note` — see "Player sync protocol": GM-only
+  reference text never crosses to the player, same as before.
 
 ## Camera & zoom
 
@@ -658,7 +628,7 @@ player side do genuinely different things, on purpose:
   (the world point under the cursor before zooming stays under it after).
 - Min/max zoom: 0.1×–6× (`js/shared/camera.js`'s `MIN_ZOOM`/`MAX_ZOOM`).
 - Middle-mouse drag pans (both windows). On the GM window: left-drag moves
-  tokens (or draws fog/walls/pans the carried "bring" ghost, depending on
+  tokens (or draws fog/pans the carried "bring" ghost, depending on
   active tool mode); right-click removes a token/fog rect/wall depending on
   what's under the cursor.
 
@@ -697,8 +667,6 @@ which scene is open:
   Event Log (`window.RPG.logEvent`, see `js/gm/history.js`) — e.g.
   `"Sangramento em Aragorn: -1d4 → -3 (Vida)"`. Applying/removing a glossary
   effect on a token from `js/gm/effects-picker.js` is also logged.
-- `state.lighting`, `state.wallOcclusionMethod` — both affect how the player
-  window renders vision, regardless of scene.
 
 ## Development notes
 
@@ -795,7 +763,7 @@ which scene is open:
 - **A function seems to not exist / change has no effect?** Check you're not
   editing `js/core/*` or `js/render/*` — those are dead stale files (see
   "Dead files" above). Check `js/shared/`, `js/gm/`, `js/player/` instead.
-- **Wall/fog changes on the GM don't show up on the player?** That's by
+- **Fog changes on the GM don't show up on the player?** That's by
   design if a scene switch is pending (see "Player sync gate"). Otherwise,
   confirm the mutation site calls `sendState()`.
 - **A new module's functions are `undefined` when called?** Check the

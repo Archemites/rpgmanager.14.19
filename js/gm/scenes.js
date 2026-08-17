@@ -21,9 +21,9 @@
 
   let nextSceneId = 2;
   const scenes = [
-    { id: 1, name: 'Cena 1', map: { img: null, scalePct: 100, dataUrl: null, bgColor: null }, fog: [], walls: [], notes: [], objects: [],
+    { id: 1, name: 'Cena 1', map: { img: null, scalePct: 100, dataUrl: null, bgColor: null }, fog: [], notes: [], objects: [],
       grid: { show: true, size: 48, color: null }, combat: { active: false, order: [] },
-      nextFogId: 1, nextWallId: 1, nextNoteId: 1, nextObjectId: 1, folderId: null },
+      nextFogId: 1, nextNoteId: 1, nextObjectId: 1, folderId: null },
   ];
   let currentSceneId = 1;
 
@@ -60,20 +60,18 @@
     t.scenes[currentSceneId] = { x: t.x, y: t.y };
   }
 
-  // Snapshot the open scene's mutable fields (fog/walls/map/grid/combat/id
+  // Snapshot the open scene's mutable fields (fog/map/grid/combat/id
   // counters) from `state` back into its `scenes[]` entry.
   function commitSceneFields() {
     const sc = currentScene();
     if (!sc) return;
     sc.map = state.map;
     sc.fog = state.fog;
-    sc.walls = state.walls;
     sc.notes = state.notes;
     sc.objects = state.objects;
     sc.grid = state.grid;
     sc.combat = state.combat;
     sc.nextFogId = state.nextFogId;
-    sc.nextWallId = state.nextWallId;
     sc.nextNoteId = state.nextNoteId;
     sc.nextObjectId = state.nextObjectId;
     for (const t of visibleTokens()) commitTokenPosition(t);
@@ -89,13 +87,11 @@
     currentSceneId = sceneId;
     state.map = target.map;
     state.fog = target.fog;
-    state.walls = target.walls;
     state.notes = target.notes || [];
     state.objects = target.objects || [];
     state.grid = target.grid;
     state.combat = target.combat;
     state.nextFogId = target.nextFogId;
-    state.nextWallId = target.nextWallId;
     state.nextNoteId = target.nextNoteId || 1;
     state.nextObjectId = target.nextObjectId || 1;
     state.selectedTokenId = null;
@@ -127,10 +123,10 @@
       name: name || `Cena ${scenes.length + 1}`,
       // bgColor: null = no manual override, follows the current theme's --map-bg
       map: { img: null, scalePct: 100, dataUrl: null, bgColor: null },
-      fog: [], walls: [], notes: [], objects: [],
+      fog: [], notes: [], objects: [],
       grid: { show: true, size: 48, color: null },  // null = no manual override, follows theme's --accent
       combat: { active: false, order: [] },
-      nextFogId: 1, nextWallId: 1, nextNoteId: 1, nextObjectId: 1,
+      nextFogId: 1, nextNoteId: 1, nextObjectId: 1,
       folderId: null,
     };
     scenes.push(sc);

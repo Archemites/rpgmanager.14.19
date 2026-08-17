@@ -1,6 +1,5 @@
 /* ============================================================
-   GM map import/scale, grid controls, global lighting slider,
-   wall-occlusion-method select. Owns the top-bar DOM controls for these.
+   GM map import/scale, grid controls. Owns the top-bar DOM controls for these.
    ============================================================ */
 
 (() => {
@@ -123,31 +122,12 @@
     window.RPG.sendState();
   });
 
-  // ---------- Global lighting (vision reach into fog) ----------
-  const lightingInput = document.getElementById('topLighting');
-  const lightingVal = document.getElementById('topLightingVal');
-  lightingInput.addEventListener('input', () => {
-    const pct = Number(lightingInput.value);
-    state.lighting = pct / 100;
-    lightingVal.textContent = pct + '%';
-    window.RPG.draw();
-    window.RPG.sendState();
-  });
-
   // ---------- Snap to grid (GM-only drag behavior, not sent to player) ----------
   const snapToGridToggle = document.getElementById('topSnapToGrid');
   snapToGridToggle.checked = state.snapToGrid;
   snapToGridToggle.addEventListener('change', () => {
     state.snapToGrid = snapToGridToggle.checked;
     window.RPG.logEvent(state.snapToGrid ? 'Ativou encaixe na grade' : 'Desativou encaixe na grade');
-  });
-
-  // ---------- Wall occlusion method (rendered on the player window) ----------
-  const wallMethodSelect = document.getElementById('topWallMethod');
-  wallMethodSelect.value = state.wallOcclusionMethod;
-  wallMethodSelect.addEventListener('change', () => {
-    state.wallOcclusionMethod = wallMethodSelect.value;
-    window.RPG.sendState();
   });
 
   // ---------- Expose to window.RPG ----------

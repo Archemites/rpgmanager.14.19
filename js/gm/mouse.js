@@ -1,7 +1,7 @@
 /* ============================================================
    GM canvas mouse/keyboard interaction dispatch: pan (middle), tokens
-   (left/right), fog/wall drawing, rotate handle, bring-carry, measure,
-   scroll-wheel zoom, arrow-key rotation, effect-dot tooltip.
+   (left/right), fog drawing, bring-carry, measure, scroll-wheel zoom,
+   effect-dot tooltip.
    Loads last among interaction files — reaches into nearly every other GM
    module (scenes, hit-test, tools, token-modal, crop-editor via token-modal).
    ============================================================ */
@@ -17,15 +17,9 @@
   const zoomAt = window.RPG.zoomAt;
   const drag = window.RPG.drag;
   const fogDraw = window.RPG.fogDraw;
-  const wallDraw = window.RPG.wallDraw;
   const tokenAt = window.RPG.tokenAt;
   const fogRectAt = window.RPG.fogRectAt;
-  const wallAt = window.RPG.wallAt;
   const effectDotAt = window.RPG.effectDotAt;
-  const snapToCardinal = window.RPG.snapToCardinal;
-  const snapWallEndpoint = window.RPG.snapWallEndpoint;
-  const rotateHandleAt = window.RPG.rotateHandleAt;
-  const ensureTokenVision = window.RPG.ensureTokenVision;
   const noteAt = window.RPG.noteAt;
   const objectAt = window.RPG.objectAt;
   const objectRotateHandleAt = window.RPG.objectRotateHandleAt;
@@ -106,34 +100,8 @@
       return;
     }
 
-    if (state.wallMode) {
-      if (e.button === 2) {
-        const wall = wallAt(wp.x, wp.y);
-        if (wall) {
-          window.RPG.captureBeforeChange('Removeu parede');
-          state.walls = state.walls.filter(w => w.id !== wall.id);
-          window.RPG.draw();
-          window.RPG.sendState();
-        }
-        return;
-      }
-      if (e.button === 0) {
-        wallDraw.active = true;
-        wallDraw.startX = wallDraw.curX = wp.x;
-        wallDraw.startY = wallDraw.curY = wp.y;
-      }
-      return;
-    }
-
-    // rotation handle of the selected token/object takes priority over grabbing
+    // rotation handle of the selected object takes priority over grabbing
     if (e.button === 0) {
-      const rot = rotateHandleAt(wp.x, wp.y);
-      if (rot) {
-        drag.mode = 'rotate';
-        drag.tokenId = rot.id;
-        canvas.classList.add('panning');
-        return;
-      }
       const objRot = objectRotateHandleAt(wp.x, wp.y);
       if (objRot) {
         drag.mode = 'object-rotate';
@@ -287,30 +255,10 @@
       return;
     }
 
-    if (wallDraw.active) {
-      const wp = screenToWorld(sp.x, sp.y);
-      const snapped = e.shiftKey ? snapToCardinal(wallDraw.startX, wallDraw.startY, wp.x, wp.y) : wp;
-      wallDraw.curX = snapped.x;
-      wallDraw.curY = snapped.y;
-      window.RPG.draw();
-      return;
-    }
-
     if (drag.mode === 'pan') {
       cam.x = drag.camStartX - (sp.x - drag.startScreenX) / cam.zoom;
       cam.y = drag.camStartY - (sp.y - drag.startScreenY) / cam.zoom;
       window.RPG.draw();
-      return;
-    }
-
-    if (drag.mode === 'rotate') {
-      const wp = screenToWorld(sp.x, sp.y);
-      const t = state.tokens.find(t => t.id === drag.tokenId);
-      if (t) {
-        t.facing = Math.atan2(wp.y - t.y, wp.x - t.x);
-        window.RPG.draw();
-        window.RPG.sendState();
-      }
       return;
     }
 
@@ -381,7 +329,7 @@
 
     // hover cursor feedback
     const wp = screenToWorld(sp.x, sp.y);
-    const overGrab = !state.fogMode && !state.wallMode && (!!rotateHandleAt(wp.x, wp.y) || !!tokenAt(wp.x, wp.y));
+    const overGrab = !state.fogMode && !!tokenAt(wp.x, wp.y);
     canvas.classList.toggle('over-token', overGrab);
   });
 
@@ -410,19 +358,6 @@
       window.RPG.draw();
     }
 
-    if (wallDraw.active) {
-      wallDraw.active = false;
-      const dx = wallDraw.curX - wallDraw.startX;
-      const dy = wallDraw.curY - wallDraw.startY;
-      if (Math.hypot(dx, dy) > 4) {
-        window.RPG.captureBeforeChange('Desenhou parede');
-        const p1 = snapWallEndpoint(wallDraw.startX, wallDraw.startY);
-        const p2 = snapWallEndpoint(wallDraw.curX, wallDraw.curY);
-        state.walls.push({ id: state.nextWallId++, x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y });
-        window.RPG.sendState();
-      }
-      window.RPG.draw();
-    }
     if (drag.mode === 'box') {
       const rx = Math.min(drag.boxStartX, drag.boxCurX);
       const ry = Math.min(drag.boxStartY, drag.boxCurY);
@@ -528,22 +463,6 @@
     const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
     zoomAt(sp.x, sp.y, factor);
   }, { passive: false });
-
-  // ---------- Arrow keys rotate the selected token ----------
-  window.addEventListener('keydown', (e) => {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    // don't hijack typing in inputs / textareas
-    const tag = (e.target && e.target.tagName) || '';
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    const t = state.tokens.find(tk => tk.id === state.selectedTokenId);
-    if (!t) return;
-    e.preventDefault();
-    ensureTokenVision(t);
-    const step = (e.shiftKey ? 15 : 5) * Math.PI / 180;
-    t.facing += (e.key === 'ArrowLeft' ? -step : step);
-    window.RPG.draw();
-    window.RPG.sendState();
-  });
 
   window.addEventListener('keydown', (e) => {
     const bringCarry = window.RPG.bringCarry;

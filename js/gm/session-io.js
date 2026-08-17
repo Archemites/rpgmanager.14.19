@@ -108,8 +108,6 @@
       allTokens,
       partyBars: state.partyBars,
       glossary: state.glossary,
-      lighting: state.lighting,
-      wallOcclusionMethod: state.wallOcclusionMethod,
       nextId: state.nextId,
       nextBarId: state.nextBarId,
       nextEffectId: state.nextEffectId,
@@ -159,7 +157,6 @@
     allTokens.length = 0;
     allTokens.push(...payload.allTokens);
     for (const t of allTokens) {
-      window.RPG.ensureTokenVision(t);
       // migrate old save format: effects was an array of bare glossary ids
       if (Array.isArray(t.effects) && t.effects.length && typeof t.effects[0] !== 'object') {
         t.effects = t.effects.map(id => ({ id, remaining: 0 }));
@@ -168,8 +165,6 @@
 
     state.partyBars = payload.partyBars || state.partyBars;
     state.glossary = payload.glossary || [];
-    state.lighting = typeof payload.lighting === 'number' ? payload.lighting : 1;
-    state.wallOcclusionMethod = payload.wallOcclusionMethod || 'cell';
     state.nextId = payload.nextId || 1;
     state.nextBarId = payload.nextBarId || 1;
     state.nextEffectId = payload.nextEffectId || 1;
@@ -184,13 +179,11 @@
     window.RPG.setNextSceneId(payload.nextSceneId || (Math.max(0, ...scenes.map(s => s.id)) + 1));
     state.map = target.map;
     state.fog = target.fog;
-    state.walls = target.walls;
     state.notes = target.notes || [];
     state.objects = target.objects || [];
     state.grid = target.grid;
     state.combat = target.combat;
     state.nextFogId = target.nextFogId;
-    state.nextWallId = target.nextWallId;
     state.nextNoteId = target.nextNoteId || 1;
     state.nextObjectId = target.nextObjectId || 1;
 
@@ -239,7 +232,7 @@
   // ---------- Clear session (Ajustes > Sessão > "🧹 Limpar sessão") ----------
   // The app's factory state, snapshotted at load time — BEFORE the autosave
   // restore below runs, so it's exactly what a first-ever visit looks like
-  // (one empty scene, no tokens, default party bars/lighting/occlusion).
+  // (one empty scene, no tokens, default party bars).
   // Deep-cloned through JSON so later mutations can't reach back into it.
   const PRISTINE_PAYLOAD = JSON.parse(JSON.stringify(buildSessionPayload()));
 

@@ -132,6 +132,28 @@
     else startScan();
   });
 
+  // js/gm/sync.js drops a token's photoDataUrl / an object's dataUrl from
+  // routine updates once we've already been sent it once (neither changes
+  // mid-drag, so re-sending hundreds of KB on every move was the main cause
+  // of lag). Reattach the last-known image for any item missing one here so
+  // the player-side render (js/shared/photo-cache.js's getTokenPhotoImg /
+  // js/shared/object-cache.js's getObjectImg, which just read the field
+  // directly) never sees an image "disappear" between one state push and
+  // the next.
+  function makeImageRehydrator(field) {
+    const lastById = new Map();
+    return (list) => {
+      for (const item of list) {
+        if (item[field]) lastById.set(item.id, item[field]);
+        else if (lastById.has(item.id)) item[field] = lastById.get(item.id);
+      }
+      return list;
+    };
+  }
+
+  const rehydrateTokenPhotos = makeImageRehydrator('photoDataUrl');
+  const rehydrateObjectImages = makeImageRehydrator('dataUrl');
+
   function handleMessage(msg) {
     if (msg && msg.type === 'rpg-fx') {
       if (window.RPG.spawnFx) window.RPG.spawnFx(msg.fxType, msg.x, msg.y, msg.opts);
@@ -148,22 +170,18 @@
     if (!msg || msg.type !== 'rpg-state') return;
 
     // bump on every incoming state so frozen-memory cell snapshots know to
-    // re-render (see js/player/vision-fog.js's dirtyVersion) — cheap counter,
-    // avoids diffing tokens/walls/objects to decide if a repaint is needed
+    // re-render — cheap counter, avoids diffing tokens/objects to decide if
+    // a repaint is needed
     window.RPG.sceneVersion = (window.RPG.sceneVersion || 0) + 1;
 
     state.grid = msg.grid;
-    state.tokens = msg.tokens;
+    state.tokens = rehydrateTokenPhotos(msg.tokens);
     state.fog = msg.fog || [];
-    state.walls = msg.walls || [];
-    state.objects = msg.objects || [];
-    state.wallOcclusionMethod = msg.wallOcclusionMethod || 'cell';
-    state.activeVisionTokenId = ('activeVisionTokenId' in msg) ? msg.activeVisionTokenId : null;
+    state.objects = rehydrateObjectImages(msg.objects || []);
     state.map.scalePct = msg.map.scalePct;
     state.map.bgColor = msg.map.bgColor || null;
     state.combat = msg.combat || { active: false, order: [] };
     state.partyBars = msg.partyBars || [];
-    state.lighting = (typeof msg.lighting === 'number') ? msg.lighting : 1;
     window.RPG.renderCombatBar();
 
     // dataUrl: string = new map, null = map removed, absent = unchanged
@@ -212,6 +230,9 @@
       viewport.classList.add('hidden');
       entryStatus.textContent = 'Conexão perdida — entre novamente com o código da mesa.';
       entryJoinBtn.disabled = false;
+      // No cache to clear here: js/gm/sync.js's sendStateForced (used on
+      // every (re)connect) always sends every image at least once, which
+      // naturally overwrites whatever the rehydrators remembered from before.
     };
     conn.on('close', lost);
     conn.on('error', lost);

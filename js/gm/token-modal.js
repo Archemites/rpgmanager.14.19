@@ -1,6 +1,6 @@
 /* ============================================================
-   GM token modal: create/edit token modal (name, photo, color, isPlayer,
-   vision angle/range) + removeToken(). See ARCHITECTURE.md directory layout.
+   GM token modal: create/edit token modal (name, photo, color, isPlayer)
+   + removeToken(). See ARCHITECTURE.md directory layout.
    ============================================================ */
 
 (() => {
@@ -11,9 +11,6 @@
   const viewport = window.RPG.viewport;
   const screenToWorld = window.RPG.screenToWorld;
   const BASE_TOKEN_RADIUS = window.RPG.BASE_TOKEN_RADIUS;
-  const DEFAULT_VISION_ANGLE = window.RPG.DEFAULT_VISION_ANGLE;
-  const DEFAULT_VISION_MULT = window.RPG.DEFAULT_VISION_MULT;
-  const ensureTokenVision = window.RPG.ensureTokenVision;
 
   const addTokenBtn = document.getElementById('addTokenBtn');
 
@@ -60,23 +57,6 @@
   }
 
   const tokenIsPlayerInput = document.getElementById('tokenIsPlayerInput');
-  const tokenVisionAngleInput = document.getElementById('tokenVisionAngleInput');
-  const tokenVisionAngleVal = document.getElementById('tokenVisionAngleVal');
-  const tokenVisionMultInput = document.getElementById('tokenVisionMultInput');
-  const tokenVisionMultVal = document.getElementById('tokenVisionMultVal');
-
-  function setModalVision(angleDeg, multPct) {
-    tokenVisionAngleInput.value = angleDeg;
-    tokenVisionAngleVal.textContent = angleDeg + '°';
-    tokenVisionMultInput.value = multPct;
-    tokenVisionMultVal.textContent = multPct + '%';
-  }
-  tokenVisionAngleInput.addEventListener('input', () => {
-    tokenVisionAngleVal.textContent = tokenVisionAngleInput.value + '°';
-  });
-  tokenVisionMultInput.addEventListener('input', () => {
-    tokenVisionMultVal.textContent = tokenVisionMultInput.value + '%';
-  });
 
   function openModalForCreate() {
     modalMode = 'create';
@@ -85,7 +65,6 @@
     tokenNameInput.value = '';
     tokenColorInput.value = PRESET_COLORS[state.tokens.length % PRESET_COLORS.length];
     tokenIsPlayerInput.checked = false;
-    setModalVision(DEFAULT_VISION_ANGLE, Math.round(DEFAULT_VISION_MULT * 100));
     modalTitle.textContent = 'Novo token';
     saveTokenBtn.textContent = 'Adicionar';
     updatePhotoPreview();
@@ -100,8 +79,6 @@
     tokenNameInput.value = t.name || '';
     tokenColorInput.value = t.color;
     tokenIsPlayerInput.checked = !!t.isPlayer;
-    ensureTokenVision(t);
-    setModalVision(t.visionAngle, Math.round(t.visionMult * 100));
     modalTitle.textContent = 'Editar token';
     saveTokenBtn.textContent = 'Salvar';
     updatePhotoPreview();
@@ -141,8 +118,6 @@
     const name = tokenNameInput.value.trim();
     const color = tokenColorInput.value;
     const isPlayer = tokenIsPlayerInput.checked;
-    const visionAngle = Number(tokenVisionAngleInput.value);
-    const visionMult = Number(tokenVisionMultInput.value) / 100;
 
     if (modalMode === 'create') {
       window.RPG.captureBeforeChange('Criou token' + (name ? ` "${name}"` : ''));
@@ -164,9 +139,6 @@
         isPlayer,
         barValues: {},
         effects: [],   // GM-only: array of {id, remaining} glossary effect applications on this token
-        facing: -Math.PI / 2,   // orientation angle (radians); default = up
-        visionAngle,            // cone width in degrees
-        visionMult,             // per-token range multiplier
       };
       if (isPlayer) window.RPG.syncTokenBarValues(token);
       allTokens.push(token);
@@ -180,8 +152,6 @@
         t.color = color;
         t.photoDataUrl = modalPhotoDataUrl;
         t.isPlayer = isPlayer;
-        t.visionAngle = visionAngle;
-        t.visionMult = visionMult;
         if (isPlayer) window.RPG.syncTokenBarValues(t);
       }
     }
