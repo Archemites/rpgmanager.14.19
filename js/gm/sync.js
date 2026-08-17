@@ -102,25 +102,24 @@
     broadcast({ type: 'rpg-fx', fxType: type, x, y, opts });
   }
 
-  // Renders `code` as a QR into `el`. The WebRTC SDP blob is big (~1.5-2.5KB
-// of base64), which is at or past what a QR can hold: qrcode.min.js's
-  // default correctLevel H caps out around 1.2KB and throws "Too long data"
-  // (or an out-of-range table read) past that. Force correctLevel L for the
-  // largest possible payload, and never let a failure escape — the text code
-  // below the QR is always the reliable path, the QR is a convenience.
+  // Renders `code` as a QR into `el`. js/shared/webrtc.js keeps codes compact
+  // (~330 chars => QR version ~12, 65x65 modules) specifically so a phone
+  // camera can read this off a monitor; correctLevel M gives decent error
+  // tolerance at that size. A QR failure must never escape — the text code
+  // below it is always the reliable fallback.
   function renderQr(el, code, statusEl) {
     el.innerHTML = '';
     if (!window.QRCode) return;
     try {
       new QRCode(el, {
         text: code,
-        width: 220,
-        height: 220,
-        correctLevel: QRCode.CorrectLevel.L,
+        width: 260,
+        height: 260,
+        correctLevel: QRCode.CorrectLevel.M,
       });
     } catch (err) {
       el.innerHTML = '';
-      if (statusEl) statusEl.textContent = 'Código longo demais para QR — use o código de texto abaixo.';
+      if (statusEl) statusEl.textContent = 'Não foi possível gerar o QR — use o código de texto abaixo.';
     }
   }
 

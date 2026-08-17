@@ -38,6 +38,16 @@
   let scanRafId = null;
   let scannedOfferCode = null;
 
+  // js/vendor/jsQR.js is a webpack UMD bundle with an ESM default export, so
+  // window.jsQR is the module OBJECT, not the decode function — the callable
+  // lives on .default. Resolve both shapes so either build works.
+  function getJsQR() {
+    const m = window.jsQR;
+    if (typeof m === 'function') return m;
+    if (m && typeof m.default === 'function') return m.default;
+    return null;
+  }
+
   function stopScan() {
     if (scanRafId !== null) { cancelAnimationFrame(scanRafId); scanRafId = null; }
     if (scanStream) { scanStream.getTracks().forEach((t) => t.stop()); scanStream = null; }
@@ -46,26 +56,51 @@
   async function startScan() {
     scannedOfferCode = null;
     entryScanHint.textContent = 'Aponte a câmera para o QR do mestre.';
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      entryScanHint.textContent = 'Câmera indisponível neste navegador — use "Digitar/colar".';
+      return;
+    }
     try {
       scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     } catch (err) {
-      entryScanHint.textContent = 'Não foi possível acessar a câmera.';
+      const name = err && err.name;
+      entryScanHint.textContent =
+        name === 'NotAllowedError' ? 'Permissão de câmera negada — libere no navegador ou use "Digitar/colar".'
+        : name === 'NotFoundError' ? 'Nenhuma câmera encontrada — use "Digitar/colar".'
+        : 'Não foi possível acessar a câmera — use "Digitar/colar".';
       return;
     }
+    const decode = getJsQR();
+    if (!decode) {
+      entryScanHint.textContent = 'Leitor de QR não carregou — use a opção "Digitar/colar".';
+      stopScan();
+      return;
+    }
+
     entryScanVideo.srcObject = scanStream;
-    await entryScanVideo.play();
+    try {
+      await entryScanVideo.play();
+    } catch (err) {
+      entryScanHint.textContent = 'Não foi possível iniciar a câmera.';
+      stopScan();
+      return;
+    }
 
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    // willReadFrequently: this canvas is read via getImageData every frame
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     function tick() {
-      if (!scanStream) return;
-      if (entryScanVideo.readyState === entryScanVideo.HAVE_ENOUGH_DATA && window.jsQR) {
-        canvas.width = entryScanVideo.videoWidth;
-        canvas.height = entryScanVideo.videoHeight;
-        ctx.drawImage(entryScanVideo, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, canvas.width, canvas.height);
+      if (!scanStream) return;   // stopScan() ran (mode switch / connected)
+      const w = entryScanVideo.videoWidth;
+      const h = entryScanVideo.videoHeight;
+      // videoWidth/Height stay 0 until the first frame actually arrives
+      if (w && h) {
+        canvas.width = w;
+        canvas.height = h;
+        ctx.drawImage(entryScanVideo, 0, 0, w, h);
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const code = decode(imageData.data, w, h);
         if (code && code.data) {
           scannedOfferCode = code.data;
           entryScanHint.textContent = 'QR lido ✓ — clique em Entrar.';
@@ -209,17 +244,17 @@
     entryStatus.textContent = 'Envie o código de resposta acima ao mestre. Aguardando conexão…';
     entryStep1.classList.add('hidden');
     entryStep2.classList.remove('hidden');
-    // correctLevel L = largest capacity; the SDP blob is near/past QR limits,
-    // and a QR failure must never block the (reliable) text code path.
+    // Codes are kept compact by js/shared/webrtc.js so this QR stays scannable
+    // off a screen; a QR failure must never block the reliable text path.
     entryAnswerQr.innerHTML = '';
     if (window.QRCode) {
       try {
         new QRCode(entryAnswerQr, {
-          text: answerCode, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.L,
+          text: answerCode, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M,
         });
       } catch (err) {
         entryAnswerQr.innerHTML = '';
-        entryStatus.textContent = 'Código longo demais para QR — envie o código de texto acima ao mestre.';
+        entryStatus.textContent = 'Não foi possível gerar o QR — envie o código de texto acima ao mestre.';
       }
     }
 
