@@ -98,42 +98,40 @@
   }
 
   // ---------- Interaction: drag own token, middle/left-drag pan, scroll zoom ----------
-  canvas.addEventListener('mousedown', (e) => {
-    if (e.button !== 1 && e.button !== 0) return;
-    const sp = eventScreenPos(e);
+  // Mouse and single-finger touch are unified through the same start/move/end
+  // functions below — touch handlers just adapt a Touch object into the same
+  // {x, y} shape eventScreenPos already produces for mouse events, then call
+  // the identical logic. Two-finger touch is pinch-to-zoom only (see below).
+  function pointerStart(sp, isPrimaryButton) {
+    if (!isPrimaryButton) return;
 
-    // Left-click on your own token grabs it instead of panning — checked
-    // first so clicking the token never starts a pan.
-    if (e.button === 0) {
-      const t = myToken();
-      if (t) {
-        const wp = screenToWorld(sp.x, sp.y);
-        const dx = wp.x - t.x, dy = wp.y - t.y;
-        if (dx * dx + dy * dy <= t.r * t.r) {
-          e.preventDefault();
-          tokenDrag.active = true;
-          tokenDrag.offsetX = dx;
-          tokenDrag.offsetY = dy;
-          canvas.classList.add('panning');
-          return;
-        }
+    // Grabbing your own token takes priority over panning — checked first
+    // so touching/clicking the token never starts a pan.
+    const t = myToken();
+    if (t) {
+      const wp = screenToWorld(sp.x, sp.y);
+      const dx = wp.x - t.x, dy = wp.y - t.y;
+      if (dx * dx + dy * dy <= t.r * t.r) {
+        tokenDrag.active = true;
+        tokenDrag.offsetX = dx;
+        tokenDrag.offsetY = dy;
+        canvas.classList.add('panning');
+        return;
       }
     }
 
-    e.preventDefault();
     drag.active = true;
     drag.startScreenX = sp.x;
     drag.startScreenY = sp.y;
     drag.camStartX = cam.x;
     drag.camStartY = cam.y;
     canvas.classList.add('panning');
-  });
+  }
 
-  window.addEventListener('mousemove', (e) => {
+  function pointerMove(sp) {
     if (tokenDrag.active) {
       const t = myToken();
       if (!t) { tokenDrag.active = false; return; }
-      const sp = eventScreenPos(e);
       const wp = screenToWorld(sp.x, sp.y);
       t.x = wp.x - tokenDrag.offsetX;
       t.y = wp.y - tokenDrag.offsetY;
@@ -142,13 +140,12 @@
       return;
     }
     if (!drag.active) return;
-    const sp = eventScreenPos(e);
     cam.x = drag.camStartX - (sp.x - drag.startScreenX) / cam.zoom;
     cam.y = drag.camStartY - (sp.y - drag.startScreenY) / cam.zoom;
     window.RPG.draw();
-  });
+  }
 
-  window.addEventListener('mouseup', () => {
+  function pointerEnd() {
     if (tokenDrag.active) {
       tokenDrag.active = false;
       canvas.classList.remove('panning');
@@ -160,7 +157,19 @@
     }
     drag.active = false;
     canvas.classList.remove('panning');
+  }
+
+  // ---------- Mouse ----------
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button !== 1 && e.button !== 0) return;
+    e.preventDefault();
+    pointerStart(eventScreenPos(e), true);
   });
+  window.addEventListener('mousemove', (e) => {
+    if (!drag.active && !tokenDrag.active) return;
+    pointerMove(eventScreenPos(e));
+  });
+  window.addEventListener('mouseup', pointerEnd);
 
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -170,6 +179,69 @@
 
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   canvas.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
+
+  // ---------- Touch: 1 finger = pan/drag (same as left-click), 2 fingers = pinch zoom ----------
+  function touchScreenPos(touch) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+  }
+  function touchMidpoint(t0, t1) {
+    return { x: (t0.clientX + t1.clientX) / 2, y: (t0.clientY + t1.clientY) / 2 };
+  }
+  function touchDist(t0, t1) {
+    return Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+  }
+
+  let pinchActive = false;
+  let pinchStartDist = 0;
+  let pinchStartZoom = 1;
+
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      // switching to pinch cancels any single-finger drag in progress
+      if (drag.active || tokenDrag.active) pointerEnd();
+      pinchActive = true;
+      pinchStartDist = touchDist(e.touches[0], e.touches[1]);
+      pinchStartZoom = cam.zoom;
+      return;
+    }
+    if (e.touches.length === 1 && !pinchActive) {
+      pointerStart(touchScreenPos(e.touches[0]), true);
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (pinchActive && e.touches.length === 2) {
+      const dist = touchDist(e.touches[0], e.touches[1]);
+      if (pinchStartDist > 0) {
+        const mid = touchMidpoint(e.touches[0], e.touches[1]);
+        const rect = canvas.getBoundingClientRect();
+        const targetZoom = Math.max(window.RPG.MIN_ZOOM, Math.min(window.RPG.MAX_ZOOM,
+          pinchStartZoom * (dist / pinchStartDist)));
+        zoomAt(mid.x - rect.left, mid.y - rect.top, targetZoom / cam.zoom);
+      }
+      return;
+    }
+    if (e.touches.length === 1 && !pinchActive) {
+      pointerMove(touchScreenPos(e.touches[0]));
+    }
+  }, { passive: false });
+
+  function touchEnd(e) {
+    if (e.touches.length === 0) {
+      pinchActive = false;
+      pointerEnd();
+    } else if (e.touches.length === 1) {
+      // lifted one finger out of a pinch — resume as a single-finger pan
+      // from here rather than jumping using the old two-finger start point
+      pinchActive = false;
+      pointerStart(touchScreenPos(e.touches[0]), true);
+    }
+  }
+  canvas.addEventListener('touchend', touchEnd, { passive: false });
+  canvas.addEventListener('touchcancel', touchEnd, { passive: false });
 
   // ---------- Photo cache (shared factory) ----------
   const getTokenPhotoImg = window.RPG.createPhotoCache(() => window.RPG.draw());
