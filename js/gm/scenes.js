@@ -22,7 +22,7 @@
   let nextSceneId = 2;
   const scenes = [
     { id: 1, name: 'Cena 1', map: { img: null, scalePct: 100, dataUrl: null, bgColor: null }, fog: [], notes: [], objects: [],
-      grid: { show: true, size: 48, color: null }, combat: { active: false, order: [] },
+      grid: { show: true, size: 48, color: null, opacity: 30 }, combat: { active: false, order: [] },
       nextFogId: 1, nextNoteId: 1, nextObjectId: 1, folderId: null },
   ];
   let currentSceneId = 1;
@@ -124,7 +124,7 @@
       // bgColor: null = no manual override, follows the current theme's --map-bg
       map: { img: null, scalePct: 100, dataUrl: null, bgColor: null },
       fog: [], notes: [], objects: [],
-      grid: { show: true, size: 48, color: null },  // null = no manual override, follows theme's --accent
+      grid: { show: true, size: 48, color: null, opacity: 30 },  // null = no manual override, follows theme's --accent
       combat: { active: false, order: [] },
       nextFogId: 1, nextNoteId: 1, nextObjectId: 1,
       folderId: null,

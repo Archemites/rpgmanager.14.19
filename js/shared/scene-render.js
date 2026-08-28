@@ -46,7 +46,8 @@
         if (gr > gl && gb > gt) {
           const g = state.grid.size;
           octx.strokeStyle = state.grid.color || (window.RPG.getThemeGridColor ? window.RPG.getThemeGridColor() : '#45ff78');
-          octx.globalAlpha = 0.3;
+          const op = (state.grid.opacity !== undefined && state.grid.opacity !== null) ? (state.grid.opacity / 100) : 0.3;
+          octx.globalAlpha = op;
           octx.lineWidth = 1 / lineScale;
           octx.beginPath();
           const x0 = Math.ceil(gl / g) * g;
@@ -86,8 +87,10 @@
       octx.strokeStyle = isCurrentTurn ? '#ff9f45' : (photo ? t.color : 'rgba(0,0,0,0.5)');
       octx.stroke();
 
+      const themeFont = (window.RPG.getThemeFont ? window.RPG.getThemeFont() : '"VT323", monospace');
+
       if (!photo && t.name) {
-        octx.font = `${Math.max(12, t.r * 0.7)}px "VT323", monospace`;
+        octx.font = `bold ${Math.max(12, t.r * 0.7)}px ${themeFont}`;
         octx.textAlign = 'center';
         octx.textBaseline = 'middle';
         octx.fillStyle = contrastColor(t.color);
@@ -95,12 +98,12 @@
       }
 
       if (t.name) {
-        octx.font = `${Math.max(14, t.r * 0.6)}px "VT323", monospace`;
+        octx.font = `bold ${Math.max(13, t.r * 0.55)}px ${themeFont}`;
         octx.textAlign = 'center';
         octx.textBaseline = 'top';
         const labelY = t.y + t.r + 4 / lineScale;
         octx.lineWidth = 3 / lineScale;
-        octx.strokeStyle = 'rgba(0,0,0,0.8)';
+        octx.strokeStyle = 'rgba(0,0,0,0.85)';
         octx.strokeText(t.name, t.x, labelY);
         octx.fillStyle = '#ffffff';
         octx.fillText(t.name, t.x, labelY);

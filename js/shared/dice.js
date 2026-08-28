@@ -28,11 +28,15 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/d
   ];
 
   const STORAGE_KEY_COLOR = 'rpg-dice-color';
+  const STORAGE_KEY_SCALE = 'rpg-dice-scale';
 
   let customColor = 'theme';
+  let customScale = 6;
 
   try {
     customColor = localStorage.getItem(STORAGE_KEY_COLOR) || 'theme';
+    const savedScale = localStorage.getItem(STORAGE_KEY_SCALE);
+    if (savedScale) customScale = Math.min(9, Math.max(3, Number(savedScale) || 6));
   } catch (e) {}
 
   // ---- SVGs Poliédricos para os Dados ----
@@ -118,6 +122,25 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/d
           <span class="player-dice-picker-hint">Código HEX</span>
         </div>
 
+        <!-- Slider de tamanho do dado -->
+        <div class="player-dice-scale-row">
+          <div class="player-dice-scale-header">
+            <span class="player-dice-scale-title">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 3 21 3 21 9" />
+                <polyline points="9 21 3 21 3 15" />
+                <line x1="21" y1="3" x2="14" y2="10" />
+                <line x1="3" y1="21" x2="10" y2="14" />
+              </svg>
+              <span>Tamanho do Dado</span>
+            </span>
+            <span id="playerDiceScaleVal" class="player-dice-scale-val">100%</span>
+          </div>
+          <div class="player-dice-scale-slider-wrap">
+            <input type="range" id="playerDiceScaleInput" min="3" max="9" value="6" step="0.5">
+          </div>
+        </div>
+
         <div class="player-dice-presets-label">Presets rápidos:</div>
         <div class="player-dice-color-grid" id="playerDiceColorGrid"></div>
       </div>
@@ -134,9 +157,16 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/d
         </div>
         <div id="playerDiceResult"></div>
         <div class="player-dice-row">
-          <div class="player-dice-input-group left">
-            <label for="playerDiceCount">Qtd</label>
-            <input type="number" id="playerDiceCount" min="1" max="20" value="1">
+          <div class="player-dice-input-col left">
+            <select id="playerDiceMode" class="player-dice-select" title="Modo de rolagem">
+              <option value="normal">Normal</option>
+              <option value="adv">Vantagem</option>
+              <option value="dis">Desvantagem</option>
+            </select>
+            <div class="player-dice-input-group">
+              <label for="playerDiceCount">Qtd</label>
+              <input type="number" id="playerDiceCount" min="1" max="20" value="1">
+            </div>
           </div>
           <button id="playerDiceRollBtn">
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -162,13 +192,13 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/d
   `;
   document.body.appendChild(overlay);
 
-  // Injetar também o div pro dice-box, se não existir (evitar duplicar)
+  // Injetar também o div pro dice-box dentro do overlay (atrás do painel de rolagem)
   let boxCanvas = document.getElementById('dice-box-canvas');
   if (!boxCanvas) {
     boxCanvas = document.createElement('div');
     boxCanvas.id = 'dice-box-canvas';
-    document.body.appendChild(boxCanvas);
   }
+  overlay.insertBefore(boxCanvas, overlay.firstChild);
 
   // ---- Referências DOM ----
   const panel = document.getElementById('playerDicePanel');
@@ -177,14 +207,23 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/d
   const colorPicker = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceColorPicker'));
   const activePreview = document.getElementById('playerDicePickerPreview');
   const hexInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceHexInput'));
+  const scaleInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceScaleInput'));
+  const scaleVal = document.getElementById('playerDiceScaleVal');
   const colorGrid = document.getElementById('playerDiceColorGrid');
   const resetBtn = document.getElementById('playerDiceResetBtn');
 
   const faceButtons = overlay.querySelectorAll('.player-dice-face-btn');
   const countInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceCount'));
+  const modeSelect = /** @type {HTMLSelectElement} */ (document.getElementById('playerDiceMode'));
   const modInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceMod'));
   const rollBtn = document.getElementById('playerDiceRollBtn');
   const resultEl = document.getElementById('playerDiceResult');
+
+  modeSelect?.addEventListener('change', () => {
+    if ((modeSelect.value === 'adv' || modeSelect.value === 'dis') && parseInt(countInput.value, 10) === 1) {
+      countInput.value = '2';
+    }
+  });
 
   // ---- Gestão de Cores ----
   function getThemeColor() {
@@ -219,9 +258,24 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/d
       hexInput.value = effColor.replace(/^#/, '').toUpperCase();
     }
 
-    // Configura a cor padrão no Box sem recarregar o tema
+    if (scaleInput) {
+      scaleInput.value = String(customScale);
+    }
+    if (scaleVal) {
+      scaleVal.textContent = Math.round((customScale / 9) * 100) + '%';
+    }
+
     if (Box && Box.config) {
       Box.config.themeColor = effColor;
+      Box.config.scale = customScale;
+    }
+
+    if (isBoxReady && Box && typeof Box.updateConfig === 'function') {
+      try {
+        Box.updateConfig({ scale: customScale, themeColor: effColor });
+      } catch (e) {
+        console.warn("DiceBox updateConfig aviso:", e);
+      }
     }
 
     renderColorSwatches();
@@ -286,9 +340,19 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/d
     applyCustomStyles();
   });
 
+  scaleInput?.addEventListener('input', () => {
+    customScale = Number(scaleInput.value) || 12;
+    try { localStorage.setItem(STORAGE_KEY_SCALE, String(customScale)); } catch (err) {}
+    applyCustomStyles();
+  });
+
   resetBtn?.addEventListener('click', () => {
     customColor = 'theme';
-    try { localStorage.setItem(STORAGE_KEY_COLOR, customColor); } catch (e) {}
+    customScale = 6;
+    try {
+      localStorage.setItem(STORAGE_KEY_COLOR, customColor);
+      localStorage.setItem(STORAGE_KEY_SCALE, String(customScale));
+    } catch (e) {}
     applyCustomStyles();
   });
 
@@ -316,7 +380,7 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/d
     theme: "default",
     themeColor: getEffectiveDiceColor(),
     light_intensity: 1.2,
-    scale: 12,
+    scale: customScale,
     gravity: 2.5,       // Gravidade reforçada para queda 2x mais rápida e sensação de peso
     mass: 2,            // Massa 2x maior para impacto sólido
     friction: 0.85,     // Atrito de rolagem na mesa
@@ -328,12 +392,21 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/d
   function initBox() {
     if (isBoxReady) return Promise.resolve();
     if (!boxInitPromise) {
+      if (Box.config) {
+        Box.config.themeColor = getEffectiveDiceColor();
+        Box.config.scale = customScale;
+      }
       boxInitPromise = Box.init().then(() => {
         isBoxReady = true;
-        if (Box.config) Box.config.themeColor = getEffectiveDiceColor();
+        if (typeof Box.updateConfig === 'function') {
+          try {
+            Box.updateConfig({ scale: customScale, themeColor: getEffectiveDiceColor() });
+          } catch (e) {}
+        }
       }).catch(err => {
         console.error("Erro inicializando DiceBox:", err);
         boxInitPromise = null;
+        isBoxReady = false;
       });
     }
     return boxInitPromise;
@@ -367,12 +440,15 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/d
     isRolling = true;
 
     const currentColor = getEffectiveDiceColor();
-    if (Box && Box.config) {
-      Box.config.themeColor = currentColor;
+    if (isBoxReady && typeof Box.updateConfig === 'function') {
+      try {
+        Box.updateConfig({ scale: customScale, themeColor: currentColor });
+      } catch (e) {}
     }
     
-    // Rola usando a string e passa o themeColor diretamente
+    // Rola usando a string e passa themeColor para o tema dos dados
     const notation = `${count}d${selectedFaces}`;
+    const mode = modeSelect ? modeSelect.value : 'normal';
     
     Box.roll(notation, { themeColor: currentColor }).then(results => {
       isRolling = false;
@@ -381,13 +457,43 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/d
       const group = results && results[0];
       const rollsData = group && group.rolls ? group.rolls : results;
       const rolls = Array.isArray(rollsData) ? rollsData.map(r => r.value) : [group ? group.value : 0];
-      const groupSum = group && group.value !== undefined ? group.value : rolls.reduce((a,b) => a+b, 0);
-      const finalSum = groupSum + mod;
       
       const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
-      const expr = `${count}d${selectedFaces}${modStr} → [${rolls.join(', ')}]`;
-      
-      showResult(rolls, mod, finalSum, expr);
+      let chosenValue = 0;
+      let expr = '';
+
+      if (mode === 'adv') {
+        const highest = Math.max(...rolls);
+        chosenValue = highest;
+        const finalSum = chosenValue + mod;
+        if (rolls.length > 1) {
+          expr = `${count}d${selectedFaces}${modStr} (Vantagem) → [${rolls.join(', ')}] → Maior: ${highest}${mod !== 0 ? ` (${highest}${modStr})` : ''}`;
+        } else {
+          expr = `${count}d${selectedFaces}${modStr} → [${highest}]${mod !== 0 ? ` (${highest}${modStr})` : ''}`;
+        }
+        showResult(rolls, mod, finalSum, expr);
+      } else if (mode === 'dis') {
+        const lowest = Math.min(...rolls);
+        chosenValue = lowest;
+        const finalSum = chosenValue + mod;
+        if (rolls.length > 1) {
+          expr = `${count}d${selectedFaces}${modStr} (Desvantagem) → [${rolls.join(', ')}] → Menor: ${lowest}${mod !== 0 ? ` (${lowest}${modStr})` : ''}`;
+        } else {
+          expr = `${count}d${selectedFaces}${modStr} → [${lowest}]${mod !== 0 ? ` (${lowest}${modStr})` : ''}`;
+        }
+        showResult(rolls, mod, finalSum, expr);
+      } else {
+        // Normal: sempre exibe a soma de todos os dados + mod
+        const sumOfDice = rolls.reduce((a, b) => a + b, 0);
+        chosenValue = sumOfDice;
+        const finalSum = chosenValue + mod;
+        if (rolls.length > 1) {
+          expr = `${count}d${selectedFaces}${modStr} → [${rolls.join(' + ')}] = ${sumOfDice}${mod !== 0 ? ` (${sumOfDice}${modStr})` : ''}`;
+        } else {
+          expr = `${count}d${selectedFaces}${modStr} → [${rolls[0]}]${mod !== 0 ? ` (${rolls[0]}${modStr})` : ''}`;
+        }
+        showResult(rolls, mod, finalSum, expr);
+      }
     }).catch(err => {
       console.error("Erro na rolagem 3D:", err);
       isRolling = false;

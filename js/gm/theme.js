@@ -53,6 +53,13 @@
     return v || '#45ff78';
   }
 
+  // Resolves the active theme's font family for canvas text (token names).
+  function getThemeFont() {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--font-head').trim() ||
+              getComputedStyle(document.documentElement).getPropertyValue('--font-body').trim();
+    return v || '"VT323", monospace';
+  }
+
   for (const sw of swatches) {
     sw.addEventListener('click', () => applyTheme(sw.dataset.theme, { broadcast: true, log: true }));
   }
@@ -66,6 +73,7 @@
   window.RPG.applyTheme = applyTheme;
   window.RPG.getThemeMapBg = getThemeMapBg;
   window.RPG.getThemeGridColor = getThemeGridColor;
+  window.RPG.getThemeFont = getThemeFont;
 
   // ---------- Restore saved theme on load ----------
   let saved = DEFAULT_THEME;

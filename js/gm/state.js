@@ -31,7 +31,7 @@
 
   /** @type {State} */
   const state = {
-    grid: { show: true, size: 48, color: null },  // null = follow theme's --accent
+    grid: { show: true, size: 48, color: null, opacity: 30 },  // null = follow theme's --accent
     map: { img: null, scalePct: 100, dataUrl: null, bgColor: null },  // image is centered on world origin (0,0); bgColor fills the canvas behind/around it, per-scene; null = follow theme's --map-bg
     tokens: [],                          // VIEW: tokens present in the open scene — see refreshVisibleTokens()
     fog: [],                             // {id, x, y, w, h} rects hiding the map, world coords — GM-manual only, painted fully opaque on the player side
@@ -102,13 +102,26 @@
   }
 
   // ---------- Sidebar resize (drag handle) ----------
+  const sidebarWrap = document.getElementById('sidebarWrap');
   const sidebar = document.getElementById('sidebar');
   const sidebarResizer = document.getElementById('sidebarResizer');
+  const sidebarToggle = document.getElementById('sidebarToggle');
   const SIDEBAR_MIN = 220;
   const SIDEBAR_MAX = 600;
   let sidebarResizing = false;
 
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener('mousedown', (e) => e.stopPropagation());
+    sidebarToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const collapsed = sidebarWrap.classList.toggle('collapsed');
+      sidebar.classList.toggle('collapsed', collapsed);
+      sidebarToggle.classList.toggle('collapsed', collapsed);
+    });
+  }
+
   sidebarResizer.addEventListener('mousedown', (e) => {
+    if (sidebarWrap.classList.contains('collapsed')) return;
     e.preventDefault();
     sidebarResizing = true;
     sidebarResizer.classList.add('dragging');
@@ -117,10 +130,8 @@
 
   window.addEventListener('mousemove', (e) => {
     if (!sidebarResizing) return;
-    const rect = sidebar.getBoundingClientRect();
-    const w = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, e.clientX - rect.left));
+    const w = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, e.clientX));
     sidebar.style.width = w + 'px';
-    resizeCanvas();
   });
 
   window.addEventListener('mouseup', () => {
@@ -131,6 +142,7 @@
   });
 
   // ---------- Scene sidebar resize (drag handle, right edge) ----------
+  const sceneSidebarWrap = document.getElementById('sceneSidebarWrap');
   const sceneSidebar = document.getElementById('sceneSidebar');
   const sceneSidebarResizer = document.getElementById('sceneSidebarResizer');
   const SCENE_SIDEBAR_MIN = 160;
@@ -138,22 +150,26 @@
   let sceneSidebarResizing = false;
 
   const sceneSidebarToggle = document.getElementById('sceneSidebarToggle');
-  sceneSidebarToggle.addEventListener('mousedown', (e) => e.stopPropagation());
-  sceneSidebarToggle.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const collapsed = sceneSidebar.classList.toggle('collapsed');
-    sceneSidebarResizer.classList.toggle('collapsed', collapsed);
-    sceneSidebarToggle.textContent = collapsed ? '◀' : '▶';
-    resizeCanvas();
-  });
+  if (sceneSidebarToggle) {
+    sceneSidebarToggle.addEventListener('mousedown', (e) => e.stopPropagation());
+    sceneSidebarToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const collapsed = sceneSidebarWrap ? sceneSidebarWrap.classList.toggle('collapsed') : false;
+      sceneSidebar.classList.toggle('collapsed', collapsed);
+      if (sceneSidebarResizer) sceneSidebarResizer.classList.toggle('collapsed', collapsed);
+      sceneSidebarToggle.classList.toggle('collapsed', collapsed);
+    });
+  }
 
-  sceneSidebarResizer.addEventListener('mousedown', (e) => {
-    if (sceneSidebar.classList.contains('collapsed')) return;
-    e.preventDefault();
-    sceneSidebarResizing = true;
-    sceneSidebarResizer.classList.add('dragging');
-    document.body.style.cursor = 'col-resize';
-  });
+  if (sceneSidebarResizer) {
+    sceneSidebarResizer.addEventListener('mousedown', (e) => {
+      if (sceneSidebarWrap && sceneSidebarWrap.classList.contains('collapsed')) return;
+      e.preventDefault();
+      sceneSidebarResizing = true;
+      sceneSidebarResizer.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+    });
+  }
 
   window.addEventListener('mousemove', (e) => {
     if (!sceneSidebarResizing) return;

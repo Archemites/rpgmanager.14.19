@@ -316,6 +316,13 @@
     return v || '#45ff78';
   };
 
+  // Resolves the active theme's font family for canvas text (token names).
+  RPG.getThemeFont = () => {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--font-head').trim() ||
+              getComputedStyle(document.documentElement).getPropertyValue('--font-body').trim();
+    return v || '"VT323", monospace';
+  };
+
   RPG.getTokenPhotoImg = getTokenPhotoImg;
   RPG.getObjectImg = getObjectImg;
   RPG.contrastColor = contrastColor;

@@ -18,6 +18,8 @@
   const gridToggle = document.getElementById('topGridToggle');
   const gridSize = document.getElementById('topGridSize');
   const gridSizeVal = document.getElementById('topGridSizeVal');
+  const gridOpacity = document.getElementById('topGridOpacity');
+  const gridOpacityVal = document.getElementById('topGridOpacityVal');
   const gridColor = document.getElementById('topGridColor');
 
   // Reflect the (just-switched-to) scene's map/grid fields onto the top-bar
@@ -33,6 +35,9 @@
     gridToggle.checked = state.grid.show;
     gridSize.value = state.grid.size;
     gridSizeVal.textContent = state.grid.size + 'px';
+    const op = (state.grid.opacity !== undefined && state.grid.opacity !== null) ? state.grid.opacity : 30;
+    if (gridOpacity) gridOpacity.value = op;
+    if (gridOpacityVal) gridOpacityVal.textContent = op + '%';
     gridColor.value = state.grid.color || (window.RPG.getThemeGridColor ? window.RPG.getThemeGridColor() : '#45ff78');
   }
 
@@ -177,6 +182,19 @@
     window.RPG.sendState();
   }
   gridSize.addEventListener('input', () => setGridSize(Number(gridSize.value)));
+
+  function setGridOpacity(val) {
+    const v = Math.min(100, Math.max(5, val !== undefined ? val : 30));
+    state.grid.opacity = v;
+    if (gridOpacity) gridOpacity.value = v;
+    if (gridOpacityVal) gridOpacityVal.textContent = v + '%';
+    window.RPG.draw();
+    window.RPG.sendState();
+  }
+  if (gridOpacity) {
+    gridOpacity.addEventListener('input', () => setGridOpacity(Number(gridOpacity.value)));
+  }
+
   gridColor.addEventListener('input', () => {
     state.grid.color = gridColor.value;
     window.RPG.draw();
@@ -196,4 +214,5 @@
   window.RPG.removeMap = removeMap;
   window.RPG.setMapScale = setMapScale;
   window.RPG.setGridSize = setGridSize;
+  window.RPG.setGridOpacity = setGridOpacity;
 })();

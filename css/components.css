@@ -3,7 +3,7 @@
    ============================================================ */
 
 .section {
-  background: rgba(var(--accent-rgb),0.025);
+  background: rgba(var(--accent-rgb), 0.025);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius);
   box-shadow: var(--border-glow);
@@ -22,8 +22,7 @@
 
 .row:last-child { margin-bottom: 0; }
 
-/* QR needs a light "quiet zone" border and full contrast to be scannable —
-   the dark themed panel behind it otherwise bleeds into the finder patterns. */
+/* QR code quiet zone */
 .qr-center {
   display: flex;
   justify-content: center;
@@ -36,11 +35,10 @@
   border-radius: 2px;
 }
 
-/* Invite modal: everything centered, QR then the room code below it */
+/* Invite modal */
 #inviteModal { align-items: center; text-align: center; min-width: 300px; }
 #inviteModal > * { width: 100%; }
 
-/* The room code is the thing players read/dictate — make it unmistakable */
 #inviteRoomCode {
   font-size: 40px;
   line-height: 1.1;
@@ -82,11 +80,17 @@
   justify-content: space-between;
   gap: 8px;
   margin-top: 8px;
-  padding: 4px 6px 4px 10px;
+  padding: 5px 8px 5px 12px;
   font-size: 13px;
-  background: rgba(var(--accent-rgb),0.04);
+  background: rgba(var(--accent-rgb), 0.04);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.peer-row:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--panel-border));
+  background: rgba(var(--accent-rgb), 0.06);
 }
 
 .peer-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -100,6 +104,7 @@
   line-height: 1;
 }
 
+/* ── Form elements ─────────────────────────────────────────── */
 label { font-size: 12px; color: var(--text-dim); flex-shrink: 0; }
 
 input[type="range"] { flex: 1; min-width: 0; margin: 0 8px; accent-color: var(--accent); }
@@ -111,16 +116,17 @@ input[type="number"] {
   border: 1px solid var(--panel-border);
   color: var(--text);
   border-radius: var(--radius);
-  padding: 4px 6px;
+  padding: 5px 6px;
   font-size: 13px;
   font-family: inherit;
   text-shadow: var(--glow);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 input[type="number"]:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 8px rgba(var(--accent-rgb),0.4);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
 }
 
 input[type="color"] {
@@ -133,12 +139,13 @@ input[type="color"] {
   cursor: pointer;
 }
 
+/* ── Buttons ───────────────────────────────────────────────── */
 button {
-  background: rgba(var(--accent-rgb),0.12);
+  background: rgba(var(--accent-rgb), 0.1);
   color: var(--text);
   border: 1px solid var(--accent);
   border-radius: var(--radius);
-  padding: 8px 12px;
+  padding: 8px 14px;
   font-size: 12px;
   cursor: pointer;
   font-weight: 600;
@@ -146,16 +153,24 @@ button {
   text-transform: var(--text-transform);
   letter-spacing: 0.08em;
   text-shadow: var(--glow);
-  box-shadow: 0 0 8px rgba(var(--accent-rgb),0.2), inset 0 0 10px rgba(var(--accent-rgb),0.06);
-  transition: background 0.08s, box-shadow 0.08s;
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.18), inset 0 0 10px rgba(var(--accent-rgb), 0.05);
+  transition: background 0.18s, box-shadow 0.18s, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.18s, color 0.18s;
 }
 
 button:hover {
-  background: rgba(var(--accent-rgb),0.28);
-  box-shadow: 0 0 16px rgba(var(--accent-rgb),0.55), inset 0 0 14px rgba(var(--accent-rgb),0.15);
+  background: rgba(var(--accent-rgb), 0.24);
+  box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.5), inset 0 0 14px rgba(var(--accent-rgb), 0.12);
+  transform: translateY(-1px);
 }
 
-button:active { background: var(--accent); color: #001a08; text-shadow: none; }
+button:active {
+  background: var(--accent);
+  color: #001a08;
+  text-shadow: none;
+  transform: translateY(0);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.6);
+}
 
 button.secondary {
   background: transparent;
@@ -165,20 +180,22 @@ button.secondary {
 }
 
 button.secondary:hover {
-  background: rgba(var(--accent-rgb),0.08);
+  background: rgba(var(--accent-rgb), 0.08);
   color: var(--text);
   border-color: var(--accent);
+  transform: translateY(-1px);
 }
 
 button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
   box-shadow: none;
+  transform: none;
 }
 
 .full { width: 100%; }
 
-/* pending scene sync: draws attention until the GM confirms the player update */
+/* Pending scene sync pulse */
 #updatePlayerBtn.pending {
   border-color: #ffd24a;
   color: #ffd24a;
@@ -186,10 +203,11 @@ button:disabled {
 }
 
 @keyframes pending-pulse {
-  0%, 100% { box-shadow: 0 0 6px rgba(255,210,74,0.4); }
-  50% { box-shadow: 0 0 14px rgba(255,210,74,0.85); }
+  0%, 100% { box-shadow: 0 0 6px rgba(255, 210, 74, 0.35); }
+  50%       { box-shadow: 0 0 16px rgba(255, 210, 74, 0.85); }
 }
 
+/* ── File upload labels ─────────────────────────────────────── */
 .file-label {
   display: block;
   text-align: center;
@@ -201,16 +219,18 @@ button:disabled {
   color: var(--text-dim);
   text-transform: var(--text-transform);
   letter-spacing: 0.06em;
+  transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
 }
 
 .file-label:hover {
   border-color: var(--accent);
   color: var(--text);
-  box-shadow: 0 0 12px rgba(var(--accent-rgb),0.3), inset 0 0 12px rgba(var(--accent-rgb),0.08);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.3), inset 0 0 12px rgba(var(--accent-rgb), 0.06);
 }
 
 #mapFileInput { display: none; }
 
+/* ── Token color swatches ─────────────────────────────────── */
 .token-swatch-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 
 .swatch {
@@ -219,12 +239,20 @@ button:disabled {
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s;
 }
 
-.swatch:hover { box-shadow: 0 0 10px rgba(var(--accent-rgb),0.5); }
-.swatch.selected { border-color: var(--accent); box-shadow: 0 0 10px rgba(var(--accent-rgb),0.7); }
+.swatch:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.5);
+}
+.swatch.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.7);
+  transform: scale(1.1);
+}
 
-/* Token list */
+/* ── Token List ────────────────────────────────────────────── */
 #tokenListSection {
   display: flex;
   flex-direction: column;
@@ -234,7 +262,7 @@ button:disabled {
 #tokenList {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   min-height: 120px;
   max-height: 300px;
   overflow-x: hidden;
@@ -243,10 +271,15 @@ button:disabled {
   border: 1px solid var(--panel-border);
   background: var(--input-panel);
   padding: 6px;
+  border-radius: var(--radius);
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-border) transparent;
 }
 
-#tokenList::-webkit-scrollbar { width: 8px; }
-#tokenList::-webkit-scrollbar-thumb { background: var(--panel-border); }
+#tokenList::-webkit-scrollbar { width: 6px; }
+#tokenList::-webkit-scrollbar-track { background: transparent; }
+#tokenList::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 3px; }
+#tokenList::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
 #tokenList:empty::before {
   content: "Nenhum token no mapa.";
@@ -269,17 +302,26 @@ button:disabled {
   font-size: 12px;
   min-width: 0;
   flex-shrink: 0;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
 }
 
-.token-item:hover { border-color: var(--accent); box-shadow: 0 0 8px rgba(var(--accent-rgb),0.25); }
+.token-item:hover { border-color: var(--accent); box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.22); }
 
 .token-item.selected {
   border-color: var(--accent);
-  background: rgba(var(--accent-rgb),0.15);
-  box-shadow: 0 0 12px rgba(var(--accent-rgb),0.4);
+  background: rgba(var(--accent-rgb), 0.12);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.35);
 }
 
-.token-item .dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 6px currentColor; background-size: cover; background-position: center; }
+.token-item .dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+  background-size: cover;
+  background-position: center;
+}
 
 .token-item input[type="text"] {
   flex: 1;
@@ -301,17 +343,19 @@ button:disabled {
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
+  transition: color 0.15s, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.token-item .edit-btn:hover { color: var(--accent); }
-.token-item .remove-btn:hover { color: var(--danger); }
+.token-item .icon-btn:hover { transform: scale(1.15); }
+.token-item .edit-btn:hover    { color: var(--accent); }
+.token-item .remove-btn:hover  { color: var(--danger); }
 .token-item .effects-btn:hover { color: var(--accent); }
-.token-item .note-btn:hover { color: var(--accent); }
+.token-item .note-btn:hover    { color: var(--accent); }
 .token-item .note-btn.has-note { color: #ffd24a; }
 
 .effect-badges { display: flex; gap: 3px; flex-shrink: 0; max-width: 96px; overflow: hidden; }
 
-/* Right-click context menu (Windows-style popup) */
+/* ── Right-click context menu ──────────────────────────────── */
 .context-menu {
   position: fixed;
   z-index: 9000;
@@ -320,23 +364,38 @@ button:disabled {
   min-width: 170px;
   background: var(--panel);
   border: 1px solid var(--accent);
-  box-shadow: 0 0 18px rgba(var(--accent-rgb),0.35), inset 0 0 14px rgba(var(--accent-rgb),0.05);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5),
+              0 0 18px rgba(var(--accent-rgb), 0.3),
+              inset 0 0 14px rgba(var(--accent-rgb), 0.04);
   padding: 4px;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: ctx-pop 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ctx-pop {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .context-menu.open { display: flex; }
 
 .context-menu-item {
-  padding: 7px 12px;
+  padding: 8px 14px;
   font-size: 15px;
   color: var(--text);
   cursor: pointer;
   white-space: nowrap;
+  border-radius: calc(var(--radius) * 0.6);
+  transition: background 0.15s, color 0.15s;
 }
 
-.context-menu-item:hover { background: rgba(var(--accent-rgb),0.15); color: var(--accent); }
-.context-menu-item.danger:hover { background: rgba(var(--danger-rgb),0.15); color: var(--danger); }
+.context-menu-item:hover { background: rgba(var(--accent-rgb), 0.14); color: var(--accent); }
+.context-menu-item.danger:hover { background: rgba(var(--danger-rgb), 0.14); color: var(--danger); }
 
+/* ── Effect badges ─────────────────────────────────────────── */
 .effect-badge {
   display: inline-flex;
   align-items: center;
@@ -351,6 +410,7 @@ button:disabled {
   box-shadow: 0 0 4px currentColor;
 }
 
+/* ── Token sort dropdown ───────────────────────────────────── */
 .token-sort-select {
   background: var(--input-bg);
   border: 1px solid var(--panel-border);
@@ -364,15 +424,16 @@ button:disabled {
   flex: 1;
   min-width: 0;
   max-width: 160px;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .token-sort-select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 8px rgba(var(--accent-rgb),0.4);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
 }
 
-/* Checkboxes */
+/* ── Checkboxes ────────────────────────────────────────────── */
 .checkbox-row {
   display: flex;
   align-items: center;
@@ -390,7 +451,7 @@ button:disabled {
   flex-shrink: 0;
 }
 
-/* Party panel */
+/* ── Party panel ───────────────────────────────────────────── */
 #partyList {
   display: flex;
   flex-direction: column;
@@ -411,7 +472,14 @@ button:disabled {
 .party-member {
   border: 1px solid var(--panel-border);
   background: var(--input-panel);
+  border-radius: var(--radius);
   padding: 8px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.party-member:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--panel-border));
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.1);
 }
 
 .party-member-head {
@@ -456,9 +524,7 @@ button:disabled {
   font-size: 13px;
 }
 
-.party-bar {
-  margin-bottom: 6px;
-}
+.party-bar { margin-bottom: 6px; }
 
 .party-bar-labelrow {
   display: flex;
@@ -491,6 +557,7 @@ button:disabled {
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
+  transition: color 0.15s;
 }
 
 .party-bar-labelrow .icon-btn:hover { color: var(--danger); }
@@ -499,13 +566,14 @@ button:disabled {
   height: 10px;
   border: 1px solid var(--panel-border);
   background: var(--input-bg);
+  border-radius: var(--radius);
   position: relative;
   overflow: hidden;
 }
 
 .party-bar-fill {
   height: 100%;
-  transition: width 0.2s;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .add-bar-btn {
@@ -517,7 +585,8 @@ button:disabled {
 
 .party-toolbar {
   border: 1px dashed var(--panel-border);
-  background: rgba(var(--accent-rgb),0.04);
+  border-radius: var(--radius);
+  background: rgba(var(--accent-rgb), 0.03);
   padding: 8px;
   display: flex;
   flex-direction: column;
@@ -537,8 +606,14 @@ button:disabled {
   gap: 6px;
   background: var(--input-bg);
   border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
   padding: 4px 6px;
   min-width: 0;
+  transition: border-color 0.2s;
+}
+
+.bar-def-chip:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--panel-border));
 }
 
 .bar-active-cb {
@@ -564,6 +639,7 @@ button:disabled {
   font-size: 10px;
   color: var(--text-dim);
   border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius) * 0.5);
   padding: 0 4px;
   flex-shrink: 0;
   line-height: 1.4;
@@ -586,9 +662,10 @@ button:disabled {
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
+  transition: color 0.15s, transform 0.15s;
 }
 
-.bar-def-chip .icon-btn:hover { color: var(--accent); }
+.bar-def-chip .icon-btn:hover { color: var(--accent); transform: scale(1.15); }
 
 .party-nobars {
   font-size: 11px;
@@ -597,7 +674,7 @@ button:disabled {
   padding: 4px 0;
 }
 
-/* Combat bar (master) */
+/* ── Combat bar tokens ─────────────────────────────────────── */
 #combatBar .combat-token {
   position: absolute;
   top: 50%;
@@ -609,7 +686,7 @@ button:disabled {
   cursor: grab;
   -webkit-user-select: none;
   user-select: none;
-  transition: left 0.6s ease-out;
+  transition: left 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 #combatBar .combat-token.dragging {
@@ -623,13 +700,14 @@ button:disabled {
   height: 48px;
   border-radius: 50%;
   border: 2px solid var(--panel-border);
-  box-shadow: 0 0 8px rgba(0,0,0,0.5);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   flex-shrink: 0;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 #combatBar .combat-token.current .dot {
   border-color: var(--danger);
-  box-shadow: 0 0 12px rgba(var(--danger-rgb),0.8), inset 0 0 6px rgba(var(--danger-rgb),0.3);
+  box-shadow: 0 0 14px rgba(var(--danger-rgb), 0.8), inset 0 0 6px rgba(var(--danger-rgb), 0.3);
 }
 
 #combatBar .combat-token .name {
@@ -642,12 +720,14 @@ button:disabled {
   text-align: center;
 }
 
-#combatBar .combat-token.current .name { color: var(--danger); text-shadow: 0 0 6px rgba(var(--danger-rgb),0.6); }
+#combatBar .combat-token.current .name {
+  color: var(--danger);
+  text-shadow: 0 0 6px rgba(var(--danger-rgb), 0.6);
+}
 
-/* Helper classes */
+/* ── Helpers ───────────────────────────────────────────────── */
 .hint { font-size: 10px; color: var(--text-dim); line-height: 1.6; }
 
-/* Spacing/layout utilities — replace one-off inline styles across the modals */
 .mt-6  { margin-top: 6px; }
 .mt-8  { margin-top: 8px; }
 .mt-10 { margin-top: 10px; }
@@ -668,17 +748,11 @@ button:disabled {
 .slider-row-mt6  { margin: 6px 0 0; }
 .slider-row-mt10 { margin-top: 10px; }
 
-#topFogBtn.active {
-  background: rgba(var(--accent-rgb),0.35);
-  box-shadow: 0 0 18px rgba(var(--accent-rgb),0.6), inset 0 0 14px rgba(var(--accent-rgb),0.2);
-}
-
-#topMeasureBtn.active {
-  background: rgba(var(--accent-rgb),0.35);
-  box-shadow: 0 0 18px rgba(var(--accent-rgb),0.6), inset 0 0 14px rgba(var(--accent-rgb),0.2);
-}
-
+/* ── Active tool buttons ───────────────────────────────────── */
+#topFogBtn.active,
+#topMeasureBtn.active,
 #fogModeBtn.active {
-  background: rgba(var(--accent-rgb),0.35);
-  box-shadow: 0 0 18px rgba(var(--accent-rgb),0.6), inset 0 0 14px rgba(var(--accent-rgb),0.2);
+  background: rgba(var(--accent-rgb), 0.3);
+  box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.6), inset 0 0 14px rgba(var(--accent-rgb), 0.18);
+  transform: none;
 }

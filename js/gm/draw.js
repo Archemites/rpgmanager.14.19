@@ -89,7 +89,8 @@
       if (gr > gl && gb > gt) {
         const g = state.grid.size;
         ctx.strokeStyle = state.grid.color || (window.RPG.getThemeGridColor ? window.RPG.getThemeGridColor() : '#45ff78');
-        ctx.globalAlpha = 0.3;
+        const op = (state.grid.opacity !== undefined && state.grid.opacity !== null) ? (state.grid.opacity / 100) : 0.3;
+        ctx.globalAlpha = op;
         ctx.lineWidth = 1 / cam.zoom;
         ctx.beginPath();
         const x0 = Math.ceil(gl / g) * g;
@@ -153,8 +154,10 @@
       ctx.strokeStyle = isCurrentTurn ? '#ff9f45' : (isMultiSelected ? '#45ff78' : (t.id === state.selectedTokenId ? '#ffffff' : (photo ? t.color : 'rgba(0,0,0,0.5)')));
       ctx.stroke();
 
+      const themeFont = (window.RPG.getThemeFont ? window.RPG.getThemeFont() : '"VT323", monospace');
+
       if (!photo && t.name) {
-        ctx.font = `${Math.max(12, t.r * 0.7)}px "VT323", monospace`;
+        ctx.font = `bold ${Math.max(12, t.r * 0.7)}px ${themeFont}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = contrastColor(t.color);
@@ -168,12 +171,12 @@
       }
 
       if (t.name) {
-        ctx.font = `${Math.max(14, t.r * 0.6)}px "VT323", monospace`;
+        ctx.font = `bold ${Math.max(13, t.r * 0.55)}px ${themeFont}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         const labelY = t.y + t.r + 4 / cam.zoom;
         ctx.lineWidth = 3 / cam.zoom;
-        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+        ctx.strokeStyle = 'rgba(0,0,0,0.85)';
         ctx.strokeText(t.name, t.x, labelY);
         ctx.fillStyle = '#ffffff';
         ctx.fillText(t.name, t.x, labelY);

@@ -19,42 +19,9 @@
 <div id="app">
   <div id="sidebarWrap">
   <div id="sidebar">
-    <div>
+    <div style="padding-bottom: 6px; border-bottom: 1px solid var(--panel-border);">
       <h1>MESA://RPG v0.1</h1>
-      <div class="hint">&gt; SISTEMA DE MESA TÁTICA — grid livre, mapa importável e tokens.</div>
-    </div>
-
-    <div class="section">
-      <h2>Jogadores</h2>
-      <button class="full" id="openInviteBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        <span>Convidar jogador</span>
-      </button>
-      <button class="full mt-10" id="updatePlayerBtn" title="Envia o estado atual (mapa, tokens, névoa) para todos os jogadores conectados. Necessário depois de trocar de cena — a troca fica retida até você confirmar aqui." style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-        <span>Atualizar telas dos jogadores</span>
-      </button>
-      <div id="peerList"></div>
-      <button class="full mt-10" id="openGlossaryBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        <span>Glossário de efeitos</span>
-      </button>
-      <button class="full mt-10" id="openDiceBtn" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.15" />
-          <polygon points="12,7.5 18,17 6,17" fill="currentColor" fill-opacity="0.25" />
-          <line x1="12" y1="2" x2="12" y2="7.5" />
-          <line x1="21" y1="7.5" x2="18" y2="17" />
-          <line x1="21" y1="16.5" x2="18" y2="17" />
-          <line x1="12" y1="22" x2="18" y2="17" />
-          <line x1="12" y1="22" x2="6" y2="17" />
-          <line x1="3" y1="16.5" x2="6" y2="17" />
-          <line x1="3" y1="7.5" x2="6" y2="17" />
-          <line x1="12" y1="7.5" x2="21" y2="7.5" />
-          <line x1="12" y1="7.5" x2="3" y2="7.5" />
-        </svg>
-        <span>Rolar dados</span>
-      </button>
+      <div class="hint">&gt; Painel de Tokens, Party e Objetos</div>
     </div>
 
     <input type="file" id="mapFileInput" accept="image/*" title="Importar imagem do mapa" aria-label="Importar imagem do mapa">
@@ -83,61 +50,106 @@
       <div id="objectList"></div>
     </div>
   </div>
-  <div id="sidebarResizer"></div>
+  <div id="sidebarResizer">
+    <button id="sidebarToggle" title="Recolher/expandir barra lateral" style="display:inline-flex;align-items:center;justify-content:center;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+  </div>
   </div>
 
   <div id="viewport">
-    <button id="helpBtn" title="Ajuda">?</button>
-
-    <div id="rightToolsBar">
-      <button id="topFogBtn" title="Desenhar oclusão de névoa">▓ Névoa</button>
-      <button id="topClearFogBtn" class="secondary" title="Limpar toda a névoa">Limpar névoa</button>
-      <button id="topMeasureBtn" title="Medir distâncias: clique num token para a seta acompanhar o mouse até o 2º clique; clique em ponto vazio e arraste (some ao soltar)" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22L22 2M16 4l4 4M13 7l2 2M10 10l2 2M7 13l2 2M4 16l2 2"/></svg>
-        <span>Medir</span>
+    <div id="topLeftTools">
+      <button id="openInviteBtn" class="top-circle-btn" title="Convidar jogador" aria-label="Convidar jogador">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
       </button>
-      <button id="topFxBtn" title="Efeitos visuais: clique num ponto do mapa e escolha um efeito (explosão, fogo, fumaça...). Puramente cosmético — não move tokens nem névoa. Visível para mestre e jogador." style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-        <span>Efeitos</span>
+      <button id="updatePlayerBtn" class="top-circle-btn" title="Atualizar telas dos jogadores (necessário após trocar de cena)" aria-label="Atualizar telas dos jogadores">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
       </button>
-      <button id="topMoveBtn" title="Mover tokens sem selecioná-los: arraste qualquer token livremente sem trocar qual está selecionado (útil para não perder o token ativo que revela a névoa)" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v7M10 10.5V6a2 2 0 0 0-4 0v8a7 7 0 0 0 14 0v-4a2 2 0 0 0-4 0v1"/></svg>
-        <span>Mover</span>
+      <button id="openGlossaryBtn" class="top-circle-btn" title="Glossário de efeitos" aria-label="Glossário de efeitos">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
       </button>
-      <button id="topTokenShrinkBtn" class="secondary" title="Diminuir o token selecionado" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-        <span>Token −</span>
-      </button>
-      <button id="topTokenGrowBtn" class="secondary" title="Aumentar o token selecionado" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
-        <span>Token +</span>
-      </button>
-      <button id="topObjectShrinkBtn" class="secondary" title="Diminuir o objeto selecionado" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-        <span>Objeto −</span>
-      </button>
-      <button id="topObjectGrowBtn" class="secondary" title="Aumentar o objeto selecionado" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
-        <span>Objeto +</span>
+      <button id="openDiceBtn" class="top-circle-btn" title="Rolar dados" aria-label="Rolar dados">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.15" />
+          <polygon points="12,7.5 18,17 6,17" fill="currentColor" fill-opacity="0.25" />
+          <line x1="12" y1="2" x2="12" y2="7.5" />
+          <line x1="21" y1="7.5" x2="18" y2="17" />
+          <line x1="21" y1="16.5" x2="18" y2="17" />
+          <line x1="12" y1="22" x2="18" y2="17" />
+          <line x1="12" y1="22" x2="6" y2="17" />
+          <line x1="3" y1="16.5" x2="6" y2="17" />
+          <line x1="3" y1="7.5" x2="6" y2="17" />
+          <line x1="12" y1="7.5" x2="21" y2="7.5" />
+          <line x1="12" y1="7.5" x2="3" y2="7.5" />
+        </svg>
       </button>
     </div>
 
+    <!-- Top info bar: auto-retracts up, reveals on hover -->
     <div id="topBar">
-      <span>Zoom: <b id="zoomLabel">100%</b></span>
-      <span>Grid: <b id="gridLabel">48px</b></span>
-      <span>Mapa: <b id="mapLabel">nenhum</b></span>
+      <div class="top-bar-content">
+        <span>Zoom: <b id="zoomLabel">100%</b></span>
+        <span>Grid: <b id="gridLabel">48px</b></span>
+        <span>Mapa: <b id="mapLabel">nenhum</b></span>
+      </div>
+      <div class="top-bar-handle"></div>
     </div>
 
-    <div id="topTools">
-      <button id="topImportBtn" title="Importar imagem do mapa" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        <span>Importar mapa</span>
+    <!-- Right toolbar stack: Import -> Settings -> Tools Toggle -> Tools Bar -->
+    <div id="rightToolsWrap">
+      <button id="topImportBtn" class="top-circle-btn" title="Importar imagem do mapa" aria-label="Importar mapa">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
       </button>
-      <button id="topSlidersBtn" title="Ajustar mapa e grid" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-        <span>Ajustes</span>
+      <button id="topSlidersBtn" class="top-circle-btn" title="Ajustar mapa, grid e sessão" aria-label="Ajustes">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
       </button>
+      <button id="rightToolsToggleBtn" class="top-circle-btn" title="Recolher/expandir ferramentas" aria-label="Ferramentas">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      </button>
+      <div id="rightToolsBar" class="collapsed">
+        <button id="topFogBtn" title="Desenhar oclusão de névoa" style="display:inline-flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+          <span>Névoa</span>
+        </button>
+        <button id="topClearFogBtn" class="secondary" title="Limpar toda a névoa" style="display:inline-flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span>Limpar névoa</span>
+        </button>
+        <button id="topMeasureBtn" title="Medir distâncias" style="display:inline-flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22L22 2M16 4l4 4M13 7l2 2M10 10l2 2M7 13l2 2M4 16l2 2"/></svg>
+          <span>Medir</span>
+        </button>
+        <button id="topFxBtn" title="Efeitos visuais" style="display:inline-flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          <span>Efeitos</span>
+        </button>
+        <button id="topMoveBtn" title="Mover tokens sem selecioná-los" style="display:inline-flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v7M10 10.5V6a2 2 0 0 0-4 0v8a7 7 0 0 0 14 0v-4a2 2 0 0 0-4 0v1"/></svg>
+          <span>Mover</span>
+        </button>
+        <button id="topTokenShrinkBtn" class="secondary" title="Diminuir token selecionado" style="display:inline-flex;align-items:center;gap:4px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          <span>Token −</span>
+        </button>
+        <button id="topTokenGrowBtn" class="secondary" title="Aumentar token selecionado" style="display:inline-flex;align-items:center;gap:4px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+          <span>Token +</span>
+        </button>
+        <button id="topObjectShrinkBtn" class="secondary" title="Diminuir objeto selecionado" style="display:inline-flex;align-items:center;gap:4px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          <span>Objeto −</span>
+        </button>
+        <button id="topObjectGrowBtn" class="secondary" title="Aumentar objeto selecionado" style="display:inline-flex;align-items:center;gap:4px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+          <span>Objeto +</span>
+        </button>
+      </div>
     </div>
+
+    <!-- Help button on bottom left -->
+    <button id="helpBtn" class="top-circle-btn" title="Ajuda" aria-label="Ajuda">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </button>
     <canvas id="canvas"></canvas>
     <div id="effectTooltip"></div>
     <div id="notePostit">
@@ -183,19 +195,21 @@
     </div>
   </div>
 
-  <div id="sceneSidebarResizer">
-    <button id="sceneSidebarToggle" title="Recolher/expandir cenas" style="display:inline-flex;align-items:center;justify-content:center;">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-    </button>
-  </div>
-  <div id="sceneSidebar">
-    <h2>Cenas</h2>
-    <button class="full mb-10" id="addSceneBtn">+ Nova cena</button>
-    <button class="secondary full mb-10" id="groupScenesBtn" disabled title="Selecione 2+ cenas (Ctrl+clique) para agrupar" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-      <span>Agrupar em pasta</span>
-    </button>
-    <div id="sceneList"></div>
+  <div id="sceneSidebarWrap">
+    <div id="sceneSidebarResizer">
+      <button id="sceneSidebarToggle" title="Recolher/expandir cenas" style="display:inline-flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+    <div id="sceneSidebar">
+      <h2>Cenas</h2>
+      <button class="full mb-10" id="addSceneBtn">+ Nova cena</button>
+      <button class="secondary full mb-10" id="groupScenesBtn" disabled title="Selecione 2+ cenas (Ctrl+clique) para agrupar" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span>Agrupar em pasta</span>
+      </button>
+      <div id="sceneList"></div>
+    </div>
   </div>
 </div>
 
@@ -452,6 +466,10 @@
       </button>
     </div>
     <div id="inviteStatus" class="hint hint-m0"></div>
+    <div style="margin-top: 10px; text-align: left; width: 100%;">
+      <label style="font-size: 11px; display: block; margin-bottom: 4px;">Jogadores conectados</label>
+      <div id="peerList"></div>
+    </div>
     <div id="inviteCloseRow">
       <button type="button" class="secondary" id="inviteCloseBtn">Fechar</button>
     </div>
@@ -610,6 +628,11 @@
         <label for="topGridSize">Tamanho</label>
         <input type="range" id="topGridSize" min="16" max="128" value="48">
         <span id="topGridSizeVal">48px</span>
+      </div>
+      <div class="top-slider-row">
+        <label for="topGridOpacity">Opacidade</label>
+        <input type="range" id="topGridOpacity" min="5" max="100" value="30">
+        <span id="topGridOpacityVal">30%</span>
       </div>
       <div class="top-slider-row">
         <label for="topGridToggle">Mostrar</label>

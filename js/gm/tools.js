@@ -124,6 +124,16 @@
 
   topImportBtn.addEventListener('click', () => mapFileInput.click());
 
+  // ---------- Right tools toggle (collapsible toolbar) ----------
+  const rightToolsToggleBtn = document.getElementById('rightToolsToggleBtn');
+  const rightToolsBar = document.getElementById('rightToolsBar');
+  if (rightToolsToggleBtn && rightToolsBar) {
+    rightToolsToggleBtn.addEventListener('click', () => {
+      const collapsed = rightToolsBar.classList.toggle('collapsed');
+      rightToolsToggleBtn.classList.toggle('collapsed', collapsed);
+    });
+  }
+
   // ---------- Settings modal ----------
   const settingsOverlay = document.getElementById('settingsOverlay');
   const topSlidersBtn = document.getElementById('topSlidersBtn');
