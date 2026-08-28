@@ -56,24 +56,13 @@
   </div>
 </div>
 
-<!-- Shared modules (both windows) -->
+<!-- Vendor (não usam ES modules) -->
 <script src="js/vendor/qrcode.min.js"></script>
 <script src="js/vendor/peerjs.min.js"></script>
 <script src="js/vendor/jsQR.js"></script>
-<script src="js/shared/webrtc.js?v=7"></script>
-<script src="js/shared/camera.js"></script>
-<script src="js/shared/photo-cache.js"></script>
-<script src="js/shared/object-cache.js"></script>
-<script src="js/shared/bars.js"></script>
-<script src="js/shared/scene-render.js?v=8"></script>
-<script src="js/shared/fx-trail.js"></script>
 
-<!-- Player modules -->
-<script src="js/player/state.js?v=11"></script>
-<script src="js/player/combat.js?v=3"></script>
-<script src="js/player/draw.js?v=9"></script>
-<script src="js/player/fullscreen.js?v=7"></script>
-<script src="js/player/sync.js?v=11"></script>
+<!-- Ponto de entrada do Jogador: importa todos os módulos na ordem correta -->
+<script type="module" src="js/player/main.js"></script>
 
 </body>
 </html>

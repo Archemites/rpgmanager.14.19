@@ -1,3 +1,4 @@
+// @ts-check
 /* ============================================================
    Player combat bar: read-only timeline display — no drag-reorder, since
    the player can't act on initiative order.
@@ -8,11 +9,14 @@
 (() => {
   'use strict';
 
-  const state = window.RPG.state;
-  const getTokenPhotoImg = window.RPG.getTokenPhotoImg;
+  const RPG = /** @type {any} */ (window).RPG;
+  const state = RPG.state;
+  const getTokenPhotoImg = RPG.getTokenPhotoImg;
 
-  const combatBar = document.getElementById('combatBar');
-  const combatBarTokens = document.getElementById('combatBar-tokens');
+  /** @type {HTMLElement} */
+  const combatBar = (/** @type {any} */ (document.getElementById('combatBar')));
+  /** @type {HTMLElement} */
+  const combatBarTokens = (/** @type {any} */ (document.getElementById('combatBar-tokens')));
 
   const TOKEN_SIZE = 48;
   const TOKEN_SPACING = 10;
@@ -25,13 +29,15 @@
 
     // --- FLIP Step 1: First — snapshot current left positions ---
     const firstPositions = {};
-    Array.from(combatBarTokens.children).forEach(el => {
-      firstPositions[el.dataset.id] = parseFloat(el.style.left) || 0;
+    Array.from(combatBarTokens.children).forEach(child => {
+      const el = /** @type {HTMLElement} */ (child);
+      firstPositions[el.dataset.id || ''] = parseFloat(el.style.left) || 0;
     });
 
     // Remove tokens no longer in combat
-    Array.from(combatBarTokens.children).forEach(el => {
-      if (!state.combat.order.includes(el.dataset.id)) el.remove();
+    Array.from(combatBarTokens.children).forEach(child => {
+      const el = /** @type {HTMLElement} */ (child);
+      if (!state.combat.order.includes(el.dataset.id || '')) el.remove();
     });
 
     // --- FLIP Step 2: Last — create/update elements at their FINAL positions ---
@@ -40,6 +46,7 @@
       if (!t) return;
 
       const finalLeft = idx * SLOT_WIDTH + TOKEN_PADDING_LEFT;
+      /** @type {HTMLElement|null} */
       let item = combatBarTokens.querySelector(`[data-id="${id}"]`);
 
       if (!item) {
@@ -49,11 +56,11 @@
         item.dataset.isNew = '1';
         item.style.marginLeft = '0';
 
-        const canvasEl = document.createElement('canvas');
+        const canvasEl = /** @type {HTMLCanvasElement} */ (document.createElement('canvas'));
         canvasEl.width = 48;
         canvasEl.height = 48;
         canvasEl.className = 'dot';
-        const c = canvasEl.getContext('2d');
+        const c = /** @type {CanvasRenderingContext2D} */ (canvasEl.getContext('2d'));
         const photo = getTokenPhotoImg(t);
         c.beginPath();
         c.arc(24, 24, 24, 0, Math.PI * 2);
@@ -81,6 +88,7 @@
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         state.combat.order.forEach((id, idx) => {
+          /** @type {HTMLElement|null} */
           const item = combatBarTokens.querySelector(`[data-id="${id}"]`);
           if (!item) return;
 
@@ -111,5 +119,5 @@
   }
 
   // ---------- Expose to window.RPG ----------
-  window.RPG.renderCombatBar = renderCombatBar;
+  /** @type {any} */ (window).RPG.renderCombatBar = renderCombatBar;
 })();

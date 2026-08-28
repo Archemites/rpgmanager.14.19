@@ -1,3 +1,4 @@
+// @ts-check
 /* ============================================================
    Player state: state (received-from-GM view), cam, drag.
    Read-only mirror of whatever the GM last sent — never mutated locally
@@ -9,24 +10,37 @@
   'use strict';
 
   const viewport = document.getElementById('viewport');
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
+  /** @type {any} */ (window).RPG.combatBarTokens = document.getElementById('combatBar-tokens');
+  /** @type {HTMLCanvasElement} */
+  const canvas = (/** @type {any} */ (document.getElementById('canvas')));
+  const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'));
   const statusEl = document.getElementById('status');
 
   const MAX_ACTIVE_BARS = 2;
 
   // Camera (shared factory — js/shared/camera.js)
   const { cam, screenToWorld, eventScreenPos, zoomAt: zoomAtRaw, centerView: centerViewRaw } =
-    window.RPG.createCamera(canvas, viewport);
+    /** @type {any} */ (window).RPG.createCamera(canvas, viewport);
 
+  /** @type {any} */
   const state = {
-    grid: { show: true, size: 48, color: null },  // null = follow theme's --accent
-    map: { img: null, scalePct: 100, bgColor: null },  // null = no GM override, follow theme's --map-bg
+    grid: { show: true, size: 48, color: null },
+    map: { img: null, scalePct: 100, dataUrl: null, bgColor: null },
     tokens: [],
-    fog: [],     // opaque rectangles hiding the map/tokens beneath — GM-manual only, see js/player/draw.js
-    objects: [], // map props/scenery: {id, x, y, w, h, rotation, dataUrl, name}
+    fog: [],
+    objects: [],
     combat: { active: false, order: [] },
     partyBars: [],
+    notes: [],
+    glossary: [],
+    snapToGrid: true,
+    nextId: 1,
+    lights: [],
+    music: { url: '', status: 'stopped', loop: true, volume: 1 },
+    time: { paused: true, elapsed: 0, speed: 1 },
+    weather: { active: false, type: 'rain', intensity: 0.5 },
+    ambient: { url: '', status: 'stopped', loop: true, volume: 0.5 },
+    sceneId: '',
   };
 
   const drag = {
@@ -86,15 +100,15 @@
     dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(viewport.clientWidth * dpr);
     canvas.height = Math.round(viewport.clientHeight * dpr);
-    window.RPG.draw();
+    /** @type {any} */ (window).RPG.draw();
   }
   window.addEventListener('resize', resizeCanvas);
 
   function zoomAt(screenX, screenY, factor) {
-    zoomAtRaw(screenX, screenY, factor, () => window.RPG.draw());
+    zoomAtRaw(screenX, screenY, factor, () => /** @type {any} */ (window).RPG.draw());
   }
   function centerView() {
-    centerViewRaw(() => window.RPG.draw());
+    centerViewRaw(() => /** @type {any} */ (window).RPG.draw());
   }
 
   // ---------- Interaction: drag own token, middle/left-drag pan, scroll zoom ----------
@@ -110,8 +124,9 @@
     const t = myToken();
     if (t) {
       const wp = screenToWorld(sp.x, sp.y);
+      const r = /** @type {any} */ (t).r || (t.w || 48) / 2;
       const dx = wp.x - t.x, dy = wp.y - t.y;
-      if (dx * dx + dy * dy <= t.r * t.r) {
+      if (dx * dx + dy * dy <= r * r) {
         tokenDrag.active = true;
         tokenDrag.offsetX = dx;
         tokenDrag.offsetY = dy;
@@ -135,14 +150,14 @@
       const wp = screenToWorld(sp.x, sp.y);
       t.x = wp.x - tokenDrag.offsetX;
       t.y = wp.y - tokenDrag.offsetY;
-      window.RPG.draw();
+      /** @type {any} */ (window).RPG.draw();
       scheduleMove(t.x, t.y);
       return;
     }
     if (!drag.active) return;
     cam.x = drag.camStartX - (sp.x - drag.startScreenX) / cam.zoom;
     cam.y = drag.camStartY - (sp.y - drag.startScreenY) / cam.zoom;
-    window.RPG.draw();
+    /** @type {any} */ (window).RPG.draw();
   }
 
   function pointerEnd() {
@@ -218,7 +233,8 @@
       if (pinchStartDist > 0) {
         const mid = touchMidpoint(e.touches[0], e.touches[1]);
         const rect = canvas.getBoundingClientRect();
-        const targetZoom = Math.max(window.RPG.MIN_ZOOM, Math.min(window.RPG.MAX_ZOOM,
+        const RPG = /** @type {any} */ (window).RPG;
+        const targetZoom = Math.max(RPG.MIN_ZOOM, Math.min(RPG.MAX_ZOOM,
           pinchStartZoom * (dist / pinchStartDist)));
         zoomAt(mid.x - rect.left, mid.y - rect.top, targetZoom / cam.zoom);
       }
@@ -244,15 +260,15 @@
   canvas.addEventListener('touchcancel', touchEnd, { passive: false });
 
   // ---------- Photo cache (shared factory) ----------
-  const getTokenPhotoImg = window.RPG.createPhotoCache(() => window.RPG.draw());
-  const getObjectImg = window.RPG.createObjectImgCache(() => window.RPG.draw());
-  const contrastColor = window.RPG.contrastColor;
+  const getTokenPhotoImg = /** @type {any} */ (window).RPG.createPhotoCache(() => /** @type {any} */ (window).RPG.draw());
+  const getObjectImg = /** @type {any} */ (window).RPG.createObjectImgCache(() => /** @type {any} */ (window).RPG.draw());
+  const contrastColor = /** @type {any} */ (window).RPG.contrastColor;
 
   // ---------- Bar renderer (shared factory) ----------
-  const barRenderer = window.RPG.createBarRenderer(() => ctx, () => cam, () => state, MAX_ACTIVE_BARS);
+  const barRenderer = /** @type {any} */ (window).RPG.createBarRenderer(() => ctx, () => cam, () => state, MAX_ACTIVE_BARS);
 
   // ---------- Scene renderer (shared factory) ----------
-  const sceneRenderer = window.RPG.createSceneRenderer(() => state, getTokenPhotoImg, contrastColor);
+  const sceneRenderer = /** @type {any} */ (window).RPG.createSceneRenderer(() => state, getTokenPhotoImg, contrastColor);
 
   // ---------- Status banner ----------
   let statusTimer = null;
@@ -264,50 +280,53 @@
   }
 
   // ---------- Expose to window.RPG ----------
-  window.RPG.viewport = viewport;
-  window.RPG.canvas = canvas;
-  window.RPG.ctx = ctx;
-  window.RPG.statusEl = statusEl;
-  window.RPG.getDpr = getDpr;
-  window.RPG.cam = cam;
-  window.RPG.getCam = () => cam;
-  window.RPG.screenToWorld = screenToWorld;
-  window.RPG.eventScreenPos = eventScreenPos;
-  window.RPG.zoomAt = zoomAt;
-  window.RPG.centerView = centerView;
-  window.RPG.resizeCanvas = resizeCanvas;
+  const RPG = /** @type {any} */ (window).RPG || {};
+  /** @type {any} */ (window).RPG = RPG;
 
-  window.RPG.MAX_ACTIVE_BARS = MAX_ACTIVE_BARS;
+  RPG.viewport = viewport;
+  RPG.canvas = canvas;
+  RPG.ctx = ctx;
+  RPG.statusEl = statusEl;
+  RPG.getDpr = getDpr;
+  RPG.cam = cam;
+  RPG.getCam = () => cam;
+  RPG.screenToWorld = screenToWorld;
+  RPG.eventScreenPos = eventScreenPos;
+  RPG.zoomAt = zoomAt;
+  RPG.centerView = centerView;
+  RPG.resizeCanvas = resizeCanvas;
 
-  window.RPG.state = state;
-  window.RPG.getState = () => state;
+  RPG.MAX_ACTIVE_BARS = MAX_ACTIVE_BARS;
+
+  RPG.state = state;
+  RPG.getState = () => state;
 
   // Resolves the active theme's default map background (--map-bg), mirrored
   // from js/gm/theme.js's rpg-theme message. Fallback when a scene has no
   // GM-set bgColor override.
-  window.RPG.getThemeMapBg = () => {
+  RPG.getThemeMapBg = () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--map-bg').trim();
     return v || '#03140a';
   };
 
   // Resolves the active theme's accent color, used as the default grid line
   // color. Fallback when a scene has no GM-set grid.color override.
-  window.RPG.getThemeGridColor = () => {
+  RPG.getThemeGridColor = () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
     return v || '#45ff78';
   };
 
-  window.RPG.getTokenPhotoImg = getTokenPhotoImg;
-  window.RPG.getObjectImg = getObjectImg;
-  window.RPG.contrastColor = contrastColor;
-  window.RPG.drawTokenBars = barRenderer.drawTokenBars;
-  window.RPG.drawMapAndGrid = sceneRenderer.drawMapAndGrid;
-  window.RPG.drawTokenBasic = sceneRenderer.drawTokenBasic;
+  RPG.getTokenPhotoImg = getTokenPhotoImg;
+  RPG.getObjectImg = getObjectImg;
+  RPG.contrastColor = contrastColor;
+  RPG.drawTokenBars = barRenderer.drawTokenBars;
+  RPG.drawMapAndGrid = sceneRenderer.drawMapAndGrid;
+  RPG.drawTokenBasic = sceneRenderer.drawTokenBasic;
 
-  window.RPG.showStatus = showStatus;
+  RPG.showStatus = showStatus;
 
-  window.RPG.setMyTokenId = (id) => { myTokenId = id; };
-  window.RPG.getMyTokenId = () => myTokenId;
-  window.RPG.setActiveConnection = (conn) => { activeConnection = conn; };
-  window.RPG.getActiveConnection = () => activeConnection;
+  RPG.setMyTokenId = (id) => { myTokenId = id; };
+  RPG.getMyTokenId = () => myTokenId;
+  RPG.setActiveConnection = (conn) => { activeConnection = conn; };
+  RPG.getActiveConnection = () => activeConnection;
 })();

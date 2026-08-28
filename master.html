@@ -613,47 +613,9 @@
 <!-- Shared modules (both windows) -->
 <script src="js/vendor/qrcode.min.js"></script>
 <script src="js/vendor/peerjs.min.js"></script>
-<script src="js/shared/webrtc.js?v=7"></script>
-<script src="js/shared/camera.js"></script>
-<script src="js/shared/photo-cache.js"></script>
-<script src="js/shared/object-cache.js"></script>
-<script src="js/shared/bars.js"></script>
-<script src="js/shared/scene-render.js?v=8"></script>
-<script src="js/shared/fx-trail.js"></script>
 
-<!-- GM modules -->
-<script src="js/gm/state.js?v=8"></script>
-<script src="js/gm/history.js?v=8"></script>
-<script src="js/gm/scenes.js?v=8"></script>
-<script src="js/gm/sync.js?v=11"></script>
-<script src="js/gm/hit-test.js?v=8"></script>
-<script src="js/gm/draw.js?v=8"></script>
-<script src="js/gm/map-grid-lighting.js?v=8"></script>
-<script src="js/gm/token-modal.js?v=8"></script>
-<script src="js/gm/crop-editor.js"></script>
-<script src="js/gm/context-menu.js"></script>
-<script src="js/gm/note-modal.js"></script>
-<script src="js/gm/note-postit.js"></script>
-<script src="js/gm/token-list.js"></script>
-<script src="js/gm/objects.js"></script>
-<script src="js/gm/effects-picker.js"></script>
-<script src="js/gm/glossary.js"></script>
-<script src="js/gm/dice-roller.js"></script>
-<script src="js/gm/bar-editor.js"></script>
-<script src="js/gm/party.js"></script>
-<script src="js/gm/combat.js?v=2"></script>
-<script src="js/gm/tools.js?v=8"></script>
-<script src="js/gm/fx-settings.js"></script>
-<script src="js/gm/session-io.js?v=8"></script>
-<script src="js/gm/theme.js?v=7"></script>
-<script src="js/gm/mouse.js?v=8"></script>
-<script src="js/gm/hotkeys.js?v=8"></script>
-
-<!-- Features -->
-<script src="js/features/measure.js"></script>
-
-<!-- GM init (loads absolute last) -->
-<script src="js/gm/init.js"></script>
+<!-- Ponto de entrada do GM: importa todos os módulos na ordem correta -->
+<script type="module" src="js/gm/main.js"></script>
 
 </body>
 </html>

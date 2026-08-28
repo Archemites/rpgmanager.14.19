@@ -1,3 +1,4 @@
+// @ts-check
 /* ============================================================
    GM state: allTokens (master list across ALL scenes), state (current-scene
    view), constants, DOM canvas/viewport refs. Every other js/gm/* file reads
@@ -9,8 +10,9 @@
   'use strict';
 
   const viewport = document.getElementById('viewport');
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
+  /** @type {HTMLCanvasElement} */
+  const canvas = (/** @type {any} */ (document.getElementById('canvas')));
+  const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'));
 
   const BASE_TOKEN_RADIUS = 20;
   const MAX_ACTIVE_BARS = 2;   // how many party bars can render on the map at once
@@ -18,14 +20,16 @@
 
   // Camera (shared factory — js/shared/camera.js)
   const { cam, screenToWorld, eventScreenPos, zoomAt: zoomAtRaw, centerView: centerViewRaw } =
-    window.RPG.createCamera(canvas, viewport);
+    /** @type {any} */ (window).RPG.createCamera(canvas, viewport);
 
   // Master token list across ALL scenes — never filtered. `state.tokens` (below)
   // is always a recomputed view of just the tokens present in the open scene;
   // see `refreshVisibleTokens()`. Mutate `allTokens` (push/splice), not
   // `state.tokens` directly, then call `refreshVisibleTokens()`.
+  /** @type {Token[]} */
   const allTokens = [];
 
+  /** @type {State} */
   const state = {
     grid: { show: true, size: 48, color: null },  // null = follow theme's --accent
     map: { img: null, scalePct: 100, dataUrl: null, bgColor: null },  // image is centered on world origin (0,0); bgColor fills the canvas behind/around it, per-scene; null = follow theme's --map-bg
@@ -79,7 +83,7 @@
     const h = viewport.clientHeight;
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
-    window.RPG.draw();
+    /** @type {any} */ (window).RPG.draw();
   }
   window.addEventListener('resize', resizeCanvas);
 
@@ -91,10 +95,10 @@
   // Wrap the shared camera's zoomAt/centerView so they also update the HUD + redraw,
   // matching the old main.js behavior exactly.
   function zoomAt(screenX, screenY, factor) {
-    zoomAtRaw(screenX, screenY, factor, () => { updateHud(); window.RPG.draw(); });
+    zoomAtRaw(screenX, screenY, factor, () => { updateHud(); /** @type {any} */ (window).RPG.draw(); });
   }
   function centerView() {
-    centerViewRaw(() => { updateHud(); window.RPG.draw(); });
+    centerViewRaw(() => { updateHud(); /** @type {any} */ (window).RPG.draw(); });
   }
 
   // ---------- Sidebar resize (drag handle) ----------
@@ -195,56 +199,58 @@
   const effectDotHitboxes = [];  // {cx, cy, r, effectId}
 
   // ---------- Photo cache (shared factory) ----------
-  const getTokenPhotoImg = window.RPG.createPhotoCache(() => window.RPG.draw());
-  const getObjectImg = window.RPG.createObjectImgCache(() => window.RPG.draw());
-  const contrastColor = window.RPG.contrastColor;
+  const getTokenPhotoImg = /** @type {any} */ (window).RPG.createPhotoCache(() => /** @type {any} */ (window).RPG.draw());
+  const getObjectImg = /** @type {any} */ (window).RPG.createObjectImgCache(() => /** @type {any} */ (window).RPG.draw());
+  const contrastColor = /** @type {any} */ (window).RPG.contrastColor;
 
   // ---------- Bar renderer (shared factory) ----------
-  const barRenderer = window.RPG.createBarRenderer(() => ctx, () => cam, () => state, MAX_ACTIVE_BARS);
+  const barRenderer = /** @type {any} */ (window).RPG.createBarRenderer(() => ctx, () => cam, () => state, MAX_ACTIVE_BARS);
 
   // ---------- Scene renderer (shared factory) ----------
-  const sceneRenderer = window.RPG.createSceneRenderer(() => state, getTokenPhotoImg, contrastColor);
+  const sceneRenderer = /** @type {any} */ (window).RPG.createSceneRenderer(() => state, getTokenPhotoImg, contrastColor);
 
   // ---------- Expose to window.RPG ----------
-  window.RPG = window.RPG || {};
-  window.RPG.viewport = viewport;
-  window.RPG.canvas = canvas;
-  window.RPG.ctx = ctx;
-  window.RPG.getCtx = () => ctx;
-  window.RPG.getDpr = getDpr;
-  window.RPG.cam = cam;
-  window.RPG.getCam = () => cam;
-  window.RPG.screenToWorld = screenToWorld;
-  window.RPG.eventScreenPos = eventScreenPos;
-  window.RPG.zoomAt = zoomAt;
-  window.RPG.centerView = centerView;
-  window.RPG.updateHud = updateHud;
-  window.RPG.resizeCanvas = resizeCanvas;
+  const RPG = /** @type {any} */ (window).RPG || {};
+  /** @type {any} */ (window).RPG = RPG;
 
-  window.RPG.BASE_TOKEN_RADIUS = BASE_TOKEN_RADIUS;
-  window.RPG.MAX_ACTIVE_BARS = MAX_ACTIVE_BARS;
-  window.RPG.ROTATE_HANDLE_R = ROTATE_HANDLE_R;
+  RPG.viewport = viewport;
+  RPG.canvas = canvas;
+  RPG.ctx = ctx;
+  RPG.getCtx = () => ctx;
+  RPG.getDpr = getDpr;
+  RPG.cam = cam;
+  RPG.getCam = () => cam;
+  RPG.screenToWorld = screenToWorld;
+  RPG.eventScreenPos = eventScreenPos;
+  RPG.zoomAt = zoomAt;
+  RPG.centerView = centerView;
+  RPG.updateHud = updateHud;
+  RPG.resizeCanvas = resizeCanvas;
 
-  window.RPG.allTokens = allTokens;
-  window.RPG.state = state;
-  window.RPG.getState = () => state;
+  RPG.BASE_TOKEN_RADIUS = BASE_TOKEN_RADIUS;
+  RPG.MAX_ACTIVE_BARS = MAX_ACTIVE_BARS;
+  RPG.ROTATE_HANDLE_R = ROTATE_HANDLE_R;
 
-  window.RPG.drag = drag;
-  window.RPG.fogDraw = fogDraw;
-  window.RPG.getMeasureMode = () => measureMode;
-  window.RPG.setMeasureMode = (v) => { measureMode = v; };
-  window.RPG.getMeasureSelectedTokenId = () => measureSelectedTokenId;
-  window.RPG.setMeasureSelectedTokenId = (v) => { measureSelectedTokenId = v; };
-  window.RPG.getFxMode = () => fxMode;
-  window.RPG.setFxMode = (v) => { fxMode = v; };
+  RPG.allTokens = allTokens;
+  RPG.state = state;
+  RPG.getState = () => state;
 
-  window.RPG.effectDotHitboxes = effectDotHitboxes;
+  RPG.drag = drag;
+  RPG.fogDraw = fogDraw;
+  RPG.getMeasureMode = () => measureMode;
+  RPG.setMeasureMode = (v) => { measureMode = v; };
+  RPG.getMeasureSelectedTokenId = () => measureSelectedTokenId;
+  RPG.setMeasureSelectedTokenId = (v) => { measureSelectedTokenId = v; };
+  RPG.getFxMode = () => fxMode;
+  RPG.setFxMode = (v) => { fxMode = v; };
 
-  window.RPG.getTokenPhotoImg = getTokenPhotoImg;
-  window.RPG.getObjectImg = getObjectImg;
-  window.RPG.contrastColor = contrastColor;
-  window.RPG.drawTokenBars = barRenderer.drawTokenBars;
-  window.RPG.tokenBarExtents = barRenderer.tokenBarExtents;
-  window.RPG.drawMapAndGrid = sceneRenderer.drawMapAndGrid;
-  window.RPG.drawTokenBasic = sceneRenderer.drawTokenBasic;
+  RPG.effectDotHitboxes = effectDotHitboxes;
+
+  RPG.getTokenPhotoImg = getTokenPhotoImg;
+  RPG.getObjectImg = getObjectImg;
+  RPG.contrastColor = contrastColor;
+  RPG.drawTokenBars = barRenderer.drawTokenBars;
+  RPG.tokenBarExtents = barRenderer.tokenBarExtents;
+  RPG.drawMapAndGrid = sceneRenderer.drawMapAndGrid;
+  RPG.drawTokenBasic = sceneRenderer.drawTokenBasic;
 })();
