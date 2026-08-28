@@ -1,4 +1,4 @@
-﻿
+
 (() => {
   'use strict';
 
@@ -852,7 +852,7 @@
       }
     }
 
-    showStatus('Conectado ao mestre ✓', true);
+    showStatus('Conectado ao mestre', true);
     draw();
   });
 

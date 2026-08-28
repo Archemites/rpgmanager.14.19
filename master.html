@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="css/layout.css">
 <link rel="stylesheet" href="css/components.css?v=8">
 <link rel="stylesheet" href="css/modals.css">
+<link rel="stylesheet" href="css/shared-dice.css">
 </head>
 <body>
 <div id="app">
@@ -25,11 +26,35 @@
 
     <div class="section">
       <h2>Jogadores</h2>
-      <button class="full" id="openInviteBtn">🔗 Convidar jogador</button>
-      <button class="full mt-10" id="updatePlayerBtn" title="Envia o estado atual (mapa, tokens, névoa) para todos os jogadores conectados. Necessário depois de trocar de cena — a troca fica retida até você confirmar aqui.">🔄 Atualizar telas dos jogadores</button>
+      <button class="full" id="openInviteBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <span>Convidar jogador</span>
+      </button>
+      <button class="full mt-10" id="updatePlayerBtn" title="Envia o estado atual (mapa, tokens, névoa) para todos os jogadores conectados. Necessário depois de trocar de cena — a troca fica retida até você confirmar aqui." style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        <span>Atualizar telas dos jogadores</span>
+      </button>
       <div id="peerList"></div>
-      <button class="full mt-10" id="openGlossaryBtn">📖 Glossário de efeitos</button>
-      <button class="full mt-10" id="openDiceBtn">🎲 Rolar dados</button>
+      <button class="full mt-10" id="openGlossaryBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>Glossário de efeitos</span>
+      </button>
+      <button class="full mt-10" id="openDiceBtn" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.15" />
+          <polygon points="12,7.5 18,17 6,17" fill="currentColor" fill-opacity="0.25" />
+          <line x1="12" y1="2" x2="12" y2="7.5" />
+          <line x1="21" y1="7.5" x2="18" y2="17" />
+          <line x1="21" y1="16.5" x2="18" y2="17" />
+          <line x1="12" y1="22" x2="18" y2="17" />
+          <line x1="12" y1="22" x2="6" y2="17" />
+          <line x1="3" y1="16.5" x2="6" y2="17" />
+          <line x1="3" y1="7.5" x2="6" y2="17" />
+          <line x1="12" y1="7.5" x2="21" y2="7.5" />
+          <line x1="12" y1="7.5" x2="3" y2="7.5" />
+        </svg>
+        <span>Rolar dados</span>
+      </button>
     </div>
 
     <input type="file" id="mapFileInput" accept="image/*" title="Importar imagem do mapa" aria-label="Importar imagem do mapa">
@@ -67,13 +92,34 @@
     <div id="rightToolsBar">
       <button id="topFogBtn" title="Desenhar oclusão de névoa">▓ Névoa</button>
       <button id="topClearFogBtn" class="secondary" title="Limpar toda a névoa">Limpar névoa</button>
-      <button id="topMeasureBtn" title="Medir distâncias: clique num token para a seta acompanhar o mouse até o 2º clique; clique em ponto vazio e arraste (some ao soltar)">📏 Medir</button>
-      <button id="topFxBtn" title="Efeitos visuais: clique num ponto do mapa e escolha um efeito (explosão, fogo, fumaça...). Puramente cosmético — não move tokens nem névoa. Visível para mestre e jogador.">🎆 Efeitos</button>
-      <button id="topMoveBtn" title="Mover tokens sem selecioná-los: arraste qualquer token livremente sem trocar qual está selecionado (útil para não perder o token ativo que revela a névoa)">✋ Mover</button>
-      <button id="topTokenShrinkBtn" class="secondary" title="Diminuir o token selecionado">🔽 Token −</button>
-      <button id="topTokenGrowBtn" class="secondary" title="Aumentar o token selecionado">🔼 Token +</button>
-      <button id="topObjectShrinkBtn" class="secondary" title="Diminuir o objeto selecionado">🔽 Objeto −</button>
-      <button id="topObjectGrowBtn" class="secondary" title="Aumentar o objeto selecionado">🔼 Objeto +</button>
+      <button id="topMeasureBtn" title="Medir distâncias: clique num token para a seta acompanhar o mouse até o 2º clique; clique em ponto vazio e arraste (some ao soltar)" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22L22 2M16 4l4 4M13 7l2 2M10 10l2 2M7 13l2 2M4 16l2 2"/></svg>
+        <span>Medir</span>
+      </button>
+      <button id="topFxBtn" title="Efeitos visuais: clique num ponto do mapa e escolha um efeito (explosão, fogo, fumaça...). Puramente cosmético — não move tokens nem névoa. Visível para mestre e jogador." style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        <span>Efeitos</span>
+      </button>
+      <button id="topMoveBtn" title="Mover tokens sem selecioná-los: arraste qualquer token livremente sem trocar qual está selecionado (útil para não perder o token ativo que revela a névoa)" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v7M10 10.5V6a2 2 0 0 0-4 0v8a7 7 0 0 0 14 0v-4a2 2 0 0 0-4 0v1"/></svg>
+        <span>Mover</span>
+      </button>
+      <button id="topTokenShrinkBtn" class="secondary" title="Diminuir o token selecionado" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <span>Token −</span>
+      </button>
+      <button id="topTokenGrowBtn" class="secondary" title="Aumentar o token selecionado" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+        <span>Token +</span>
+      </button>
+      <button id="topObjectShrinkBtn" class="secondary" title="Diminuir o objeto selecionado" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <span>Objeto −</span>
+      </button>
+      <button id="topObjectGrowBtn" class="secondary" title="Aumentar o objeto selecionado" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+        <span>Objeto +</span>
+      </button>
     </div>
 
     <div id="topBar">
@@ -83,26 +129,51 @@
     </div>
 
     <div id="topTools">
-      <button id="topImportBtn" title="Importar imagem do mapa">📁 Importar mapa</button>
-      <button id="topSlidersBtn" title="Ajustar mapa e grid">☰ Ajustes</button>
+      <button id="topImportBtn" title="Importar imagem do mapa" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span>Importar mapa</span>
+      </button>
+      <button id="topSlidersBtn" title="Ajustar mapa e grid" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        <span>Ajustes</span>
+      </button>
     </div>
     <canvas id="canvas"></canvas>
     <div id="effectTooltip"></div>
     <div id="notePostit">
       <div id="notePostitHeader">
         <span>Anotação</span>
-        <button id="notePostitClose" title="Fechar">✕</button>
+        <button id="notePostitClose" title="Fechar" style="display:inline-flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
       <textarea id="notePostitText" placeholder="Escreva sua anotação..."></textarea>
     </div>
     <div id="zoomControls">
       <button id="zoomOut" title="Diminuir zoom">−</button>
-      <button id="zoomReset" title="Resetar visão">⟳</button>
+      <button id="zoomReset" title="Resetar visão" style="display:inline-flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+      </button>
       <button id="zoomIn" title="Aumentar zoom">+</button>
     </div>
-    <button id="startCombatBtn">⚔ Iniciar combate</button>
+    <button id="startCombatBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" />
+        <line x1="13" y1="19" x2="19" y2="13" />
+        <line x1="16" y1="16" x2="20" y2="20" />
+        <line x1="19" y1="21" x2="21" y2="19" />
+        <polyline points="9.5 17.5 21 6 21 3 18 3 6.5 14.5" />
+        <line x1="11" y1="19" x2="5" y2="13" />
+        <line x1="8" y1="16" x2="4" y2="20" />
+        <line x1="5" y1="21" x2="3" y2="19" />
+      </svg>
+      <span>Iniciar combate</span>
+    </button>
     <div id="combatControls">
-      <button id="nextTurnBtn">⤴ Próximo turno</button>
+      <button id="nextTurnBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        <span>Próximo turno</span>
+      </button>
     </div>
     <div id="combatBar">
       <button class="secondary" id="stopCombatBtn">Encerrar</button>
@@ -113,12 +184,17 @@
   </div>
 
   <div id="sceneSidebarResizer">
-    <button id="sceneSidebarToggle" title="Recolher/expandir cenas">▶</button>
+    <button id="sceneSidebarToggle" title="Recolher/expandir cenas" style="display:inline-flex;align-items:center;justify-content:center;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
   </div>
   <div id="sceneSidebar">
     <h2>Cenas</h2>
     <button class="full mb-10" id="addSceneBtn">+ Nova cena</button>
-    <button class="secondary full mb-10" id="groupScenesBtn" disabled title="Selecione 2+ cenas (Ctrl+clique) para agrupar">📁 Agrupar em pasta</button>
+    <button class="secondary full mb-10" id="groupScenesBtn" disabled title="Selecione 2+ cenas (Ctrl+clique) para agrupar" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      <span>Agrupar em pasta</span>
+    </button>
     <div id="sceneList"></div>
   </div>
 </div>
@@ -135,7 +211,10 @@
       <label>Foto</label>
       <div id="photoPreviewWrap">
         <img id="photoPreview" class="empty" alt="Prévia da foto do token">
-        <label class="modal-file-label" for="tokenPhotoInput">📷 Escolher foto</label>
+        <label class="modal-file-label" for="tokenPhotoInput" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span>Escolher foto</span>
+        </label>
         <input type="file" id="tokenPhotoInput" accept="image/*" title="Escolher foto do token" aria-label="Escolher foto do token">
       </div>
       <button class="secondary mt-8 hidden" id="removePhotoBtn">Remover foto</button>
@@ -172,7 +251,10 @@
       <label>Imagem</label>
       <div id="objectImagePreviewWrap">
         <img id="objectImagePreview" class="empty" alt="Prévia do objeto">
-        <label class="modal-file-label" for="objectImageInput">📷 Escolher imagem</label>
+        <label class="modal-file-label" for="objectImageInput" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span>Escolher imagem</span>
+        </label>
         <input type="file" id="objectImageInput" accept="image/*" title="Escolher imagem do objeto" aria-label="Escolher imagem do objeto">
       </div>
     </div>
@@ -323,8 +405,8 @@
       </div>
       <div class="two-col">
         <div class="field">
-          <label for="glossaryIconInput">Ícone (opcional)</label>
-          <input type="text" id="glossaryIconInput" maxlength="4" placeholder="Ex: ☠️ 🔥 💤" class="maxw-120">
+          <label for="glossaryIconInput">Ícone / Sigla (opcional)</label>
+          <input type="text" id="glossaryIconInput" maxlength="4" placeholder="Ex: ATQ, DEF" class="maxw-120">
         </div>
         <div class="field">
           <label for="glossaryDurationInput">Duração (turnos, opcional)</label>
@@ -364,7 +446,10 @@
     <div id="invitePinRow">
       <span class="hint hint-m0">PIN: </span>
       <span id="invitePin">····</span>
-      <button type="button" class="secondary" id="invitePinRotateBtn" title="Gera um novo PIN — só bloqueia quem tentar entrar depois com o antigo; jogadores já conectados não são afetados">🔄 Trocar PIN</button>
+      <button type="button" class="secondary" id="invitePinRotateBtn" title="Gera um novo PIN — só bloqueia quem tentar entrar depois com o antigo; jogadores já conectados não são afetados" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        <span>Trocar PIN</span>
+      </button>
     </div>
     <div id="inviteStatus" class="hint hint-m0"></div>
     <div id="inviteCloseRow">
@@ -411,7 +496,7 @@
 <div id="effectsPickerOverlay" class="modal-overlay">
   <div id="effectsPickerModal" class="modal-dialog">
     <h3 id="effectsPickerTitle">Efeitos</h3>
-    <input type="text" id="effectsSearchInput" placeholder="🔍 Buscar efeito...">
+    <input type="text" id="effectsSearchInput" placeholder="Buscar efeito...">
     <div id="effectsPickerList"></div>
     <div id="effectsPickerActions">
       <button class="secondary" id="effectsPickerCloseBtn">Fechar</button>
@@ -448,10 +533,10 @@
     </div>
     <h4>Medição de Distância</h4>
     <div class="help-section">
-      <p><b>Ativar ferramenta:</b> Clique no botão "📏 Medir" para ativar o modo de medição.</p>
+      <p><b>Ativar ferramenta:</b> Clique no botão Medir para ativar o modo de medição.</p>
       <p><b>Medir entre tokens:</b> Com a ferramenta ativa, clique em um token (ficará destacado com amarelo), depois clique em outro token. Uma linha verde mostrará a distância entre eles em metros (cada quadrado da grid = 1 metro).</p>
       <p><b>Medir no mapa:</b> Alternativamente, clique e arraste em qualquer área sem tokens para criar uma linha de medição manual.</p>
-      <p><b>Limpar medição:</b> Clique em uma área vazia, clique no mesmo token novamente, ou clique no botão "📏 Medir" para desativar.</p>
+      <p><b>Limpar medição:</b> Clique em uma área vazia, clique no mesmo token novamente, ou clique no botão Medir para desativar.</p>
     </div>
     <h4>Tokens</h4>
     <div class="help-section">
@@ -467,8 +552,8 @@
     <div class="help-section">
       <p><b>O que é:</b> Tokens marcados como jogador aparecem no painel Party. Todos começam com uma barra de Vida.</p>
       <p><b>Barras universais:</b> As barras (Vida, Mana, Sanidade…) são compartilhadas por toda a party — se você criar uma barra, todos os membros passam a tê-la. Use "+ Nova barra universal" no topo do painel.</p>
-      <p><b>Editar/Remover barra:</b> Os ícones ✎ e ✕ nos chips do topo editam o nome/cor ou removem a barra de todos.</p>
-      <p><b>Valores por membro:</b> Cada membro tem seu próprio atual/máximo. Clique no ✎ da barra dentro do card do membro para ajustar só os valores dele.</p>
+      <p><b>Editar/Remover barra:</b> Os botões nos chips do topo editam o nome/cor ou removem a barra de todos.</p>
+      <p><b>Valores por membro:</b> Cada membro tem seu próprio atual/máximo. Clique no botão de editar da barra dentro do card do membro para ajustar só os valores dele.</p>
       <p><b>Barras ativas no mapa:</b> Marque a caixa ao lado de uma barra no topo do painel para exibi-la no mapa. No máximo 2 podem estar ativas ao mesmo tempo.</p>
       <p><b>Exibição:</b> No editor da barra, escolha o modo: <b>Horizontal</b> (acima do token), <b>Vertical</b> (à esquerda ou direita, com orientação para cima/baixo) ou <b>Radial</b> (anel de progresso ao redor do token). Vertical e horizontal permitem inverter a orientação (→ ou ←).</p>
       <p><b>No mapa:</b> As barras ativas aparecem em cada token de jogador, sincronizadas com a tela do jogador.</p>
@@ -545,14 +630,26 @@
     <div class="top-panel-group">
       <div class="top-panel-title">Sessão</div>
       <div class="hint hint-mb6">&gt; Backup local com tudo: cenas, tokens, mapas, fotos e ajustes.</div>
-      <button class="secondary full" id="exportSessionBtn">💾 Exportar sessão (backup)</button>
-      <button class="secondary full mt-6" id="importSessionBtn">📂 Importar sessão</button>
+      <button class="secondary full" id="exportSessionBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        <span>Exportar sessão (backup)</span>
+      </button>
+      <button class="secondary full mt-6" id="importSessionBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span>Importar sessão</span>
+      </button>
       <input type="file" id="importSessionInput" accept="application/json,.json" class="hidden" title="Importar sessão" aria-label="Importar sessão">
-      <button class="secondary full mt-6" id="clearSessionBtn">🧹 Limpar sessão</button>
+      <button class="secondary full mt-6" id="clearSessionBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        <span>Limpar sessão</span>
+      </button>
       <div class="hint hint-mt6">&gt; Zera tudo e volta ao estado de sessão nova.</div>
     </div>
     <div id="modalActions">
-      <button class="secondary" id="openEventLogBtn">📜 Log de Eventos</button>
+      <button class="secondary" id="openEventLogBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        <span>Log de Eventos</span>
+      </button>
       <button class="secondary" id="closeSettingsBtn">Fechar</button>
     </div>
   </div>

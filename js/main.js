@@ -1,4 +1,4 @@
-﻿
+
 (() => {
   'use strict';
 
@@ -234,7 +234,7 @@
   // set up fog/tokens in the new scene before the players see it. While
   // pending, every sendState() call is silently dropped — the player window
   // keeps showing the OLD scene exactly as it was — until the GM clicks
-  // "🔄 Atualizar tela do jogador", which clears the gate and force-sends.
+  // "Atualizar tela do jogador", which clears the gate and force-sends.
   let sceneSyncPending = false;
 
   // includeMap: send the (heavy) map image too — only on map changes / player connect
@@ -2125,19 +2125,19 @@
 
       const effectsBtn = document.createElement('button');
       effectsBtn.className = 'icon-btn effects-btn';
-      effectsBtn.textContent = '✨';
+      effectsBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>';
       effectsBtn.title = 'Aplicar efeitos';
       effectsBtn.addEventListener('click', (e) => { e.stopPropagation(); openEffectsPicker(t); });
 
       const editBtn = document.createElement('button');
       editBtn.className = 'icon-btn edit-btn';
-      editBtn.textContent = '✎';
+      editBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
       editBtn.title = 'Editar token';
       editBtn.addEventListener('click', () => openModalForEdit(t));
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'icon-btn remove-btn';
-      removeBtn.textContent = '✕';
+      removeBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
       removeBtn.title = 'Excluir token';
       removeBtn.addEventListener('click', () => askRemoveToken(t));
 
@@ -2345,12 +2345,12 @@
       mode.title = 'Exibição: ' + (def.display || 'horizontal');
       const editB = document.createElement('button');
       editB.className = 'icon-btn';
-      editB.textContent = '✎';
+      editB.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
       editB.title = 'Editar barra (universal)';
       editB.addEventListener('click', () => openBarDefEditor(def));
       const delB = document.createElement('button');
       delB.className = 'icon-btn';
-      delB.textContent = '✕';
+      delB.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
       delB.title = 'Remover barra de todos';
       delB.addEventListener('click', () => removeBarDef(def));
       chip.appendChild(activeCb);
@@ -2410,7 +2410,7 @@
         sceneTag.textContent = homeScene ? homeScene.name : 'Sem cena';
         const bringBtn = document.createElement('button');
         bringBtn.className = 'icon-btn pm-bring-btn';
-        bringBtn.textContent = '🎯';
+        bringBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>';
         bringBtn.title = 'Trazer para a cena atual (clique no mapa para posicionar)';
         bringBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -2454,7 +2454,7 @@
 
     const editB = document.createElement('button');
     editB.className = 'icon-btn';
-    editB.textContent = '✎';
+    editB.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
     editB.title = 'Editar valor deste membro';
     editB.addEventListener('click', () => openBarValueEditor(token, def));
 
@@ -2560,12 +2560,12 @@
       const actions = document.createElement('div');
       actions.className = 'gi-actions';
       const editBtn = document.createElement('button');
-      editBtn.textContent = '✎';
+      editBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
       editBtn.title = 'Editar';
       editBtn.addEventListener('click', () => startEditEffect(eff.id));
       const delBtn = document.createElement('button');
       delBtn.className = 'gi-del';
-      delBtn.textContent = '✕';
+      delBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
       delBtn.title = 'Remover';
       delBtn.addEventListener('click', () => {
         state.glossary = state.glossary.filter(e => e.id !== eff.id);

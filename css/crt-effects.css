@@ -33,10 +33,7 @@ body::after {
   inset: 0;
   z-index: 9998;
   pointer-events: none;
-  background: radial-gradient(ellipse at center,
-    rgba(0,0,0,0) 55%,
-    rgba(0,10,4,0.35) 85%,
-    rgba(0,8,3,0.75) 100%);
+  /* vignette removed by request */
   animation: crt-flicker 4s steps(60) infinite;
 }
 

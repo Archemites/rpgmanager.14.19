@@ -4,7 +4,7 @@
    line drawn on the canvas (see js/gm/draw.js's drawNotePostitConnector).
    Left-click on a background note marker, or double-click a token, opens
    this instead of the centered note-modal.js dialog — stays open while the
-   GM keeps working, auto-saves on every edit, closed via its own ✕ or Escape.
+   GM keeps working, auto-saves on every edit, closed via its own close button or Escape.
    ============================================================ */
 
 (() => {

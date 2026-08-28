@@ -18,7 +18,8 @@
   // right-click size/duration popup (js/gm/fx-settings.js).
   const FX_TYPES = {
     explosion: {
-      label: '💥 Explosão',
+      label: 'Explosão',
+      icon: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ff4b4b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
       duration: 700,
       draw(ctx, cx, cy, t, cam, scale) {
         const maxR = 60 * scale;
@@ -38,7 +39,8 @@
       },
     },
     fire: {
-      label: '🔥 Fogo',
+      label: 'Fogo',
+      icon: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#e0a84b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
       duration: 1400,
       draw(ctx, cx, cy, t, cam, scale) {
         const flicker = 0.85 + 0.15 * Math.sin(t * 40);
@@ -59,7 +61,8 @@
       },
     },
     smoke: {
-      label: '💨 Fumaça',
+      label: 'Fumaça',
+      icon: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>',
       duration: 2200,
       draw(ctx, cx, cy, t, cam, scale) {
         const r = (14 + 46 * t) * scale;
@@ -75,7 +78,8 @@
       },
     },
     heal: {
-      label: '✨ Cura',
+      label: 'Cura',
+      icon: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#45ff78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
       duration: 900,
       draw(ctx, cx, cy, t, cam, scale) {
         const r = 40 * t * scale;

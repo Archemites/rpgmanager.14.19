@@ -44,13 +44,13 @@
 
       const editBtn = document.createElement('button');
       editBtn.className = 'icon-btn edit-btn';
-      editBtn.textContent = '✎';
+      editBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
       editBtn.title = 'Editar objeto';
       editBtn.addEventListener('click', () => openObjectModalForEdit(o));
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'icon-btn remove-btn';
-      removeBtn.textContent = '✕';
+      removeBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
       removeBtn.title = 'Excluir objeto';
       removeBtn.addEventListener('click', () => removeObject(o.id));
 

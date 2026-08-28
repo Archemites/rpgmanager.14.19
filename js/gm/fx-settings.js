@@ -1,5 +1,5 @@
 /* ============================================================
-   GM FX size/duration popup: right-click while the "🎆 Efeitos" tool is
+   GM FX size/duration popup: right-click while the "Efeitos" tool is
    active opens a small modal with two sliders (size %, duration %) that set
    the scale/durationMult applied to every FX spawned afterwards (js/gm/mouse.js's
    fx click handler reads getFxSettings()). Purely a GM-side control panel —

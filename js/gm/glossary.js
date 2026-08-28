@@ -58,7 +58,7 @@
       const del = document.createElement('button');
       del.type = 'button';
       del.className = 'secondary';
-      del.textContent = '✕';
+      del.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
       del.addEventListener('click', () => {
         glossaryBarMods.splice(idx, 1);
         renderBarModsForm();
@@ -136,8 +136,8 @@
       if (eff.desc) body.appendChild(desc);
 
       const meta = [];
-      if (eff.narrative) meta.push('📜 narrativo');
-      if (eff.duration) meta.push(`⏱ ${eff.duration} turno${eff.duration === 1 ? '' : 's'}`);
+      if (eff.narrative) meta.push('narrativo');
+      if (eff.duration) meta.push(`${eff.duration} turno${eff.duration === 1 ? '' : 's'}`);
       if (eff.barMods && eff.barMods.length) {
         for (const mod of eff.barMods) {
           const bar = state.partyBars.find(b => b.id === mod.barId);
@@ -157,12 +157,12 @@
       const actions = document.createElement('div');
       actions.className = 'gi-actions';
       const editBtn = document.createElement('button');
-      editBtn.textContent = '✎';
+      editBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
       editBtn.title = 'Editar';
       editBtn.addEventListener('click', () => startEditEffect(eff.id));
       const delBtn = document.createElement('button');
       delBtn.className = 'gi-del';
-      delBtn.textContent = '✕';
+      delBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
       delBtn.title = 'Remover';
       delBtn.addEventListener('click', () => {
         state.glossary = state.glossary.filter(e => e.id !== eff.id);

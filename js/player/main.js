@@ -20,3 +20,4 @@ import './combat.js';
 import './draw.js';
 import './fullscreen.js';
 import './sync.js';
+import '../shared/dice.js';

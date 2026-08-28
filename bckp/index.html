@@ -848,7 +848,7 @@
     color: var(--danger);
     text-shadow: 0 0 6px rgba(255,159,69,0.9), 0 0 18px rgba(255,159,69,0.45);
   }
-  #confirmModal h3::before { content: "⚠ "; }
+  #confirmModal h3::before { content: ""; }
   #confirmModal p {
     margin: 0;
     font-size: 13px;
@@ -1397,8 +1397,8 @@
 
     <div class="section">
       <h2>Jogadores</h2>
-      <button class="full" id="openPlayerBtn">🖥️ Abrir tela do jogador</button>
-      <button class="full" id="openGlossaryBtn" style="margin-top:10px;">📖 Glossário de efeitos</button>
+      <button class="full" id="openPlayerBtn">Abrir tela do jogador</button>
+      <button class="full" id="openGlossaryBtn" style="margin-top:10px;">Glossário de efeitos</button>
     </div>
 
     <input type="file" id="mapFileInput" accept="image/*">
@@ -1439,8 +1439,8 @@
     </div>
 
     <div id="topTools">
-      <button id="topImportBtn" title="Importar imagem do mapa">📁 Importar mapa</button>
-      <button id="topSlidersBtn" title="Ajustar mapa e grid">☰ Ajustes</button>
+      <button id="topImportBtn" title="Importar imagem do mapa">Importar mapa</button>
+      <button id="topSlidersBtn" title="Ajustar mapa e grid">Ajustes</button>
       <div id="topSlidersPanel">
         <div class="top-panel-group">
           <div class="top-panel-title">Mapa</div>
@@ -1475,7 +1475,7 @@
       <button id="zoomReset" title="Resetar visão">⟳</button>
       <button id="zoomIn" title="Aumentar zoom">+</button>
     </div>
-    <button id="startCombatBtn">⚔ Iniciar combate</button>
+    <button id="startCombatBtn">Iniciar combate</button>
     <div id="combatControls">
       <button id="nextTurnBtn">⤴ Próximo turno</button>
     </div>
@@ -1501,7 +1501,7 @@
       <label>Foto</label>
       <div id="photoPreviewWrap">
         <img id="photoPreview" class="empty">
-        <label class="modal-file-label" for="tokenPhotoInput">📷 Escolher foto</label>
+        <label class="modal-file-label" for="tokenPhotoInput">Escolher foto</label>
         <input type="file" id="tokenPhotoInput" accept="image/*">
       </div>
       <button class="secondary" id="removePhotoBtn" style="margin-top:8px; display:none;">Remover foto</button>
@@ -1646,7 +1646,7 @@
       </div>
       <div class="field">
         <label for="glossaryIconInput">Ícone (opcional)</label>
-        <input type="text" id="glossaryIconInput" maxlength="4" placeholder="Ex: ☠️ 🔥 💤" style="max-width:120px;">
+        <input type="text" id="glossaryIconInput" maxlength="4" placeholder="Ex: ATQ, DEF" style="max-width:120px;">
       </div>
       <div id="glossaryFormActions">
         <button class="secondary" id="glossaryClearBtn">Limpar</button>
@@ -1664,7 +1664,7 @@
 <div id="effectsPickerOverlay">
   <div id="effectsPickerModal">
     <h3 id="effectsPickerTitle">Efeitos</h3>
-    <input type="text" id="effectsSearchInput" placeholder="🔍 Buscar efeito...">
+    <input type="text" id="effectsSearchInput" placeholder="Buscar efeito...">
     <div id="effectsPickerList"></div>
     <div id="effectsPickerActions">
       <button class="secondary" id="effectsPickerCloseBtn">Fechar</button>
@@ -1718,8 +1718,8 @@
     <div class="help-section">
       <p><b>O que é:</b> Tokens marcados como jogador aparecem no painel Party. Todos começam com uma barra de Vida.</p>
       <p><b>Barras universais:</b> As barras (Vida, Mana, Sanidade…) são compartilhadas por toda a party — se você criar uma barra, todos os membros passam a tê-la. Use "+ Nova barra universal" no topo do painel.</p>
-      <p><b>Editar/Remover barra:</b> Os ícones ✎ e ✕ nos chips do topo editam o nome/cor ou removem a barra de todos.</p>
-      <p><b>Valores por membro:</b> Cada membro tem seu próprio atual/máximo. Clique no ✎ da barra dentro do card do membro para ajustar só os valores dele.</p>
+      <p><b>Editar/Remover barra:</b> Os ícones  e  nos chips do topo editam o nome/cor ou removem a barra de todos.</p>
+      <p><b>Valores por membro:</b> Cada membro tem seu próprio atual/máximo. Clique no  da barra dentro do card do membro para ajustar só os valores dele.</p>
       <p><b>Barras ativas no mapa:</b> Marque a caixa ao lado de uma barra no topo do painel para exibi-la no mapa. No máximo 2 podem estar ativas ao mesmo tempo.</p>
       <p><b>Exibição:</b> No editor da barra, escolha o modo: <b>Horizontal</b> (acima do token), <b>Vertical</b> (à esquerda ou direita, com orientação para cima/baixo) ou <b>Radial</b> (anel de progresso ao redor do token). Vertical e horizontal permitem inverter a orientação (→ ou ←).</p>
       <p><b>No mapa:</b> As barras ativas aparecem em cada token de jogador, sincronizadas com a tela do jogador.</p>
@@ -2924,19 +2924,19 @@
 
       const effectsBtn = document.createElement('button');
       effectsBtn.className = 'icon-btn effects-btn';
-      effectsBtn.textContent = '✨';
+      effectsBtn.textContent = '';
       effectsBtn.title = 'Aplicar efeitos';
       effectsBtn.addEventListener('click', (e) => { e.stopPropagation(); openEffectsPicker(t); });
 
       const editBtn = document.createElement('button');
       editBtn.className = 'icon-btn edit-btn';
-      editBtn.textContent = '✎';
+      editBtn.textContent = '';
       editBtn.title = 'Editar token';
       editBtn.addEventListener('click', () => openModalForEdit(t));
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'icon-btn remove-btn';
-      removeBtn.textContent = '✕';
+      removeBtn.textContent = '';
       removeBtn.title = 'Excluir token';
       removeBtn.addEventListener('click', () => askRemoveToken(t));
 
@@ -3139,12 +3139,12 @@
       mode.title = 'Exibição: ' + (def.display || 'horizontal');
       const editB = document.createElement('button');
       editB.className = 'icon-btn';
-      editB.textContent = '✎';
+      editB.textContent = '';
       editB.title = 'Editar barra (universal)';
       editB.addEventListener('click', () => openBarDefEditor(def));
       const delB = document.createElement('button');
       delB.className = 'icon-btn';
-      delB.textContent = '✕';
+      delB.textContent = '';
       delB.title = 'Remover barra de todos';
       delB.addEventListener('click', () => removeBarDef(def));
       chip.appendChild(activeCb);
@@ -3224,7 +3224,7 @@
 
     const editB = document.createElement('button');
     editB.className = 'icon-btn';
-    editB.textContent = '✎';
+    editB.textContent = '';
     editB.title = 'Editar valor deste membro';
     editB.addEventListener('click', () => openBarValueEditor(token, def));
 
@@ -3330,12 +3330,12 @@
       const actions = document.createElement('div');
       actions.className = 'gi-actions';
       const editBtn = document.createElement('button');
-      editBtn.textContent = '✎';
+      editBtn.textContent = '';
       editBtn.title = 'Editar';
       editBtn.addEventListener('click', () => startEditEffect(eff.id));
       const delBtn = document.createElement('button');
       delBtn.className = 'gi-del';
-      delBtn.textContent = '✕';
+      delBtn.textContent = '';
       delBtn.title = 'Remover';
       delBtn.addEventListener('click', () => {
         state.glossary = state.glossary.filter(e => e.id !== eff.id);

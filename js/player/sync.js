@@ -132,7 +132,7 @@
           const scanned = fromScan(code.data);
           entryCodeInput.value = scanned.code;
           if (scanned.pin) entryPinInput.value = scanned.pin;
-          entryScanHint.textContent = 'Código lido ✓';
+          entryScanHint.textContent = 'Código lido com sucesso';
           stopScan();
           join();
           return;
@@ -211,6 +211,7 @@
       viewport.classList.remove('hidden');
       window.RPG.resizeCanvas();
       if (window.RPG.showFullscreenUI) window.RPG.showFullscreenUI();
+      document.dispatchEvent(new CustomEvent('rpg:connected'));
     }
 
     // bump on every incoming state so frozen-memory cell snapshots know to
@@ -246,7 +247,7 @@
       }
     }
 
-    showStatus('Conectado ao mestre ✓', true);
+    showStatus('Conectado ao mestre', true);
     window.RPG.draw();
   }
 

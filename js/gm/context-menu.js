@@ -25,7 +25,14 @@
     for (const item of items) {
       const row = document.createElement('div');
       row.className = 'context-menu-item' + (item.danger ? ' danger' : '');
-      row.textContent = item.label;
+      if (item.icon) {
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '8px';
+        row.innerHTML = `${item.icon}<span>${item.label}</span>`;
+      } else {
+        row.textContent = item.label;
+      }
       row.addEventListener('click', () => {
         closeContextMenu();
         item.onClick();

@@ -6,6 +6,8 @@ Guidelines for the Antigravity Agent when working with code in this repository.
 
 - **NO YAPPING:** Never write unnecessary explanations or verbose prose UNLESS explicitly requested.
 - **NO UNASKED TESTS:** Never run tests, background test suites, or boots unless specifically instructed by the user.
+- **NO UNASKED WALKTHROUGHS:** Do not create or update `walkthrough.md` unless explicitly instructed by the user.
+- **NO EMOJIS (SVG ONLY):** Never use emojis anywhere in the application (buttons, menus, labels, badges, or CSS pseudo-elements). Always use clean, geometric, inline SVGs with `currentColor` and scalable vector paths.
 
 ---
 

@@ -117,12 +117,14 @@
       window.RPG.closeContextMenu();
       if (hit) {
         state.selectedTokenId = hit.id;
-        window.RPG.renderTokenList();
-        window.RPG.draw();
+        const SVG_EDIT = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+        const SVG_NOTE = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+        const SVG_DEL = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+
         window.RPG.openContextMenu(e.clientX, e.clientY, [
-          { label: '✎ Renomear', onClick: () => window.RPG.openModalForEdit(hit) },
-          { label: '📝 Anotação' + (hit.note ? ' •' : ''), onClick: () => window.RPG.openTokenNote(hit) },
-          { label: '✕ Excluir', danger: true, onClick: () => window.RPG.removeToken(hit.id) },
+          { icon: SVG_EDIT, label: 'Renomear', onClick: () => window.RPG.openModalForEdit(hit) },
+          { icon: SVG_NOTE, label: 'Anotação' + (hit.note ? ' •' : ''), onClick: () => window.RPG.openTokenNote(hit) },
+          { icon: SVG_DEL, label: 'Excluir', danger: true, onClick: () => window.RPG.removeToken(hit.id) },
         ]);
         return;
       }
@@ -131,22 +133,26 @@
         state.selectedObjectId = obj.id;
         window.RPG.renderObjectList();
         window.RPG.draw();
+        const SVG_EDIT = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+        const SVG_DEL = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
         window.RPG.openContextMenu(e.clientX, e.clientY, [
-          { label: '✎ Editar', onClick: () => window.RPG.openObjectModalForEdit(obj) },
-          { label: '✕ Excluir', danger: true, onClick: () => window.RPG.removeObject(obj.id) },
+          { icon: SVG_EDIT, label: 'Editar', onClick: () => window.RPG.openObjectModalForEdit(obj) },
+          { icon: SVG_DEL, label: 'Excluir', danger: true, onClick: () => window.RPG.removeObject(obj.id) },
         ]);
         return;
       }
       const note = noteAt(wp.x, wp.y);
+      const SVG_NOTE = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+      const SVG_DEL = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
       if (note) {
         window.RPG.openContextMenu(e.clientX, e.clientY, [
-          { label: '📝 Abrir anotação', onClick: () => window.RPG.openBackgroundNoteEdit(note) },
-          { label: '✕ Excluir anotação', danger: true, onClick: () => window.RPG.removeBackgroundNote(note) },
+          { icon: SVG_NOTE, label: 'Abrir anotação', onClick: () => window.RPG.openBackgroundNoteEdit(note) },
+          { icon: SVG_DEL, label: 'Excluir anotação', danger: true, onClick: () => window.RPG.removeBackgroundNote(note) },
         ]);
         return;
       }
       window.RPG.openContextMenu(e.clientX, e.clientY, [
-        { label: '📝 Criar anotação', onClick: () => window.RPG.openBackgroundNoteCreate(wp.x, wp.y) },
+        { icon: SVG_NOTE, label: 'Criar anotação', onClick: () => window.RPG.openBackgroundNoteCreate(wp.x, wp.y) },
       ]);
       return;
     }
@@ -414,6 +420,7 @@
     const sp = eventScreenPos(e);
     const wp = screenToWorld(sp.x, sp.y);
     const items = Object.entries(window.RPG.FX_TYPES).map(([key, def]) => ({
+      icon: def.icon,
       label: def.label,
       onClick: () => {
         const opts = window.RPG.getFxSettings();

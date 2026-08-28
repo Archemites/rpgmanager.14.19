@@ -37,7 +37,7 @@
   // set up fog/tokens in the new scene before the players see it. While
   // pending, every sendState() call is silently dropped — the player windows
   // keep showing the OLD scene exactly as it was — until the GM clicks
-  // "🔄 Atualizar telas dos jogadores", which clears the gate and force-sends.
+  // "Atualizar telas dos jogadores", which clears the gate and force-sends.
   let sceneSyncPending = false;
 
   // Dozens of call sites (token drag, fog drawing) call sendState() on every
@@ -208,12 +208,17 @@
     for (const peer of peers) {
       const row = document.createElement('div');
       row.className = 'peer-row';
-      const label = document.createElement('span');
-      label.textContent = `${peer.connected ? '🟢' : '⏳'} ${peer.name || 'Jogador'}`;
+      const statusIcon = peer.connected
+        ? '<svg viewBox="0 0 24 24" width="10" height="10" fill="#45ff78" style="flex-shrink:0"><circle cx="12" cy="12" r="8"/></svg>'
+        : '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#e0a84b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+      label.style.display = 'inline-flex';
+      label.style.alignItems = 'center';
+      label.style.gap = '6px';
+      label.innerHTML = `${statusIcon} <span>${peer.name || 'Jogador'}</span>`;
       row.appendChild(label);
       const removeBtn = document.createElement('button');
       removeBtn.className = 'secondary';
-      removeBtn.textContent = '✕';
+      removeBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
       removeBtn.title = 'Desconectar';
       removeBtn.addEventListener('click', () => removePeer(peer.id));
       row.appendChild(removeBtn);
@@ -332,7 +337,7 @@
         peer.admitted = true;
         peer.name = msg.name.slice(0, 40);
         renderPeerList();
-        inviteStatus.textContent = 'Jogador conectado ✓';
+        inviteStatus.innerHTML = '<span style="display:inline-flex;align-items:center;gap:5px;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Jogador conectado</span>';
         // A newly-admitted peer has seen no state at all — force a full sync.
         sendStateForced(true);
         if (window.RPG.getTheme) sendTheme(window.RPG.getTheme());

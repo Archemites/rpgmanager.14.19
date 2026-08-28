@@ -192,11 +192,18 @@
       ctx.lineWidth = 1.5 / cam.zoom;
       ctx.fill();
       ctx.stroke();
-      ctx.font = `${r * 1.3}px "VT323", monospace`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+
+      // Vector note/sheet icon drawn directly on canvas
+      const w = r * 0.9;
+      const h = r * 1.1;
+      const x0 = n.x - w / 2;
+      const y0 = n.y - h / 2;
       ctx.fillStyle = '#1a1400';
-      ctx.fillText('📝', n.x, n.y + 0.5 / cam.zoom);
+      ctx.fillRect(x0, y0, w, h);
+      ctx.fillStyle = 'rgba(255, 210, 74, 0.9)';
+      ctx.fillRect(x0 + w * 0.2, y0 + h * 0.25, w * 0.6, h * 0.12);
+      ctx.fillRect(x0 + w * 0.2, y0 + h * 0.48, w * 0.6, h * 0.12);
+      ctx.fillRect(x0 + w * 0.2, y0 + h * 0.70, w * 0.38, h * 0.12);
     }
 
     // fog of war rects — kept lightly tinted on the master so the GM sees the

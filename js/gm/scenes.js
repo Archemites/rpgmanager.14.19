@@ -452,7 +452,7 @@
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'scene-card-remove-btn';
-    removeBtn.textContent = '✕';
+    removeBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
     removeBtn.title = 'Excluir cena';
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -497,7 +497,7 @@
 
       const collapseIcon = document.createElement('span');
       collapseIcon.className = 'scene-folder-collapse-icon' + (folder.collapsed ? ' collapsed' : '');
-      collapseIcon.textContent = '▾';
+      collapseIcon.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
 
       const nameEl = document.createElement('div');
       nameEl.className = 'scene-folder-name';
@@ -510,7 +510,7 @@
 
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'scene-folder-delete-btn';
-      deleteBtn.textContent = '✕';
+      deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
       deleteBtn.title = 'Desagrupar pasta';
       deleteBtn.addEventListener('click', (e) => {
         e.stopPropagation();

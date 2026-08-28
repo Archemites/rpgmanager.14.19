@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="css/components.css?v=8">
 <link rel="stylesheet" href="css/modals.css">
 <link rel="stylesheet" href="css/player.css?v=9">
+<link rel="stylesheet" href="css/shared-dice.css">
 </head>
 <body>
 <div id="entryOverlay" class="modal-overlay open">
@@ -39,7 +40,13 @@
              maxlength="4" inputmode="numeric" autocomplete="off" spellcheck="false">
     </div>
     <div id="entryActions">
-      <button type="button" class="secondary" id="entryModeScanBtn">📷 Escanear QR</button>
+      <button type="button" class="secondary" id="entryModeScanBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+          <circle cx="12" cy="13" r="4" />
+        </svg>
+        <span>Escanear QR</span>
+      </button>
       <button type="button" id="entryJoinBtn">Entrar</button>
     </div>
     <div id="entryStatus" class="hint hint-m0"></div>
