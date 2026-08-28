@@ -211,6 +211,7 @@
       const statusIcon = peer.connected
         ? '<svg viewBox="0 0 24 24" width="10" height="10" fill="#45ff78" style="flex-shrink:0"><circle cx="12" cy="12" r="8"/></svg>'
         : '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#e0a84b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+      const label = document.createElement('span');
       label.style.display = 'inline-flex';
       label.style.alignItems = 'center';
       label.style.gap = '6px';

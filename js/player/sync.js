@@ -14,16 +14,16 @@
   const CODE_KEY = 'rpg-last-room-code';
 
   const entryOverlay = document.getElementById('entryOverlay');
-  const entryNameInput = document.getElementById('entryNameInput');
-  const entryCodeInput = document.getElementById('entryCodeInput');
-  const entryPinInput = document.getElementById('entryPinInput');
-  const entryJoinBtn = document.getElementById('entryJoinBtn');
+  const entryNameInput = /** @type {HTMLInputElement} */ (document.getElementById('entryNameInput'));
+  const entryCodeInput = /** @type {HTMLInputElement} */ (document.getElementById('entryCodeInput'));
+  const entryPinInput = /** @type {HTMLInputElement} */ (document.getElementById('entryPinInput'));
+  const entryJoinBtn = /** @type {HTMLButtonElement} */ (document.getElementById('entryJoinBtn'));
   const entryStatus = document.getElementById('entryStatus');
   const viewport = document.getElementById('viewport');
 
   const entryModeScanBtn = document.getElementById('entryModeScanBtn');
   const entryModeScan = document.getElementById('entryModeScan');
-  const entryScanVideo = document.getElementById('entryScanVideo');
+  const entryScanVideo = /** @type {HTMLVideoElement} */ (document.getElementById('entryScanVideo'));
   const entryScanHint = document.getElementById('entryScanHint');
 
   entryNameInput.value = localStorage.getItem(NAME_KEY) || '';
