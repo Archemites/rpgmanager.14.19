@@ -315,6 +315,7 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/d
     origin: "https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist",
     theme: "default",
     themeColor: getEffectiveDiceColor(),
+    light_intensity: 1.2,
     scale: 12,
     gravity: 2.5,       // Gravidade reforçada para queda 2x mais rápida e sensação de peso
     mass: 2,            // Massa 2x maior para impacto sólido

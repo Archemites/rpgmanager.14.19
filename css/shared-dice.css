@@ -56,12 +56,14 @@
   transition: background 0.3s;
 }
 #playerDiceOverlay.open {
-  background: rgba(0,0,0,0.45);
+  background: rgba(0,0,0,0.25);
   pointer-events: auto;
 }
 
 /* Painel estilo drawer retrátil */
 #playerDicePanel {
+  position: relative;
+  z-index: 9700;
   --dice-active-color: var(--dice-custom-color, var(--accent));
   background: var(--panel);
   border: var(--border-width, 1px) var(--border-style, solid) var(--panel-border);
@@ -528,10 +530,11 @@
   transform: translateX(-50%);
   width: 800px;
   height: 500px;
-  z-index: 9000;
+  z-index: 9600; /* Acima da camada de escurecimento (9500) para manter iluminação 100% pura e brilhante */
   pointer-events: none;
 }
 #dice-box-canvas canvas {
   width: 100% !important;
   height: 100% !important;
+  filter: brightness(1.24) contrast(1.08) saturate(1.12);
 }
