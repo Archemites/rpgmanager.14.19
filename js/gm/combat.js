@@ -89,22 +89,55 @@
     });
   }
 
+  const TOKEN_SIZE = 48;
+  const TOKEN_SPACING = 10;
+  const TOKEN_PADDING_LEFT = 12;
+  const SLOT_WIDTH = TOKEN_SIZE + TOKEN_SPACING;
+
+  let isAnimatingNextTurn = false;
+
   function nextTurn() {
+    if (state.combat.order.length === 0 || isAnimatingNextTurn) return;
+    if (state.combat.order.length === 1) {
+      finishNextTurn();
+      return;
+    }
+    
+    isAnimatingNextTurn = true;
+    const tokenCount = state.combat.order.length;
+    const firstId = state.combat.order[0];
+    const firstItem = combatBarTokens.querySelector(`[data-id="${firstId}"]`);
+
+    if (firstItem) {
+      firstItem.classList.remove('current'); // Remove highlight immediately
+      firstItem.style.transition = 'left 0.4s ease-in-out';
+      firstItem.style.left = ((tokenCount - 1) * SLOT_WIDTH + TOKEN_PADDING_LEFT) + 'px';
+
+      for (let i = 1; i < tokenCount; i++) {
+        const id = state.combat.order[i];
+        const item = combatBarTokens.querySelector(`[data-id="${id}"]`);
+        if (item) {
+          item.style.transition = 'left 0.4s ease-in-out';
+          item.style.left = ((i - 1) * SLOT_WIDTH + TOKEN_PADDING_LEFT) + 'px';
+          if (i === 1) item.classList.add('current'); // Add highlight to new active token
+        }
+      }
+
+      setTimeout(() => {
+        finishNextTurn();
+      }, 400);
+    } else {
+      finishNextTurn();
+    }
+  }
+
+  function finishNextTurn() {
+    isAnimatingNextTurn = false;
     if (state.combat.order.length === 0) return;
+    
     const first = state.combat.order.shift();
     applyEndOfTurnEffects(first);
     state.combat.order.push(first);
-
-    // Animate first token sliding right
-    const firstItem = combatBarTokens.querySelector(`[data-id="${first}"]`);
-    if (firstItem) {
-      firstItem.style.transition = 'none';
-      firstItem.style.left = TOKEN_PADDING_LEFT + 'px';
-      setTimeout(() => {
-        firstItem.style.transition = 'left 0.6s ease-out';
-        firstItem.style.left = (state.combat.order.length * SLOT_WIDTH + TOKEN_PADDING_LEFT) + 'px';
-      }, 16);
-    }
 
     renderCombatBar();
     window.RPG.renderTokenList();
@@ -175,11 +208,6 @@
   }
 
   // Drag horizontal on timeline (raw logic only)
-  const TOKEN_SIZE = 48;
-  const TOKEN_SPACING = 10;
-  const TOKEN_PADDING_LEFT = 12;
-  const SLOT_WIDTH = TOKEN_SIZE + TOKEN_SPACING;
-
   let combatDragInitialLeft = 0;
 
   window.addEventListener('mousemove', (e) => {
