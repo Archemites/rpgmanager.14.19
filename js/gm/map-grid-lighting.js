@@ -36,29 +36,90 @@
     gridColor.value = state.grid.color || (window.RPG.getThemeGridColor ? window.RPG.getThemeGridColor() : '#45ff78');
   }
 
-  // ---------- Map import ----------
+  // ---------- Map import & optimization ----------
+  const MAX_MAP_DIM = 2560;
+
+  function optimizeMapDataUrl(dataUrl) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width <= MAX_MAP_DIM && height <= MAX_MAP_DIM && dataUrl.length < 1024 * 1024) {
+          resolve({ img, dataUrl });
+          return;
+        }
+
+        if (width > MAX_MAP_DIM || height > MAX_MAP_DIM) {
+          if (width > height) {
+            height = Math.round((height * MAX_MAP_DIM) / width);
+            width = MAX_MAP_DIM;
+          } else {
+            width = Math.round((width * MAX_MAP_DIM) / height);
+            height = MAX_MAP_DIM;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve({ img, dataUrl });
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        let optimized = '';
+        try {
+          optimized = canvas.toDataURL('image/webp', 0.82);
+        } catch (_) {}
+
+        if (!optimized || !optimized.startsWith('data:image/webp')) {
+          try {
+            optimized = canvas.toDataURL('image/jpeg', 0.82);
+          } catch (_) {
+            optimized = dataUrl;
+          }
+        }
+
+        const finalUrl = (optimized && optimized.length < dataUrl.length) ? optimized : dataUrl;
+        const finalImg = new Image();
+        finalImg.onload = () => resolve({ img: finalImg, dataUrl: finalUrl });
+        finalImg.onerror = () => resolve({ img, dataUrl });
+        finalImg.src = finalUrl;
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    });
+  }
+
+  window.RPG.optimizeMapDataUrl = optimizeMapDataUrl;
+
   mapFileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    mapLabel.textContent = 'Otimizando mapa…';
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target.result;
-      const img = new Image();
-      img.onload = () => {
-        state.map.img = img;
-        state.map.dataUrl = dataUrl;
-        state.map.scalePct = 100;
-        state.map.name = file.name;
-        mapScale.value = 100;
-        mapScaleVal.textContent = '100%';
-        mapScale.disabled = false;
-        removeMapBtn.disabled = false;
+    reader.onload = async (ev) => {
+      const rawDataUrl = ev.target.result;
+      const res = await optimizeMapDataUrl(rawDataUrl);
+      if (!res) {
         mapLabel.textContent = file.name;
-        window.RPG.draw();
-        window.RPG.renderSceneList();
-        window.RPG.sendState(true);
-      };
-      img.src = dataUrl;
+        return;
+      }
+      state.map.img = res.img;
+      state.map.dataUrl = res.dataUrl;
+      state.map.scalePct = 100;
+      state.map.name = file.name;
+      mapScale.value = 100;
+      mapScaleVal.textContent = '100%';
+      mapScale.disabled = false;
+      removeMapBtn.disabled = false;
+      mapLabel.textContent = file.name;
+      window.RPG.draw();
+      window.RPG.renderSceneList();
+      window.RPG.sendState(true);
     };
     reader.readAsDataURL(file);
   });

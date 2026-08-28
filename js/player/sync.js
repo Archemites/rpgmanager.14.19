@@ -200,6 +200,34 @@
       window.RPG.draw();
       return;
     }
+
+    // Two-stage map delivery: arrives in background without blocking entry screen
+    if (msg && msg.type === 'rpg-map') {
+      if (msg.scalePct !== undefined) state.map.scalePct = msg.scalePct;
+      if (msg.bgColor !== undefined) state.map.bgColor = msg.bgColor;
+      if (msg.dataUrl) {
+        if (state.map._loadedUrl !== msg.dataUrl) {
+          showStatus('Carregando mapa…');
+          const img = new Image();
+          img.onload = () => {
+            state.map.img = img;
+            state.map._loadedUrl = msg.dataUrl;
+            showStatus('Conectado ao mestre', true);
+            window.RPG.draw();
+          };
+          img.onerror = () => {
+            showStatus('Falha ao carregar mapa', true);
+          };
+          img.src = msg.dataUrl;
+        }
+      } else {
+        state.map.img = null;
+        state.map._loadedUrl = null;
+        window.RPG.draw();
+      }
+      return;
+    }
+
     if (!msg || msg.type !== 'rpg-state') return;
 
     // The first 'rpg-state' is the GM's proof the PIN was accepted (the GM

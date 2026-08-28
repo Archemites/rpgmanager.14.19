@@ -245,7 +245,7 @@
   // one already exists for that name — a player refreshing the page or
   // reconnecting must land back on their existing token, not spawn a duplicate.
   // Token shape mirrors js/gm/token-modal.js's create branch; keep in sync.
-  function ensurePlayerToken(peer) {
+  function ensurePlayerToken(peer, skipSync = false) {
     const name = (peer.name || '').trim();
     if (!name) return;
 
@@ -301,7 +301,7 @@
     if (window.RPG.renderSceneList) window.RPG.renderSceneList();
     if (window.RPG.logEvent) window.RPG.logEvent(`Token de jogador criado: "${name}"`);
     window.RPG.draw();
-    sendState();
+    if (!skipSync) sendState();
     sendMyToken(peer);
   }
 
@@ -338,10 +338,45 @@
         peer.name = msg.name.slice(0, 40);
         renderPeerList();
         inviteStatus.innerHTML = '<span style="display:inline-flex;align-items:center;gap:5px;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Jogador conectado</span>';
-        // A newly-admitted peer has seen no state at all — force a full sync.
-        sendStateForced(true);
-        if (window.RPG.getTheme) sendTheme(window.RPG.getTheme());
-        ensurePlayerToken(peer);
+
+        // 1. Ensure token first (skip broadcast to avoid double-sending)
+        ensurePlayerToken(peer, true);
+
+        // 2. Send active theme to this peer
+        if (window.RPG.getTheme) {
+          try { conn.send({ type: 'rpg-theme', theme: window.RPG.getTheme() }); } catch (_) {}
+        }
+
+        // 3. Stage 1: Send initial state UNICAST to this peer WITHOUT the heavy map
+        // Tiny payload (< 50KB) — player's screen unlocks immediately (< 0.5s)
+        const initialMap = { scalePct: state.map.scalePct, bgColor: state.map.bgColor || null };
+        try {
+          conn.send({
+            type: 'rpg-state',
+            grid: state.grid,
+            tokens: state.tokens,
+            fog: state.fog,
+            objects: state.objects,
+            map: initialMap,
+            combat: state.combat,
+            partyBars: state.partyBars,
+          });
+        } catch (_) {}
+
+        // 4. Stage 2: Send map image UNICAST to this peer if a map exists
+        if (state.map.dataUrl) {
+          try {
+            conn.send({
+              type: 'rpg-map',
+              dataUrl: state.map.dataUrl,
+              scalePct: state.map.scalePct,
+              bgColor: state.map.bgColor || null,
+            });
+          } catch (_) {}
+        }
+
+        // 5. Notify already-connected peers that a new player joined (lightweight diff)
+        sendState(false);
         return;
       }
       if (!peer.admitted) return; // ignore everything else until the PIN checks out
