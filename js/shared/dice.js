@@ -871,13 +871,12 @@ import { isAndroidOrIOS } from './mobile.js';
     origin: "https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist",
     theme: "default",
     themeColor: getEffectiveDiceColor(),
-    light_intensity: 1.2,
+    lightIntensity: 1.2,
+    enableShadows: true,
+    shadowTransparency: 0.8,
     scale: customScale,
-    gravity: 2.5,
-    mass: 2,
-    friction: 0.85,
-    restitution: 0.1,
-    settleTimeout: 2500
+    delay: 10,
+    offscreen: true
   });
 
   function initBox() {
@@ -894,30 +893,6 @@ import { isAndroidOrIOS } from './mobile.js';
     return boxInitPromise;
   }
 
-  // Gera valores dos dados e fórmula offscreen
-  function generateRolls(faces, count, mod = 0) {
-    const rolls = [];
-    for (let i = 0; i < count; i++) {
-      rolls.push(1 + Math.floor(Math.random() * faces));
-    }
-    const sumOfDice = rolls.reduce((a, b) => a + b, 0);
-    const sum = sumOfDice + mod;
-    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
-    
-    let expr = '';
-    if (mod !== 0) {
-      expr = count === 1
-        ? `Dado: ${rolls[0]} (${modStr}) = ${sum}`
-        : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`;
-    } else {
-      expr = count === 1
-        ? `1d${faces} → [${rolls[0]}]`
-        : `${count}d${faces} → [${rolls.join(' + ')}] = ${sum}`;
-    }
-
-    return { rolls, sum, expr, mod };
-  }
-
   // Efeito de brilho suave quando o dado para/assenta
   function onSettle(color) {
     isRolling = false;
@@ -930,131 +905,210 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   // ---- Rolagem do JOGADOR ----
-  function playerRoll(faces, count = 1, mod = 0) {
+  async function playerRoll(faces, count = 1, mod = 0) {
     if (isRolling) return;
     isRolling = true;
     const color = getEffectiveDiceColor();
-    const { rolls, sum, expr } = generateRolls(faces, count, mod);
     const senderName = getLocalCharacterName();
 
-    initBox().then(() => {
-      if (isBoxReady) {
-        if (typeof Box.updateConfig === 'function') {
-          try { Box.updateConfig({ scale: customScale, themeColor: color }); } catch (e) {}
-        }
-        try { if (typeof Box.clear === 'function') Box.clear(); } catch (e) {}
-        if (boxCanvas) boxCanvas.classList.remove('settled');
+    try {
+      await initBox();
+      if (!isBoxReady) throw new Error("DiceBox não inicializado");
 
-        const notation = `${count}d${faces}@${rolls.join(',')}`;
-
-        if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
-          window.RPG.sendDiceRoll({
-            faces,
-            count,
-            mod,
-            rolls,
-            sum,
-            expr,
-            senderName,
-            themeColor: color,
-            scale: customScale,
-          });
-        }
-
-        Box.roll(notation, { themeColor: color })
-          .then(() => onSettle(color))
-          .catch(() => onSettle(color));
-      } else {
-        isRolling = false;
+      if (typeof Box.updateConfig === 'function') {
+        try { Box.updateConfig({ scale: customScale, themeColor: color }); } catch (e) {}
       }
-    }).catch(() => {
+      try { if (typeof Box.clear === 'function') Box.clear(); } catch (e) {}
+      if (boxCanvas) boxCanvas.classList.remove('settled');
+
+      const notation = `${count}d${faces}`;
+      const results = await Box.roll(notation, { themeColor: color });
+      
+      let rolls = [];
+      if (Array.isArray(results) && results.length > 0) {
+        rolls = results.map(r => Number(r.value) || 1);
+      } else {
+        for (let i = 0; i < count; i++) {
+          rolls.push(1 + Math.floor(Math.random() * faces));
+        }
+      }
+
+      const sumOfDice = rolls.reduce((a, b) => a + b, 0);
+      const sum = sumOfDice + mod;
+      const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
+      const expr = (mod !== 0)
+        ? (count === 1 ? `Dado: ${rolls[0]} (${modStr}) = ${sum}` : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`)
+        : (count === 1 ? `1d${faces} → [${rolls[0]}]` : `${count}d${faces} → [${rolls.join(' + ')}] = ${sum}`);
+
+      onSettle(color);
+
+      if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
+        window.RPG.sendDiceRoll({
+          faces,
+          count,
+          mod,
+          rolls,
+          sum,
+          expr,
+          senderName,
+          themeColor: color,
+          scale: customScale,
+        });
+      }
+    } catch (err) {
+      console.warn("Fallback rolagem jogador:", err);
+      const rolls = [];
+      for (let i = 0; i < count; i++) {
+        rolls.push(1 + Math.floor(Math.random() * faces));
+      }
+      const sumOfDice = rolls.reduce((a, b) => a + b, 0);
+      const sum = sumOfDice + mod;
+      const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
+      const expr = (mod !== 0)
+        ? (count === 1 ? `Dado: ${rolls[0]} (${modStr}) = ${sum}` : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`)
+        : (count === 1 ? `1d${faces} → [${rolls[0]}]` : `${count}d${faces} → [${rolls.join(' + ')}] = ${sum}`);
+
+      onSettle(color);
+
+      if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
+        window.RPG.sendDiceRoll({
+          faces,
+          count,
+          mod,
+          rolls,
+          sum,
+          expr,
+          senderName,
+          themeColor: color,
+          scale: customScale,
+        });
+      }
+    } finally {
       isRolling = false;
-    });
+    }
   }
 
   // ---- Rolagem do MESTRE ----
-  function gmRoll(faces, count = 1, mod = 0) {
+  async function gmRoll(faces, count = 1, mod = 0) {
     if (isRolling) return;
     isRolling = true;
     const color = getEffectiveDiceColor();
-    const { rolls, sum, expr } = generateRolls(faces, count, mod);
     const senderName = isSecretRoll ? 'Mestre (Oculto)' : 'Mestre';
 
-    // Mestre vê o popup imediatamente na sua tela
-    showSharedResultToast(senderName, sum, expr + (isSecretRoll ? ' [Oculto]' : ''), color);
+    try {
+      await initBox();
+      if (!isBoxReady) throw new Error("DiceBox não inicializado");
 
-    initBox().then(() => {
-      if (isBoxReady) {
-        if (typeof Box.updateConfig === 'function') {
-          try { Box.updateConfig({ scale: customScale, themeColor: color }); } catch (e) {}
-        }
-        try { if (typeof Box.clear === 'function') Box.clear(); } catch (e) {}
-        if (boxCanvas) boxCanvas.classList.remove('settled');
-
-        const notation = `${count}d${faces}@${rolls.join(',')}`;
-
-        if (!isSecretRoll && window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
-          window.RPG.sendDiceRoll({
-            faces,
-            count,
-            mod,
-            rolls,
-            sum,
-            expr,
-            senderName: 'Mestre',
-            themeColor: color,
-            scale: customScale,
-          });
-        }
-
-        Box.roll(notation, { themeColor: color })
-          .then(() => onSettle(color))
-          .catch(() => onSettle(color));
-      } else {
-        isRolling = false;
+      if (typeof Box.updateConfig === 'function') {
+        try { Box.updateConfig({ scale: customScale, themeColor: color }); } catch (e) {}
       }
-    }).catch(() => {
+      try { if (typeof Box.clear === 'function') Box.clear(); } catch (e) {}
+      if (boxCanvas) boxCanvas.classList.remove('settled');
+
+      const notation = `${count}d${faces}`;
+      const results = await Box.roll(notation, { themeColor: color });
+
+      let rolls = [];
+      if (Array.isArray(results) && results.length > 0) {
+        rolls = results.map(r => Number(r.value) || 1);
+      } else {
+        for (let i = 0; i < count; i++) {
+          rolls.push(1 + Math.floor(Math.random() * faces));
+        }
+      }
+
+      const sumOfDice = rolls.reduce((a, b) => a + b, 0);
+      const sum = sumOfDice + mod;
+      const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
+      const expr = (mod !== 0)
+        ? (count === 1 ? `Dado: ${rolls[0]} (${modStr}) = ${sum}` : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`)
+        : (count === 1 ? `1d${faces} → [${rolls[0]}]` : `${count}d${faces} → [${rolls.join(' + ')}] = ${sum}`);
+
+      onSettle(color);
+
+      // Mestre vê o popup imediatamente na sua tela com o valor real apurado do dado 3D
+      showSharedResultToast(senderName, sum, expr + (isSecretRoll ? ' [Oculto]' : ''), color);
+
+      if (!isSecretRoll && window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
+        window.RPG.sendDiceRoll({
+          faces,
+          count,
+          mod,
+          rolls,
+          sum,
+          expr,
+          senderName: 'Mestre',
+          themeColor: color,
+          scale: customScale,
+        });
+      }
+    } catch (err) {
+      console.warn("Fallback rolagem mestre:", err);
+      const rolls = [];
+      for (let i = 0; i < count; i++) {
+        rolls.push(1 + Math.floor(Math.random() * faces));
+      }
+      const sumOfDice = rolls.reduce((a, b) => a + b, 0);
+      const sum = sumOfDice + mod;
+      const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
+      const expr = (mod !== 0)
+        ? (count === 1 ? `Dado: ${rolls[0]} (${modStr}) = ${sum}` : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`)
+        : (count === 1 ? `1d${faces} → [${rolls[0]}]` : `${count}d${faces} → [${rolls.join(' + ')}] = ${sum}`);
+
+      onSettle(color);
+      showSharedResultToast(senderName, sum, expr + (isSecretRoll ? ' [Oculto]' : ''), color);
+
+      if (!isSecretRoll && window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
+        window.RPG.sendDiceRoll({
+          faces,
+          count,
+          mod,
+          rolls,
+          sum,
+          expr,
+          senderName: 'Mestre',
+          themeColor: color,
+          scale: customScale,
+        });
+      }
+    } finally {
       isRolling = false;
-    });
+    }
   }
 
   // ---- Recepção de rolagem vinda remotamente ----
   window.RPG = window.RPG || {};
-  window.RPG.onRemoteDiceRoll = (data) => {
+  window.RPG.onRemoteDiceRoll = async (data) => {
     if (!data) return;
 
     const faces = data.faces || 20;
     const count = data.count || 1;
-    const mod = typeof data.mod === 'number' ? data.mod : 0;
-    const rolls = Array.isArray(data.rolls) && data.rolls.length ? data.rolls : [1 + Math.floor(Math.random() * faces)];
     const color = data.themeColor || getEffectiveDiceColor();
     const senderName = data.senderName || 'Jogador';
-    const sum = data.sum !== undefined ? data.sum : (rolls.reduce((a, b) => a + b, 0) + mod);
-    
-    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
-    const expr = data.expr || (mod !== 0
-      ? (count === 1 ? `Dado: ${rolls[0]} (${modStr}) = ${sum}` : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`)
-      : (count === 1 ? `1d${faces} → [${rolls[0]}]` : `${count}d${faces} → [${rolls.join(' + ')}] = ${sum}`));
+    const sum = data.sum !== undefined ? data.sum : 0;
+    const expr = data.expr || '';
 
     // APENAS NA TELA DO MESTRE: exibe o popup com valor do dado + modificador
     if (checkIsGM()) {
       showSharedResultToast(senderName, sum, expr, color);
     }
 
-    initBox().then(() => {
+    try {
+      await initBox();
       if (isBoxReady) {
         if (typeof Box.updateConfig === 'function') {
-          try { Box.updateConfig({ scale: customScale, themeColor: color }); } catch (e) {}
+          try { Box.updateConfig({ scale: data.scale || customScale, themeColor: color }); } catch (e) {}
         }
         try { if (typeof Box.clear === 'function') Box.clear(); } catch (e) {}
         if (boxCanvas) boxCanvas.classList.remove('settled');
 
-        const notation = `${count}d${faces}@${rolls.join(',')}`;
-        Box.roll(notation, { themeColor: color })
-          .then(() => onSettle(color))
-          .catch(() => onSettle(color));
+        const notation = `${count}d${faces}`;
+        await Box.roll(notation, { themeColor: color });
+        onSettle(color);
       }
-    });
+    } catch (_) {
+      onSettle(color);
+    }
   };
 
   applyCustomStyles();
