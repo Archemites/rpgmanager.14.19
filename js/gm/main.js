@@ -6,6 +6,7 @@
  */
 
 // --- Shared (infraestrutura comum entre GM e Jogador) ---
+import '../shared/mobile.js';
 import '../shared/webrtc.js';
 import '../shared/camera.js';
 import '../shared/photo-cache.js';
