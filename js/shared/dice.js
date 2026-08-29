@@ -8,15 +8,33 @@ import { isAndroidOrIOS } from './mobile.js';
    - Mobile (Android / iOS): Speed-Dial flutuante
    - Sincronização em tempo real: a rolagem 3D e o resultado aparecem
      instantaneamente na tela de todos os presentes na mesa!
+   - Mestre (GM): opção de "Rolagem Secreta / Oculta" para rolar sem
+     exibir aos jogadores quando desejar.
    ============================================================ */
 
 (() => {
   'use strict';
 
+  // ---- Identificação Mestre vs Jogador ----
+  function checkIsGM() {
+    return Boolean(
+      (window.RPG && window.RPG.isGM) ||
+      document.getElementById('openInviteBtn') ||
+      document.getElementById('openDiceBtn')
+    );
+  }
+
   // ---- Configuração de dados ----
   const FACES = [4, 6, 8, 10, 12, 20, 100];
   let selectedFaces = 20;
   let currentRollMode = 'normal'; // 'normal' | 'adv' | 'dis'
+
+  // ---- Rolagem Secreta / Oculta do Mestre ----
+  const STORAGE_KEY_SECRET = 'rpg-gm-secret-dice';
+  let isSecretRoll = false;
+  try {
+    isSecretRoll = localStorage.getItem(STORAGE_KEY_SECRET) === 'true';
+  } catch (_) {}
 
   // ---- Paleta de Cores ----
   const COLOR_PALETTE = [
@@ -75,7 +93,7 @@ import { isAndroidOrIOS } from './mobile.js';
         <div class="shared-toast-header">
           <span class="shared-toast-icon">🎲</span>
           <span class="shared-toast-user" id="sharedToastUser">Jogador</span>
-          <span class="shared-toast-action">rolou:</span>
+          <span class="shared-toast-action" id="sharedToastAction">rolou:</span>
         </div>
         <div class="shared-toast-body">
           <span class="shared-toast-total" id="sharedToastTotal">20</span>
@@ -87,6 +105,7 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   const toastUser = document.getElementById('sharedToastUser');
+  const toastAction = document.getElementById('sharedToastAction');
   const toastTotal = document.getElementById('sharedToastTotal');
   const toastFormula = document.getElementById('sharedToastFormula');
   const toastContent = document.getElementById('sharedToastContent');
@@ -96,6 +115,7 @@ import { isAndroidOrIOS } from './mobile.js';
     if (!sharedToast || !toastTotal || !toastFormula) return;
     
     if (toastUser) toastUser.textContent = senderName || 'Jogador';
+    if (toastAction) toastAction.textContent = senderName === 'Você' ? 'rolou:' : 'rolou:';
     toastTotal.textContent = String(sum);
     toastFormula.textContent = formula;
 
@@ -120,6 +140,7 @@ import { isAndroidOrIOS } from './mobile.js';
 
   // Verifica se é estritamente Android ou iOS
   const isMobileOS = isAndroidOrIOS();
+  const isGM = checkIsGM();
 
   // ============================================================
   // MODO 1: MOBILE (ANDROID / IOS) — SPEED-DIAL FLUTUANTE
@@ -135,6 +156,17 @@ import { isAndroidOrIOS } from './mobile.js';
         <!-- Controles à Esquerda da Bolinha -->
         <div id="mobileSideControls" class="player-dice-mobile-side collapsed">
           
+          <!-- Botão Secreto/Oculto (apenas Mestre) -->
+          ${isGM ? `
+            <button type="button" id="mobileGmSecretBtn" class="mobile-control-btn secret-btn ${isSecretRoll ? 'secret' : 'public'}" title="Alternar visibilidade para os jogadores">
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <span id="mobileSecretLabel">${isSecretRoll ? 'OCULTO' : 'PÚBLICO'}</span>
+            </button>
+          ` : ''}
+
           <!-- Modo de Rolagem com Subdrop -->
           <div class="mobile-mode-dropdown-wrap">
             <button type="button" id="mobileModeBtn" class="mobile-control-btn mode-btn" title="Modo de Rolagem">
@@ -281,6 +313,19 @@ import { isAndroidOrIOS } from './mobile.js';
     const mColorGrid = document.getElementById('mobileColorGrid');
     const mResetBtn = document.getElementById('mobileResetBtn');
 
+    const mGmSecretBtn = document.getElementById('mobileGmSecretBtn');
+    const mSecretLabel = document.getElementById('mobileSecretLabel');
+
+    if (mGmSecretBtn) {
+      mGmSecretBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isSecretRoll = !isSecretRoll;
+        try { localStorage.setItem(STORAGE_KEY_SECRET, String(isSecretRoll)); } catch (_) {}
+        mGmSecretBtn.className = `mobile-control-btn secret-btn ${isSecretRoll ? 'secret' : 'public'}`;
+        if (mSecretLabel) mSecretLabel.textContent = isSecretRoll ? 'OCULTO' : 'PÚBLICO';
+      });
+    }
+
     let isExpanded = false;
     function toggleMobileDrop(force) {
       isExpanded = typeof force === 'boolean' ? force : !isExpanded;
@@ -384,57 +429,15 @@ import { isAndroidOrIOS } from './mobile.js';
         const mod = parseInt(mModInput.value, 10) || 0;
 
         rollDiceEngine(faces, count, mod, currentRollMode, (sum, expr) => {
-          showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
+          const isGMActive = checkIsGM();
+          if (isGMActive && isSecretRoll) {
+            showSharedResultToast('Mestre (Oculto)', sum, expr + ' [Oculto]', getEffectiveDiceColor());
+          } else {
+            showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
+          }
         });
       });
     });
-
-    // Sincronização de cores no mobile
-    function updateMobileColorUI(effColor) {
-      mobileWrap.style.setProperty('--dice-active-color', effColor);
-      if (mPreview) {
-        mPreview.style.background = effColor;
-        mPreview.style.boxShadow = `0 0 8px ${effColor}`;
-      }
-      if (mColorPicker && /^#[0-9a-fA-F]{6}$/.test(effColor)) {
-        mColorPicker.value = effColor;
-      }
-      if (mHexInput && document.activeElement !== mHexInput) {
-        mHexInput.value = effColor.replace(/^#/, '').toUpperCase();
-      }
-      if (mScaleInput) mScaleInput.value = String(customScale);
-      if (mScaleVal) mScaleVal.textContent = Math.round((customScale / 6) * 100) + '%';
-
-      if (mColorGrid) {
-        mColorGrid.innerHTML = '';
-        COLOR_PALETTE.forEach(p => {
-          const swatch = document.createElement('div');
-          swatch.className = 'color-swatch-dot';
-          swatch.title = p.label;
-          if (p.isTheme) {
-            const tColor = getThemeColor();
-            swatch.style.background = `linear-gradient(135deg, ${tColor} 50%, var(--panel, #000) 50%)`;
-            swatch.style.setProperty('--swatch-color', tColor);
-            if (customColor === 'theme') swatch.classList.add('active');
-            swatch.addEventListener('click', (e) => {
-              e.stopPropagation();
-              customColor = 'theme';
-              saveAndApplyStyles();
-            });
-          } else {
-            swatch.style.background = p.value;
-            swatch.style.setProperty('--swatch-color', p.value);
-            if (customColor.toLowerCase() === p.value.toLowerCase()) swatch.classList.add('active');
-            swatch.addEventListener('click', (e) => {
-              e.stopPropagation();
-              customColor = p.value;
-              saveAndApplyStyles();
-            });
-          }
-          mColorGrid.appendChild(swatch);
-        });
-      }
-    }
 
     mColorPicker?.addEventListener('input', () => {
       customColor = mColorPicker.value;
@@ -498,6 +501,7 @@ import { isAndroidOrIOS } from './mobile.js';
   let desktopModInput = null;
   let desktopRollBtn = null;
   let desktopResultEl = null;
+  let desktopGmSecretCheck = null;
 
   if (!isMobileOS) {
     const pcDiceBtn = document.createElement('button');
@@ -601,6 +605,15 @@ import { isAndroidOrIOS } from './mobile.js';
           </div>
           
           <div id="playerDiceResult"></div>
+
+          <!-- Opção Secreta para o Mestre no PC -->
+          <div id="gmSecretDiceRow" class="player-dice-secret-row ${isGM ? '' : 'hidden'}">
+            <label class="player-dice-secret-toggle" title="Se marcado, a rolagem só aparece na tela do mestre (oculta dos jogadores)">
+              <input type="checkbox" id="gmSecretDiceCheckbox" ${isSecretRoll ? 'checked' : ''}>
+              <span class="secret-toggle-switch"></span>
+              <span class="secret-toggle-text">Rolagem Secreta / Oculta (somente Mestre)</span>
+            </label>
+          </div>
           
           <div class="player-dice-row">
             <div class="player-dice-input-col left">
@@ -658,6 +671,12 @@ import { isAndroidOrIOS } from './mobile.js';
     desktopModInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceMod'));
     desktopRollBtn = document.getElementById('playerDiceRollBtn');
     desktopResultEl = document.getElementById('playerDiceResult');
+    desktopGmSecretCheck = /** @type {HTMLInputElement} */ (document.getElementById('gmSecretDiceCheckbox'));
+
+    desktopGmSecretCheck?.addEventListener('change', () => {
+      isSecretRoll = desktopGmSecretCheck.checked;
+      try { localStorage.setItem(STORAGE_KEY_SECRET, String(isSecretRoll)); } catch (_) {}
+    });
 
     desktopModeSelect?.addEventListener('change', () => {
       if ((desktopModeSelect.value === 'adv' || desktopModeSelect.value === 'dis') && parseInt(desktopCountInput.value, 10) === 1) {
@@ -722,12 +741,22 @@ import { isAndroidOrIOS } from './mobile.js';
 
       rollDiceEngine(selectedFaces, count, mod, mode, (sum, expr, rolls) => {
         showDesktopResult(rolls, mod, sum, expr);
-        showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
+        const isGMActive = checkIsGM();
+        if (isGMActive && isSecretRoll) {
+          showSharedResultToast('Mestre (Oculto)', sum, expr + ' [Oculto dos jogadores]', getEffectiveDiceColor());
+        } else {
+          showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
+        }
       });
     });
 
     function openDesktopDice() {
       applyCustomStyles();
+      // Atualiza visibilidade do toggle secreto do mestre
+      const isGMActive = checkIsGM();
+      const secretRow = document.getElementById('gmSecretDiceRow');
+      if (secretRow) secretRow.classList.toggle('hidden', !isGMActive);
+
       desktopOverlay.classList.add('open');
       initBox();
     }
@@ -947,8 +976,15 @@ import { isAndroidOrIOS } from './mobile.js';
   function finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete) {
     if (typeof onComplete === 'function') onComplete(finalSum, expr, rolls);
 
+    const isGMActive = checkIsGM();
+
+    // Se for o Mestre com rolagem secreta ativada, NÃO transmite para os jogadores
+    if (isGMActive && isSecretRoll) {
+      return;
+    }
+
     // Envia a rolagem via WebRTC para todos na mesa
-    if (window.RPG.sendDiceRoll) {
+    if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
       window.RPG.sendDiceRoll({
         faces,
         count,
@@ -992,7 +1028,12 @@ import { isAndroidOrIOS } from './mobile.js';
   // @ts-ignore
   window.RPG.rollDice = (faces, count = 1, mod = 0, mode = 'normal') => {
     rollDiceEngine(faces, count, mod, mode, (sum, expr) => {
-      showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
+      const isGMActive = checkIsGM();
+      if (isGMActive && isSecretRoll) {
+        showSharedResultToast('Mestre (Oculto)', sum, expr + ' [Oculto]', getEffectiveDiceColor());
+      } else {
+        showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
+      }
     });
   };
 })();

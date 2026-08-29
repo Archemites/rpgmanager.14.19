@@ -5,6 +5,9 @@
  * e ficam disponíveis em window.* quando estes imports executam.
  */
 
+window.RPG = window.RPG || {};
+window.RPG.isGM = true;
+
 // --- Shared (infraestrutura comum entre GM e Jogador) ---
 import '../shared/mobile.js';
 import '../shared/webrtc.js';
