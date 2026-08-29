@@ -385,17 +385,19 @@
         const senderName = msg.senderName || peer.name || 'Jogador';
         const rollPayload = { ...msg, senderName };
 
-        // 1. Exibe localmente no Mestre
+        // 1. Exibe IMEDIATAMENTE no Mestre primeiro
         if (window.RPG.onRemoteDiceRoll) {
           window.RPG.onRemoteDiceRoll(rollPayload);
         }
 
-        // 2. Re-transmite para todos os outros jogadores conectados
-        for (const otherPeer of peers) {
-          if (otherPeer.id !== peer.id && otherPeer.conn && otherPeer.conn.open) {
-            try { otherPeer.conn.send(rollPayload); } catch (_) {}
+        // 2. Re-transmite para os demais jogadores logo em seguida (com suspense/prioridade para o mestre)
+        setTimeout(() => {
+          for (const otherPeer of peers) {
+            if (otherPeer.id !== peer.id && otherPeer.conn && otherPeer.conn.open) {
+              try { otherPeer.conn.send(rollPayload); } catch (_) {}
+            }
           }
-        }
+        }, 700);
         return;
       }
       if (msg.type === 'rpg-token-move' && typeof msg.x === 'number' && typeof msg.y === 'number') {
@@ -496,14 +498,16 @@
     if (e.target === inviteOverlay) inviteOverlay.classList.remove('open');
   });
 
-  // Broadcast a dice roll from GM to all players
+  // Broadcast a dice roll from GM to all players (com delay para rolar primeiro na tela do mestre)
   function sendDiceRoll(rollData) {
     const msg = {
       type: 'rpg-dice-roll',
       senderName: 'Mestre',
       ...rollData
     };
-    broadcast(msg);
+    setTimeout(() => {
+      broadcast(msg);
+    }, 400);
   }
 
   // ---------- Expose to window.RPG ----------
