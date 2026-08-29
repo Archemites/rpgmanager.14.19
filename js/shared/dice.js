@@ -1013,12 +1013,23 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   // ---- Recepção de resultado de dado vindo do GM ----
-  // Jogadores recebem este evento e mostram apenas o toast (o dado já rolou na tela do GM)
+  // Mostra a animação 3D localmente (para efeito visual) + toast com o resultado correto do GM
   window.RPG = window.RPG || {};
   window.RPG.onRemoteDiceRoll = (data) => {
     if (!data) return;
-    showSharedResultToast(data.senderName || 'Jogador', data.sum, data.expr, data.themeColor || '#45ff78');
+
+    const notation = `${data.count || 1}d${data.faces || 20}`;
+    const color = data.themeColor || getEffectiveDiceColor();
+
+    initBox().then(() => {
+      if (isBoxReady) {
+        Box.roll(notation, { themeColor: color }).catch(() => {});
+      }
+      // Toast com o resultado exato do GM (não o resultado da animação local)
+      showSharedResultToast(data.senderName || 'Jogador', data.sum, data.expr, color);
+    });
   };
+
 
   // ---- GM rola em nome de um jogador (chamado por gm/sync.js) ----
   // Recebe um pedido de rolagem de um jogador, executa Box.roll() aqui no GM,
