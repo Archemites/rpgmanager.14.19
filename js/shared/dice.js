@@ -603,8 +603,6 @@ import { isAndroidOrIOS } from './mobile.js';
               </button>
             `).join('')}
           </div>
-          
-          <div id="playerDiceResult"></div>
 
           <!-- Opção Secreta para o Mestre no PC -->
           <div id="gmSecretDiceRow" class="player-dice-secret-row ${isGM ? '' : 'hidden'}">
@@ -670,7 +668,6 @@ import { isAndroidOrIOS } from './mobile.js';
     desktopModeSelect = /** @type {HTMLSelectElement} */ (document.getElementById('playerDiceMode'));
     desktopModInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceMod'));
     desktopRollBtn = document.getElementById('playerDiceRollBtn');
-    desktopResultEl = document.getElementById('playerDiceResult');
     desktopGmSecretCheck = /** @type {HTMLInputElement} */ (document.getElementById('gmSecretDiceCheckbox'));
 
     desktopGmSecretCheck?.addEventListener('change', () => {
@@ -724,23 +721,12 @@ import { isAndroidOrIOS } from './mobile.js';
       btn.addEventListener('click', () => selectFacesDesktop(Number(/** @type {HTMLElement} */ (btn).dataset.faces)));
     });
 
-    function showDesktopResult(rolls, mod, sum, expr) {
-      if (!desktopResultEl) return;
-      desktopResultEl.innerHTML = `
-        <span class="dice-total">${sum}</span>
-        <span class="dice-expr">${expr}</span>
-      `;
-    }
-
     desktopRollBtn?.addEventListener('click', () => {
       const count = Math.min(20, Math.max(1, parseInt(desktopCountInput.value, 10) || 1));
       const mod = parseInt(desktopModInput.value, 10) || 0;
       const mode = desktopModeSelect ? desktopModeSelect.value : 'normal';
 
-      if (desktopResultEl) desktopResultEl.innerHTML = '<span class="dice-expr">Rolando...</span>';
-
-      rollDiceEngine(selectedFaces, count, mod, mode, (sum, expr, rolls) => {
-        showDesktopResult(rolls, mod, sum, expr);
+      rollDiceEngine(selectedFaces, count, mod, mode, (sum, expr) => {
         const isGMActive = checkIsGM();
         if (isGMActive && isSecretRoll) {
           showSharedResultToast('Mestre (Oculto)', sum, expr + ' [Oculto dos jogadores]', getEffectiveDiceColor());
