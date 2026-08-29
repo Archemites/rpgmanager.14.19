@@ -82,6 +82,63 @@ import { isAndroidOrIOS } from './mobile.js';
     document.body.appendChild(boxCanvas);
   }
 
+  // ---- Injeta Toast de Resultado Compartilhado (Popup na tela do Mestre) ----
+  let sharedToastEl = document.getElementById('playerDiceSharedToast');
+  if (!sharedToastEl) {
+    sharedToastEl = document.createElement('div');
+    sharedToastEl.id = 'playerDiceSharedToast';
+    sharedToastEl.className = 'player-dice-shared-toast hidden';
+    sharedToastEl.innerHTML = `
+      <div class="shared-toast-content">
+        <div class="shared-toast-header">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shared-toast-icon">
+            <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.2"/>
+            <polyline points="12 2 12 22"/>
+            <polyline points="21 7.5 12 12 3 7.5"/>
+          </svg>
+          <span class="shared-toast-user" id="sharedToastUser">Jogador</span>
+          <span class="shared-toast-action">rolou</span>
+        </div>
+        <div class="shared-toast-body">
+          <div class="shared-toast-total" id="sharedToastTotal">20</div>
+          <div class="shared-toast-formula" id="sharedToastFormula">1d20 → [20]</div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(sharedToastEl);
+  }
+
+  const toastUserEl = document.getElementById('sharedToastUser');
+  const toastTotalEl = document.getElementById('sharedToastTotal');
+  const toastFormulaEl = document.getElementById('sharedToastFormula');
+  let toastTimer = null;
+
+  function showSharedResultToast(userName, total, formula, color) {
+    if (!checkIsGM()) return; // Exibe APENAS para o Mestre
+    if (!sharedToastEl || !toastTotalEl || !toastFormulaEl) return;
+    if (toastUserEl) toastUserEl.textContent = userName || 'Jogador';
+    toastTotalEl.textContent = String(total);
+    toastFormulaEl.textContent = formula || '';
+    sharedToastEl.style.setProperty('--dice-active-color', color || getEffectiveDiceColor());
+
+    sharedToastEl.classList.remove('hidden');
+    sharedToastEl.classList.remove('pop');
+    void sharedToastEl.offsetWidth; // force reflow
+    sharedToastEl.classList.add('pop');
+
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      sharedToastEl.classList.remove('pop');
+      setTimeout(() => sharedToastEl.classList.add('hidden'), 350);
+    }, 4500);
+  }
+
+  sharedToastEl.addEventListener('click', () => {
+    if (toastTimer) clearTimeout(toastTimer);
+    sharedToastEl.classList.remove('pop');
+    setTimeout(() => sharedToastEl.classList.add('hidden'), 300);
+  });
+
   // Verifica se é estritamente Android ou iOS
   const isMobileOS = isAndroidOrIOS();
   const isGM = checkIsGM();
@@ -370,11 +427,12 @@ import { isAndroidOrIOS } from './mobile.js';
         e.stopPropagation();
         const faces = Number(/** @type {HTMLElement} */ (btn).dataset.faces);
         const count = Math.min(20, Math.max(1, parseInt(mCountInput.value, 10) || 1));
+        const mod = parseInt(mModInput.value, 10) || 0;
 
         if (checkIsGM()) {
-          gmRoll(faces, count);
+          gmRoll(faces, count, mod);
         } else {
-          playerRoll(faces, count);
+          playerRoll(faces, count, mod);
         }
       });
     });
@@ -663,11 +721,12 @@ import { isAndroidOrIOS } from './mobile.js';
 
     desktopRollBtn?.addEventListener('click', () => {
       const count = Math.min(20, Math.max(1, parseInt(desktopCountInput.value, 10) || 1));
+      const mod = parseInt(desktopModInput.value, 10) || 0;
 
       if (checkIsGM()) {
-        gmRoll(selectedFaces, count);
+        gmRoll(selectedFaces, count, mod);
       } else {
-        playerRoll(selectedFaces, count);
+        playerRoll(selectedFaces, count, mod);
       }
     });
 
@@ -709,6 +768,19 @@ import { isAndroidOrIOS } from './mobile.js';
   // ============================================================
   // MOTOR 3D COMPARTILHADO & CONFIGURAÇÃO
   // ============================================================
+  function getLocalCharacterName() {
+    if (checkIsGM()) return 'Mestre';
+    let name = '';
+    try {
+      name = localStorage.getItem('rpg-player-name') || '';
+    } catch (_) {}
+    if (!name) {
+      const el = /** @type {HTMLInputElement} */ (document.getElementById('entryNameInput'));
+      if (el && el.value.trim()) name = el.value.trim();
+    }
+    return name || 'Jogador';
+  }
+
   function getThemeColor() {
     return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || "#45ff78";
   }
@@ -822,13 +894,28 @@ import { isAndroidOrIOS } from './mobile.js';
     return boxInitPromise;
   }
 
-  // Gera valores dos dados
-  function generateRolls(faces, count) {
+  // Gera valores dos dados e fórmula offscreen
+  function generateRolls(faces, count, mod = 0) {
     const rolls = [];
     for (let i = 0; i < count; i++) {
       rolls.push(1 + Math.floor(Math.random() * faces));
     }
-    return rolls;
+    const sumOfDice = rolls.reduce((a, b) => a + b, 0);
+    const sum = sumOfDice + mod;
+    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
+    
+    let expr = '';
+    if (mod !== 0) {
+      expr = count === 1
+        ? `Dado: ${rolls[0]} (${modStr}) = ${sum}`
+        : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`;
+    } else {
+      expr = count === 1
+        ? `1d${faces} → [${rolls[0]}]`
+        : `${count}d${faces} → [${rolls.join(' + ')}] = ${sum}`;
+    }
+
+    return { rolls, sum, expr, mod };
   }
 
   // Efeito de brilho suave quando o dado para/assenta
@@ -843,11 +930,12 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   // ---- Rolagem do JOGADOR ----
-  function playerRoll(faces, count = 1) {
+  function playerRoll(faces, count = 1, mod = 0) {
     if (isRolling) return;
     isRolling = true;
     const color = getEffectiveDiceColor();
-    const rolls = generateRolls(faces, count);
+    const { rolls, sum, expr } = generateRolls(faces, count, mod);
+    const senderName = getLocalCharacterName();
 
     initBox().then(() => {
       if (isBoxReady) {
@@ -863,9 +951,13 @@ import { isAndroidOrIOS } from './mobile.js';
           window.RPG.sendDiceRoll({
             faces,
             count,
+            mod,
+            rolls,
+            sum,
+            expr,
+            senderName,
             themeColor: color,
             scale: customScale,
-            rolls,
           });
         }
 
@@ -881,11 +973,15 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   // ---- Rolagem do MESTRE ----
-  function gmRoll(faces, count = 1) {
+  function gmRoll(faces, count = 1, mod = 0) {
     if (isRolling) return;
     isRolling = true;
     const color = getEffectiveDiceColor();
-    const rolls = generateRolls(faces, count);
+    const { rolls, sum, expr } = generateRolls(faces, count, mod);
+    const senderName = isSecretRoll ? 'Mestre (Oculto)' : 'Mestre';
+
+    // Mestre vê o popup imediatamente na sua tela
+    showSharedResultToast(senderName, sum, expr + (isSecretRoll ? ' [Oculto]' : ''), color);
 
     initBox().then(() => {
       if (isBoxReady) {
@@ -901,9 +997,13 @@ import { isAndroidOrIOS } from './mobile.js';
           window.RPG.sendDiceRoll({
             faces,
             count,
+            mod,
+            rolls,
+            sum,
+            expr,
+            senderName: 'Mestre',
             themeColor: color,
             scale: customScale,
-            rolls,
           });
         }
 
@@ -925,8 +1025,21 @@ import { isAndroidOrIOS } from './mobile.js';
 
     const faces = data.faces || 20;
     const count = data.count || 1;
-    const rolls = Array.isArray(data.rolls) && data.rolls.length ? data.rolls : generateRolls(faces, count);
+    const mod = typeof data.mod === 'number' ? data.mod : 0;
+    const rolls = Array.isArray(data.rolls) && data.rolls.length ? data.rolls : [1 + Math.floor(Math.random() * faces)];
     const color = data.themeColor || getEffectiveDiceColor();
+    const senderName = data.senderName || 'Jogador';
+    const sum = data.sum !== undefined ? data.sum : (rolls.reduce((a, b) => a + b, 0) + mod);
+    
+    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
+    const expr = data.expr || (mod !== 0
+      ? (count === 1 ? `Dado: ${rolls[0]} (${modStr}) = ${sum}` : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`)
+      : (count === 1 ? `1d${faces} → [${rolls[0]}]` : `${count}d${faces} → [${rolls.join(' + ')}] = ${sum}`));
+
+    // APENAS NA TELA DO MESTRE: exibe o popup com valor do dado + modificador
+    if (checkIsGM()) {
+      showSharedResultToast(senderName, sum, expr, color);
+    }
 
     initBox().then(() => {
       if (isBoxReady) {
@@ -957,11 +1070,11 @@ import { isAndroidOrIOS } from './mobile.js';
 
   // API pública: rollDice (uso via console/macros)
   // @ts-ignore
-  window.RPG.rollDice = (faces, count = 1) => {
+  window.RPG.rollDice = (faces, count = 1, mod = 0) => {
     if (checkIsGM()) {
-      gmRoll(faces, count);
+      gmRoll(faces, count, mod);
     } else {
-      playerRoll(faces, count);
+      playerRoll(faces, count, mod);
     }
   };
 })();

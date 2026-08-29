@@ -1,0 +1,71 @@
+================================================================================
+PESQUISA TECNICA: SISTEMA DE ROLAGEM DE DADOS 3D E SINCRONIZACAO
+================================================================================
+
+1. QUAL BIBLIOTECA / FRAMEWORK ESTA SENDO USADO?
+--------------------------------------------------------------------------------
+- Biblioteca: @3d-dice/dice-box (versao 1.1.4)
+- Licenca: Open Source (MIT)
+- Repositorio oficial: https://github.com/3d-dice/dice-box
+- Carregamento: Modulo ES via CDN (jsdelivr):
+  https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/dice-box.es.min.js
+- Tecnologias internas da biblioteca:
+  * Three.js (Renderizacao WebGL acelerada por hardware).
+  * Cannon-es / Ammo.js (Motor de simulacao de fisica rigida em 3D).
+  * Modelos poliedricos GLTF/3D embutidos (d4, d6, d8, d10, d12, d20, d100).
+
+
+2. COMO FUNCIONA A RENDERIZACAO 3D?
+--------------------------------------------------------------------------------
+- O script injeta um container fixo de tela cheia: <div id="dice-box-canvas">.
+- Dentro dele, o DiceBox inicializa um <canvas> WebGL transparente (alpha: true, z-index: 9200, pointer-events: none).
+- Quando a funcao Box.roll() e disparada:
+  1. A biblioteca cria os corpos rigidos dos dados no espaco 3D.
+  2. Aplica vetores aleatorios de forca linear (impulso/arremesso) e torque angular (rotacao).
+  3. A gravidade (configurada em 2.5) puxa o dado para o chao invisivel da tela.
+  4. O atrito (0.85) e a restituicao/quique (0.1) desaceleram o dado ate parar (settle).
+  5. Um vetor normal compara a orientacao das faces com o eixo vertical da camera para definir qual numero ficou virado para cima.
+
+
+3. COMO FUNCIONA A SINCRONIZACAO PARA EXIBIR O MESMO VALOR EM TODAS AS TELAS?
+--------------------------------------------------------------------------------
+O maior desafio em simulacoes de fisica 3D e que o Javascript executa fisica localmente: pequenas variacoes de FPS ou resolucao de tela fariam o dado cair em faces diferentes se o arremesso fosse 100% livre em cada ponta.
+
+Para resolver isso, o DiceBox possui o recurso nativo de "Target Notation" (@):
+- Notacao padrao: "1d20@18" ou "2d6@4,6"
+- O que o simbolo '@' faz:
+  A fisica do DiceBox calcula a orientacao exata (quaternion) necessaria para que, apos o arremesso e os quiques, o dado pare obrigatoriamente com a face solicitada voltada para a camera.
+
+FLUXO EXATO NO APP ATUAL:
+1. Jogador ou Mestre clica no botao de rolar dado (ex: d20).
+2. O cliente de origem gera o valor numerico aleatorio localmente (ex: 18).
+3. O cliente de origem dispara imediatamente a animacao 3D: Box.roll("1d20@18").
+4. O cliente de origem envia uma mensagem WebRTC ({ type: 'rpg-dice-roll', faces: 20, count: 1, rolls: [18], themeColor, scale }).
+5. O outro lado (Mestre ou Jogadores) recebe a mensagem e executa: Box.roll("1d20@18").
+6. Resultado: Ambos os navegadores executam a simulacao 3D forcando o dado a parar na face 18.
+
+
+4. PONTOS DE ATENCAO E DESSINCRONIZACAO
+--------------------------------------------------------------------------------
+- Carregamento de assets 3D: O DiceBox baixa os modelos 3D sob demanda do CDN na primeira rolagem. Se uma maquina for lenta para baixar, a primeira rolagem pode ter um pequeno atraso de inicio (mas o valor final continua identico).
+- Limpeza de cena: Antes de qualquer nova rolagem, Box.clear() e chamado para descartar dados antigos e nao sobrepor corpos rigidos.
+- Diferenca de aspecto/tela: Em telas mobile muito estreitas vs monitores ultrawide, a trajetoria de voo do dado pode variar levemente no caminho, mas a face de parada e 100% identica devido a notacao fixada (@).
+
+
+5. BRAINSTORMING DE MELHORIAS / ALTERNATIVAS
+--------------------------------------------------------------------------------
+Opcao A (Atual - Recomendada): Manter @3d-dice/dice-box com notacao '@'
+- Vantagens:
+  * 100% vanilla, sem backend pesado.
+  * Executa direto no navegador dos jogadores.
+  * Renders 3D realistas com sombras, cores customizadas e temas.
+  * Determinismo garantido pelo '@'.
+
+Opcao B: Sincronizar coordenadas de Fisica Frame-a-Frame via WebRTC
+- Como funcionaria: Um cliente calcula a fisica e envia as coordenadas x,y,z e rotacoes quat a 60fps para os outros.
+- Desvantagens: Alto consumo de banda WebRTC, possivel efeito "lag/jitter" se a conexao oscilar.
+
+Opcao C: Motor proprietario simples em Canvas 2D / CSS 3D
+- Vantagens: Arquivo unico sem dependencias externas.
+- Desvantagens: Graficos simples, sem a mesma fisica e apelo visual de dados 3D poliedricos.
+================================================================================
