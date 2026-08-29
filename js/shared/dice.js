@@ -3,8 +3,10 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/d
 import { isMobile } from './mobile.js';
 
 /* ============================================================
-   Player & GM dice roller — motor 3D com @3d-dice/dice-box,
-   UI adaptativa para Mobile (Drop + Sub-Aba + Sub-Subaba) e Desktop
+   Player & GM dice roller — Speed-dial mobile flutuante
+   - Expansão de dados abaixo da bolinha
+   - Controles de Qtd, Mod e Subdrop de Modo (Adv/Dis/Normal) à esquerda
+   - Engrenagem no final da coluna com slider de tamanho e cores
    ============================================================ */
 
 (() => {
@@ -13,6 +15,7 @@ import { isMobile } from './mobile.js';
   // ---- Configuração de dados ----
   const FACES = [4, 6, 8, 10, 12, 20, 100];
   let selectedFaces = 20;
+  let currentRollMode = 'normal'; // 'normal' | 'adv' | 'dis'
 
   // ---- Paleta de Cores ----
   const COLOR_PALETTE = [
@@ -52,238 +55,177 @@ import { isMobile } from './mobile.js';
     100: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><polygon points="9,2 17,8 9,20 1,8" fill="currentColor" fill-opacity="0.12"/><line x1="9" y1="2" x2="9" y2="13"/><line x1="1" y1="8" x2="9" y2="13"/><line x1="17" y1="8" x2="9" y2="13"/><line x1="9" y1="20" x2="9" y2="13"/><circle cx="18" cy="5" r="2" stroke-width="1.4"/><line x1="22" y1="5" x2="14" y2="18" stroke-width="1.4"/><circle cx="20" cy="17" r="2" stroke-width="1.4"/></svg>`
   };
 
-  // ---- DOM: botão flutuante ("bolinha") ----
-  const diceBtn = document.createElement('button');
-  diceBtn.id = 'playerDiceBtn';
-  diceBtn.title = 'Rolar dados';
-  diceBtn.innerHTML = `
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.15" />
-      <polygon points="12,7.5 18,17 6,17" fill="currentColor" fill-opacity="0.25" />
-      <line x1="12" y1="2" x2="12" y2="7.5" />
-      <line x1="21" y1="7.5" x2="18" y2="17" />
-      <line x1="21" y1="16.5" x2="18" y2="17" />
-      <line x1="12" y1="22" x2="18" y2="17" />
-      <line x1="12" y1="22" x2="6" y2="17" />
-      <line x1="3" y1="16.5" x2="6" y2="17" />
-      <line x1="3" y1="7.5" x2="6" y2="17" />
-      <line x1="12" y1="7.5" x2="21" y2="7.5" />
-      <line x1="12" y1="7.5" x2="3" y2="7.5" />
-    </svg>
-  `;
-  diceBtn.classList.add('hidden'); // começa escondido, aparece ao conectar
-  document.body.appendChild(diceBtn);
-
-  // ---- DOM: overlay & painel ----
-  const overlay = document.createElement('div');
-  overlay.id = 'playerDiceOverlay';
-  overlay.innerHTML = `
-    <div id="playerDicePanel" class="player-dice-panel">
+  // ---- Injeta estrutura DOM Principal ----
+  const wrap = document.createElement('div');
+  wrap.id = 'playerDiceWrap';
+  wrap.className = 'player-dice-wrap';
+  wrap.innerHTML = `
+    <!-- Linha Superior / Botão Principal -->
+    <div class="player-dice-header-row">
       
-      <!-- Barra superior / Header -->
-      <div class="player-dice-top-bar">
-        <div class="player-dice-title-wrap">
-          <span class="player-dice-title-dot"></span>
-          <span class="player-dice-title-text">ROLAR DADOS</span>
+      <!-- Controles à Esquerda da Bolinha: Modo (Vantagem/Desvantagem/Normal), Qtd e Mod -->
+      <div id="playerDiceSideControls" class="player-dice-side-controls collapsed">
+        
+        <!-- Modo de Rolagem com Subdrop -->
+        <div class="player-dice-mode-dropdown-wrap">
+          <button type="button" id="playerDiceModeBtn" class="player-dice-control-btn mode-btn" title="Modo de Rolagem">
+            <span id="playerDiceModeLabel">NORMAL</span>
+            <svg class="mode-arrow" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          
+          <!-- Subdrop de seleção de modo -->
+          <div id="playerDiceModeMenu" class="player-dice-subdrop-menu hidden">
+            <button type="button" class="player-dice-subdrop-item active" data-mode="normal">
+              <span class="mode-dot normal"></span>
+              <span>Normal</span>
+            </button>
+            <button type="button" class="player-dice-subdrop-item" data-mode="adv">
+              <span class="mode-dot adv"></span>
+              <span>Vantagem (ADV)</span>
+            </button>
+            <button type="button" class="player-dice-subdrop-item" data-mode="dis">
+              <span class="mode-dot dis"></span>
+              <span>Desvantagem (DIS)</span>
+            </button>
+          </div>
         </div>
-        <div class="player-dice-handle"></div>
-        <button type="button" id="playerDiceCloseBtn" class="player-dice-close-btn" title="Fechar">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
+
+        <!-- Quantidade (Qtd) com Stepper -->
+        <div class="player-dice-stepper-pill" title="Quantidade de dados">
+          <span class="pill-label">Qtd</span>
+          <button type="button" id="playerDiceCountDec" class="pill-btn">−</button>
+          <input type="number" id="playerDiceCount" min="1" max="20" value="1" title="Qtd de dados">
+          <button type="button" id="playerDiceCountInc" class="pill-btn">+</button>
+        </div>
+
+        <!-- Modificador (Mod) com Stepper -->
+        <div class="player-dice-stepper-pill" title="Modificador numérico">
+          <span class="pill-label">Mod</span>
+          <button type="button" id="playerDiceModDec" class="pill-btn">−</button>
+          <input type="number" id="playerDiceMod" min="-99" max="99" value="0" title="Modificador">
+          <button type="button" id="playerDiceModInc" class="pill-btn">+</button>
+        </div>
+
       </div>
 
-      <div class="player-dice-controls">
-        
-        <!-- Nível 1: Faces dos Dados (d4 a d100) -->
-        <div id="playerDiceFaces" class="player-dice-faces">
-          ${FACES.map(f => `
-            <button type="button" class="player-dice-face-btn ${f === 20 ? 'active' : ''}" data-faces="${f}" title="Selecionar d${f}">
-              <span class="player-dice-face-svg">${DICE_SVGS[f]}</span>
-              <span class="player-dice-face-text">d${f}</span>
-            </button>
-          `).join('')}
-        </div>
+      <!-- A Bolinha (Botão Principal) -->
+      <button type="button" id="playerDiceBtn" class="player-dice-circle-btn" title="Rolar dados" aria-label="Rolar dados">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.15" />
+          <polygon points="12,7.5 18,17 6,17" fill="currentColor" fill-opacity="0.25" />
+          <line x1="12" y1="2" x2="12" y2="7.5" />
+          <line x1="21" y1="7.5" x2="18" y2="17" />
+          <line x1="21" y1="16.5" x2="18" y2="17" />
+          <line x1="12" y1="22" x2="18" y2="17" />
+          <line x1="12" y1="22" x2="6" y2="17" />
+          <line x1="3" y1="16.5" x2="6" y2="17" />
+          <line x1="3" y1="7.5" x2="6" y2="17" />
+          <line x1="12" y1="7.5" x2="21" y2="7.5" />
+          <line x1="12" y1="7.5" x2="3" y2="7.5" />
+        </svg>
+      </button>
 
-        <!-- Área de Resultado com animação Pop -->
-        <div id="playerDiceResult"></div>
+    </div>
 
-        <!-- Botão Rolar Principal em Destaque -->
-        <div class="player-dice-main-action">
-          <button id="playerDiceRollBtn" type="button">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.25" />
-              <polygon points="12,7.5 18,17 6,17" />
-              <line x1="12" y1="2" x2="12" y2="7.5" />
-              <line x1="21" y1="7.5" x2="18" y2="17" />
-              <line x1="21" y1="16.5" x2="18" y2="17" />
-              <line x1="12" y1="22" x2="18" y2="17" />
-              <line x1="12" y1="22" x2="6" y2="17" />
-              <line x1="3" y1="16.5" x2="6" y2="17" />
-              <line x1="3" y1="7.5" x2="6" y2="17" />
-            </svg>
-            <span id="playerDiceRollBtnText">ROLAR d20</span>
-          </button>
-        </div>
-
-        <!-- Sub-Seta para a Sub-Aba (Vantagem, Desvantagem, Quantidade, Modificadores) -->
-        <button type="button" id="playerDiceSubTabToggle" class="player-dice-subtab-toggle" title="Abrir opções de vantagem, quantidade e modificadores">
-          <div class="player-dice-subtab-toggle-left">
-            <svg class="player-dice-subtab-arrow" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-            <span>Opções Avançadas</span>
-          </div>
-          <span id="playerDiceConfigBadge" class="player-dice-config-badge">1d20</span>
+    <!-- Coluna Vertical de Dados (Expande Abaixo da Bolinha) -->
+    <div id="playerDiceColumn" class="player-dice-column collapsed">
+      ${FACES.map(f => `
+        <button type="button" class="player-dice-col-btn" data-faces="${f}" title="Rolar d${f}">
+          <span class="dice-col-svg">${DICE_SVGS[f]}</span>
+          <span class="dice-col-label">d${f}</span>
         </button>
+      `).join('')}
 
-        <!-- Sub-Aba: Opções de Rolagem -->
-        <div id="playerDiceSubTab" class="player-dice-subtab">
-          <div class="player-dice-subtab-inner">
-            
-            <!-- Modo: Normal / Vantagem / Desvantagem -->
-            <div class="player-dice-mode-row">
-              <div class="player-dice-field-label">Modo de Rolagem</div>
-              <div class="player-dice-mode-pills" id="playerDiceModePills">
-                <button type="button" class="player-dice-pill active" data-mode="normal">Normal</button>
-                <button type="button" class="player-dice-pill" data-mode="adv" title="Rola 2 dados e escolhe o maior">Vantagem</button>
-                <button type="button" class="player-dice-pill" data-mode="dis" title="Rola 2 dados e escolhe o menor">Desvantagem</button>
-              </div>
-              <select id="playerDiceMode" class="hidden">
-                <option value="normal" selected>Normal</option>
-                <option value="adv">Vantagem</option>
-                <option value="dis">Desvantagem</option>
-              </select>
-            </div>
+      <!-- Engrenagem no Final da Coluna -->
+      <button type="button" id="playerDiceSettingsBtn" class="player-dice-col-btn settings-btn" title="Personalizar cor e tamanho dos dados 3D">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
+    </div>
 
-            <!-- Steppers: Quantidade e Modificador -->
-            <div class="player-dice-stepper-grid">
-              
-              <!-- Quantidade (Qtd) -->
-              <div class="player-dice-stepper-box">
-                <label for="playerDiceCount" class="player-dice-field-label">Qtd de Dados</label>
-                <div class="player-dice-stepper-control">
-                  <button type="button" class="player-dice-stepper-btn" id="playerDiceCountDec" title="Diminuir quantidade">−</button>
-                  <input type="number" id="playerDiceCount" min="1" max="20" value="1" title="Quantidade de dados">
-                  <button type="button" class="player-dice-stepper-btn" id="playerDiceCountInc" title="Aumentar quantidade">+</button>
-                </div>
-              </div>
+    <!-- Painel da Engrenagem (Slider de tamanho e Seletor de cor) -->
+    <div id="playerDiceSettingsPanel" class="player-dice-settings-popover collapsed">
+      <div class="settings-popover-header">
+        <span>Aparência dos Dados 3D</span>
+        <button type="button" id="playerDiceSettingsClose" class="settings-popover-close">✕</button>
+      </div>
 
-              <!-- Modificador (Mod) -->
-              <div class="player-dice-stepper-box">
-                <label for="playerDiceMod" class="player-dice-field-label">Modificador</label>
-                <div class="player-dice-stepper-control">
-                  <button type="button" class="player-dice-stepper-btn" id="playerDiceModDec" title="Diminuir modificador">−</button>
-                  <input type="number" id="playerDiceMod" min="-99" max="99" value="0" title="Modificador numérico">
-                  <button type="button" class="player-dice-stepper-btn" id="playerDiceModInc" title="Aumentar modificador">+</button>
-                </div>
-              </div>
-
-            </div>
-
-            <!-- Engrenagem: Botão para abrir a Sub-Subaba -->
-            <button type="button" id="playerDiceSettingsBtn" class="player-dice-subsubtab-toggle" title="Personalizar aparência e cor dos dados 3D">
-              <div class="player-dice-subsubtab-left">
-                <svg class="player-dice-gear-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                <span>Aparência dos Dados 3D</span>
-              </div>
-              <svg class="player-dice-subsubtab-arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            </button>
-
-            <!-- Sub-Subaba: Gaveta da Engrenagem (Cor e Tamanho) -->
-            <div id="playerDiceSettingsDrawer" class="player-dice-settings-drawer">
-              <div class="player-dice-settings-title">
-                <span>
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2C6.49 2 2 6.49 2 12c0 3.87 2.33 7.2 5.67 8.65.6.26 1.33-.19 1.33-.85v-.8c0-.55.45-1 1-1h1.5c3.58 0 6.5-2.92 6.5-6.5 0-4.96-2.69-9.5-6-9.5z" />
-                    <circle cx="7.5" cy="10.5" r="1.5" fill="currentColor" />
-                    <circle cx="11" cy="7.5" r="1.5" fill="currentColor" />
-                    <circle cx="15.5" cy="9" r="1.5" fill="currentColor" />
-                    <circle cx="16.5" cy="13.5" r="1.5" fill="currentColor" />
-                  </svg>
-                  Cor dos Dados 3D
-                </span>
-                <button type="button" class="player-dice-settings-reset" id="playerDiceResetBtn" title="Restaurar cor do tema da mesa">
-                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                    <path d="M3 3v5h5" />
-                  </svg>
-                  <span>Cor do Tema</span>
-                </button>
-              </div>
-
-              <!-- Seletor de Cor (Hue) e HEX -->
-              <div class="player-dice-picker-row">
-                <div class="player-dice-color-picker-wrap" title="Clique para abrir o espectro de cores (Hue)">
-                  <input type="color" id="playerDiceColorPicker" value="#45ff78">
-                </div>
-                <div class="player-dice-active-preview" id="playerDicePickerPreview" title="Cor ativa"></div>
-                <div class="player-dice-hex-wrap">
-                  <span class="player-dice-hex-prefix">#</span>
-                  <input type="text" id="playerDiceHexInput" class="player-dice-hex-input" maxlength="6" placeholder="45FF78" spellcheck="false" title="Digite o código HEX">
-                </div>
-              </div>
-
-              <!-- Tamanho do Dado -->
-              <div class="player-dice-scale-row">
-                <div class="player-dice-scale-header">
-                  <span class="player-dice-scale-title">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="15 3 21 3 21 9" />
-                      <polyline points="9 21 3 21 3 15" />
-                      <line x1="21" y1="3" x2="14" y2="10" />
-                      <line x1="3" y1="21" x2="10" y2="14" />
-                    </svg>
-                    <span>Tamanho do Dado</span>
-                  </span>
-                  <span id="playerDiceScaleVal" class="player-dice-scale-val">100%</span>
-                </div>
-                <div class="player-dice-scale-slider-wrap">
-                  <input type="range" id="playerDiceScaleInput" min="3" max="9" value="6" step="0.5">
-                </div>
-              </div>
-
-              <!-- Presets Rápidos -->
-              <div class="player-dice-presets-label">Presets Rápidos:</div>
-              <div class="player-dice-color-grid" id="playerDiceColorGrid"></div>
-            </div>
-
+      <!-- Slider de Tamanho -->
+      <div class="settings-row">
+        <div class="settings-label-row">
+          <span class="settings-label">Tamanho do Dado</span>
+          <span id="playerDiceScaleVal" class="settings-val">100%</span>
+        </div>
+        <input type="range" id="playerDiceScaleInput" min="3" max="9" value="6" step="0.5">
+      </div>
+      
+      <!-- Seletor de Cor -->
+      <div class="settings-row">
+        <div class="settings-label-row">
+          <span class="settings-label">Cor dos Dados</span>
+          <button type="button" id="playerDiceResetBtn" class="reset-theme-btn" title="Restaurar cor do tema da mesa">Cor do Tema</button>
+        </div>
+        <div class="settings-color-bar">
+          <div class="color-picker-dot" title="Clique para abrir o espectro de cores">
+            <input type="color" id="playerDiceColorPicker" value="#45ff78">
+          </div>
+          <div id="playerDicePickerPreview" class="color-preview-dot" title="Cor ativa"></div>
+          <div class="color-hex-field">
+            <span class="hex-prefix">#</span>
+            <input type="text" id="playerDiceHexInput" maxlength="6" placeholder="45FF78" spellcheck="false" title="Código HEX">
           </div>
         </div>
+        <div class="color-presets-grid" id="playerDiceColorGrid"></div>
+      </div>
+    </div>
 
+    <!-- Banner / Toast de Resultado Flutuante no Topo -->
+    <div id="playerDiceResultToast" class="player-dice-result-toast hidden">
+      <div class="toast-content">
+        <span class="toast-total" id="playerDiceResultTotal">20</span>
+        <span class="toast-formula" id="playerDiceResultFormula">1d20 → [20]</span>
       </div>
     </div>
   `;
-  document.body.appendChild(overlay);
 
-  // Injeta o container para o DiceBox (canvas 3D)
+  document.body.appendChild(wrap);
+
+  // Injeta o container para o DiceBox (canvas 3D) em tela cheia
   let boxCanvas = document.getElementById('dice-box-canvas');
   if (!boxCanvas) {
     boxCanvas = document.createElement('div');
     boxCanvas.id = 'dice-box-canvas';
+    document.body.appendChild(boxCanvas);
   }
-  overlay.insertBefore(boxCanvas, overlay.firstChild);
 
   // ---- Referências DOM ----
-  const panel = document.getElementById('playerDicePanel');
-  const closeBtn = document.getElementById('playerDiceCloseBtn');
-  
-  // Sub-Aba
-  const subTabToggle = document.getElementById('playerDiceSubTabToggle');
-  const subTab = document.getElementById('playerDiceSubTab');
-  const configBadge = document.getElementById('playerDiceConfigBadge');
-
-  // Sub-Subaba (Engrenagem)
+  const diceBtn = document.getElementById('playerDiceBtn');
+  const sideControls = document.getElementById('playerDiceSideControls');
+  const diceColumn = document.getElementById('playerDiceColumn');
   const settingsBtn = document.getElementById('playerDiceSettingsBtn');
-  const settingsDrawer = document.getElementById('playerDiceSettingsDrawer');
-  
-  // Inputs de Configuração
+  const settingsPanel = document.getElementById('playerDiceSettingsPanel');
+  const settingsClose = document.getElementById('playerDiceSettingsClose');
+
+  // Modo
+  const modeBtn = document.getElementById('playerDiceModeBtn');
+  const modeLabel = document.getElementById('playerDiceModeLabel');
+  const modeMenu = document.getElementById('playerDiceModeMenu');
+  const modeItems = wrap.querySelectorAll('.player-dice-subdrop-item');
+
+  // Steppers Qtd e Mod
+  const countInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceCount'));
+  const countDecBtn = document.getElementById('playerDiceCountDec');
+  const countIncBtn = document.getElementById('playerDiceCountInc');
+
+  const modInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceMod'));
+  const modDecBtn = document.getElementById('playerDiceModDec');
+  const modIncBtn = document.getElementById('playerDiceModInc');
+
+  // Configurações
   const colorPicker = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceColorPicker'));
   const activePreview = document.getElementById('playerDicePickerPreview');
   const hexInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceHexInput'));
@@ -292,128 +234,135 @@ import { isMobile } from './mobile.js';
   const colorGrid = document.getElementById('playerDiceColorGrid');
   const resetBtn = document.getElementById('playerDiceResetBtn');
 
-  // Controles de Rolagem
-  const faceButtons = overlay.querySelectorAll('.player-dice-face-btn');
-  const countInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceCount'));
-  const countDecBtn = document.getElementById('playerDiceCountDec');
-  const countIncBtn = document.getElementById('playerDiceCountInc');
-  
-  const modInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceMod'));
-  const modDecBtn = document.getElementById('playerDiceModDec');
-  const modIncBtn = document.getElementById('playerDiceModInc');
+  // Toast de Resultado
+  const resultToast = document.getElementById('playerDiceResultToast');
+  const resultTotal = document.getElementById('playerDiceResultTotal');
+  const resultFormula = document.getElementById('playerDiceResultFormula');
 
-  const modeSelect = /** @type {HTMLSelectElement} */ (document.getElementById('playerDiceMode'));
-  const modePills = overlay.querySelectorAll('.player-dice-pill');
+  let toastTimeout = null;
 
-  const rollBtn = document.getElementById('playerDiceRollBtn');
-  const rollBtnText = document.getElementById('playerDiceRollBtnText');
-  const resultEl = document.getElementById('playerDiceResult');
+  // ---- Alternar Expansão do Drop (A Bolinha) ----
+  let isExpanded = false;
 
-  // ---- Atualização do Badge e Texto do Botão ----
-  function updateConfigBadge() {
-    const count = parseInt(countInput?.value, 10) || 1;
-    const mod = parseInt(modInput?.value, 10) || 0;
-    const mode = modeSelect?.value || 'normal';
+  function toggleDiceDrop(forceState) {
+    isExpanded = typeof forceState === 'boolean' ? forceState : !isExpanded;
+    
+    wrap.classList.toggle('open', isExpanded);
+    diceBtn.classList.toggle('active', isExpanded);
+    sideControls.classList.toggle('collapsed', !isExpanded);
+    diceColumn.classList.toggle('collapsed', !isExpanded);
 
-    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
-    let notation = `${count}d${selectedFaces}${modStr ? ' ' + modStr : ''}`;
-
-    if (mode === 'adv') notation = `ADV • ${notation}`;
-    else if (mode === 'dis') notation = `DIS • ${notation}`;
-
-    if (configBadge) configBadge.textContent = notation;
-    if (rollBtnText) rollBtnText.textContent = `ROLAR ${count > 1 ? count : ''}d${selectedFaces}${modStr ? ' ' + modStr : ''}`;
+    if (!isExpanded) {
+      // Fecha submenus caso estejam abertos
+      modeMenu.classList.add('hidden');
+      settingsPanel.classList.add('collapsed');
+      settingsBtn.classList.remove('active');
+    }
   }
 
-  // ---- Modo de Rolagem (Pills + Select) ----
+  diceBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleDiceDrop();
+  });
+
+  // ---- Subdrop de Modo (Normal / Vantagem / Desvantagem) ----
+  modeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    modeMenu.classList.toggle('hidden');
+  });
+
   function setRollMode(mode) {
-    if (modeSelect) modeSelect.value = mode;
-    modePills.forEach(pill => {
-      pill.classList.toggle('active', pill.getAttribute('data-mode') === mode);
+    currentRollMode = mode;
+    modeItems.forEach(item => {
+      item.classList.toggle('active', item.getAttribute('data-mode') === mode);
     });
 
-    if ((mode === 'adv' || mode === 'dis') && parseInt(countInput.value, 10) === 1) {
-      countInput.value = '2';
+    if (mode === 'adv') {
+      modeLabel.textContent = 'VANTAGEM';
+      modeBtn.className = 'player-dice-control-btn mode-btn adv';
+      if (parseInt(countInput.value, 10) === 1) countInput.value = '2';
+    } else if (mode === 'dis') {
+      modeLabel.textContent = 'DESVANTAGEM';
+      modeBtn.className = 'player-dice-control-btn mode-btn dis';
+      if (parseInt(countInput.value, 10) === 1) countInput.value = '2';
+    } else {
+      modeLabel.textContent = 'NORMAL';
+      modeBtn.className = 'player-dice-control-btn mode-btn normal';
     }
-    updateConfigBadge();
+
+    modeMenu.classList.add('hidden');
   }
 
-  modePills.forEach(pill => {
-    pill.addEventListener('click', () => {
-      const m = pill.getAttribute('data-mode') || 'normal';
+  modeItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = item.getAttribute('data-mode') || 'normal';
       setRollMode(m);
     });
   });
 
-  modeSelect?.addEventListener('change', () => {
-    setRollMode(modeSelect.value);
-  });
-
-  // ---- Stepper de Quantidade ----
-  countDecBtn?.addEventListener('click', () => {
+  // ---- Steppers Qtd ----
+  countDecBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
     let val = parseInt(countInput.value, 10) || 1;
-    if (val > 1) {
-      countInput.value = String(val - 1);
-      updateConfigBadge();
-    }
+    if (val > 1) countInput.value = String(val - 1);
   });
 
-  countIncBtn?.addEventListener('click', () => {
+  countIncBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
     let val = parseInt(countInput.value, 10) || 1;
-    if (val < 20) {
-      countInput.value = String(val + 1);
-      updateConfigBadge();
-    }
+    if (val < 20) countInput.value = String(val + 1);
   });
 
-  countInput?.addEventListener('input', () => {
+  countInput.addEventListener('input', () => {
     let val = parseInt(countInput.value, 10);
     if (isNaN(val) || val < 1) val = 1;
     if (val > 20) val = 20;
     countInput.value = String(val);
-    updateConfigBadge();
   });
 
-  // ---- Stepper de Modificador ----
-  modDecBtn?.addEventListener('click', () => {
+  // ---- Steppers Mod ----
+  modDecBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
     let val = parseInt(modInput.value, 10) || 0;
-    if (val > -99) {
-      modInput.value = String(val - 1);
-      updateConfigBadge();
-    }
+    if (val > -99) modInput.value = String(val - 1);
   });
 
-  modIncBtn?.addEventListener('click', () => {
+  modIncBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
     let val = parseInt(modInput.value, 10) || 0;
-    if (val < 99) {
-      modInput.value = String(val + 1);
-      updateConfigBadge();
-    }
+    if (val < 99) modInput.value = String(val + 1);
   });
 
-  modInput?.addEventListener('input', () => {
+  modInput.addEventListener('input', () => {
     let val = parseInt(modInput.value, 10);
     if (isNaN(val)) val = 0;
     if (val < -99) val = -99;
     if (val > 99) val = 99;
     modInput.value = String(val);
-    updateConfigBadge();
   });
 
-  // ---- Sub-Aba Toggle (Sub-Seta) ----
-  subTabToggle?.addEventListener('click', () => {
-    const isOpen = subTab?.classList.toggle('open');
-    subTabToggle.classList.toggle('active', isOpen);
-  });
-
-  // ---- Sub-Subaba Toggle (Engrenagem) ----
-  settingsBtn?.addEventListener('click', (e) => {
+  // ---- Engrenagem / Painel de Configurações ----
+  settingsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    const isOpen = settingsDrawer?.classList.toggle('open');
-    settingsBtn.classList.toggle('active', isOpen);
+    const isCollapsed = settingsPanel.classList.toggle('collapsed');
+    settingsBtn.classList.toggle('active', !isCollapsed);
   });
 
-  // ---- Gestão de Cores ----
+  settingsClose.addEventListener('click', (e) => {
+    e.stopPropagation();
+    settingsPanel.classList.add('collapsed');
+    settingsBtn.classList.remove('active');
+  });
+
+  // Fechar ao clicar fora
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(/** @type {Node} */ (e.target))) {
+      toggleDiceDrop(false);
+    }
+  });
+
+  // ---- Gestão de Cores e Estilos ----
   function getThemeColor() {
     return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || "#45ff78";
   }
@@ -428,11 +377,9 @@ import { isMobile } from './mobile.js';
   }
 
   function applyCustomStyles() {
-    if (!panel) return;
     const effColor = getEffectiveDiceColor();
-    panel.style.setProperty('--dice-custom-color', effColor);
+    wrap.style.setProperty('--dice-active-color', effColor);
 
-    // Atualiza o preview e os inputs de cor
     if (activePreview) {
       activePreview.style.background = effColor;
       activePreview.style.boxShadow = `0 0 10px ${effColor}`;
@@ -475,7 +422,7 @@ import { isMobile } from './mobile.js';
 
     COLOR_PALETTE.forEach(p => {
       const swatch = document.createElement('div');
-      swatch.className = 'player-dice-color-swatch';
+      swatch.className = 'color-swatch-dot';
       swatch.title = p.label;
 
       if (p.isTheme) {
@@ -483,18 +430,20 @@ import { isMobile } from './mobile.js';
         swatch.style.background = `linear-gradient(135deg, ${tColor} 50%, var(--panel, #000) 50%)`;
         swatch.style.setProperty('--swatch-color', tColor);
         if (customColor === 'theme') swatch.classList.add('active');
-        swatch.addEventListener('click', () => {
+        swatch.addEventListener('click', (e) => {
+          e.stopPropagation();
           customColor = 'theme';
-          try { localStorage.setItem(STORAGE_KEY_COLOR, customColor); } catch (e) {}
+          try { localStorage.setItem(STORAGE_KEY_COLOR, customColor); } catch (err) {}
           applyCustomStyles();
         });
       } else {
         swatch.style.background = p.value;
         swatch.style.setProperty('--swatch-color', p.value);
         if (customColor.toLowerCase() === p.value.toLowerCase()) swatch.classList.add('active');
-        swatch.addEventListener('click', () => {
+        swatch.addEventListener('click', (e) => {
+          e.stopPropagation();
           customColor = p.value;
-          try { localStorage.setItem(STORAGE_KEY_COLOR, customColor); } catch (e) {}
+          try { localStorage.setItem(STORAGE_KEY_COLOR, customColor); } catch (err) {}
           applyCustomStyles();
         });
       }
@@ -528,27 +477,15 @@ import { isMobile } from './mobile.js';
     applyCustomStyles();
   });
 
-  resetBtn?.addEventListener('click', () => {
+  resetBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
     customColor = 'theme';
     customScale = 6;
     try {
       localStorage.setItem(STORAGE_KEY_COLOR, customColor);
       localStorage.setItem(STORAGE_KEY_SCALE, String(customScale));
-    } catch (e) {}
+    } catch (err) {}
     applyCustomStyles();
-  });
-
-  // ---- Seleção de Face dos Dados ----
-  function selectFaces(faces) {
-    selectedFaces = faces;
-    faceButtons.forEach(btn => {
-      btn.classList.toggle('active', Number(/** @type {HTMLElement} */ (btn).dataset.faces) === faces);
-    });
-    updateConfigBadge();
-  }
-
-  faceButtons.forEach(btn => {
-    btn.addEventListener('click', () => selectFaces(Number(/** @type {HTMLElement} */ (btn).dataset.faces)));
   });
 
   // ---- 3D Dice Box Setup ----
@@ -564,11 +501,11 @@ import { isMobile } from './mobile.js';
     themeColor: getEffectiveDiceColor(),
     light_intensity: 1.2,
     scale: customScale,
-    gravity: 2.5,       // Gravidade reforçada para sensação de peso
-    mass: 2,            // Massa sólida
-    friction: 0.85,     // Atrito na mesa
-    restitution: 0.1,   // Rebote reduzido
-    settleTimeout: 2500 // Estabiliza rápido
+    gravity: 2.5,
+    mass: 2,
+    friction: 0.85,
+    restitution: 0.1,
+    settleTimeout: 2500
   });
 
   function initBox() {
@@ -594,30 +531,37 @@ import { isMobile } from './mobile.js';
     return boxInitPromise;
   }
 
-  // ---- Exibição do Resultado ----
-  function showResult(rolls, mod, sum, expr) {
-    if (!resultEl) return;
-    resultEl.innerHTML = `
-      <span class="dice-total">${sum}</span>
-      <span class="dice-expr">${expr}</span>
-    `;
+  // ---- Toast de Resultado ----
+  function showToastResult(sum, formula) {
+    if (!resultToast || !resultTotal || !resultFormula) return;
+    
+    resultTotal.textContent = String(sum);
+    resultFormula.textContent = formula;
+
+    resultToast.classList.remove('hidden');
+    resultToast.classList.add('pop');
+
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+      resultToast.classList.remove('pop');
+      setTimeout(() => resultToast.classList.add('hidden'), 300);
+    }, 6000);
   }
 
-  // ---- Execução da Rolagem ----
-  function roll() {
+  // ---- Rolagem de um Dado da Coluna ----
+  function rollDiceFace(faces) {
     if (isRolling) return;
-    
+    selectedFaces = faces;
+
     const count = Math.min(20, Math.max(1, parseInt(countInput.value, 10) || 1));
     const mod = parseInt(modInput.value, 10) || 0;
-    
-    if (resultEl) resultEl.innerHTML = '<span class="dice-expr">Rolando...</span>';
 
     initBox().then(() => {
-      executeRoll(count, mod);
+      executeRoll(count, mod, faces);
     });
   }
 
-  function executeRoll(count, mod) {
+  function executeRoll(count, mod, faces) {
     isRolling = true;
 
     const currentColor = getEffectiveDiceColor();
@@ -627,8 +571,8 @@ import { isMobile } from './mobile.js';
       } catch (e) {}
     }
     
-    const notation = `${count}d${selectedFaces}`;
-    const mode = modeSelect ? modeSelect.value : 'normal';
+    const notation = `${count}d${faces}`;
+    const mode = currentRollMode;
     
     Box.roll(notation, { themeColor: currentColor }).then(results => {
       isRolling = false;
@@ -646,31 +590,31 @@ import { isMobile } from './mobile.js';
         chosenValue = highest;
         const finalSum = chosenValue + mod;
         if (rolls.length > 1) {
-          expr = `${count}d${selectedFaces}${modStr} (Vantagem) → [${rolls.join(', ')}] → Maior: ${highest}${mod !== 0 ? ` (${highest}${modStr})` : ''}`;
+          expr = `${count}d${faces}${modStr} (Vantagem) → [${rolls.join(', ')}] → Maior: ${highest}${mod !== 0 ? ` (${highest}${modStr})` : ''}`;
         } else {
-          expr = `${count}d${selectedFaces}${modStr} → [${highest}]${mod !== 0 ? ` (${highest}${modStr})` : ''}`;
+          expr = `${count}d${faces}${modStr} → [${highest}]${mod !== 0 ? ` (${highest}${modStr})` : ''}`;
         }
-        showResult(rolls, mod, finalSum, expr);
+        showToastResult(finalSum, expr);
       } else if (mode === 'dis') {
         const lowest = Math.min(...rolls);
         chosenValue = lowest;
         const finalSum = chosenValue + mod;
         if (rolls.length > 1) {
-          expr = `${count}d${selectedFaces}${modStr} (Desvantagem) → [${rolls.join(', ')}] → Menor: ${lowest}${mod !== 0 ? ` (${lowest}${modStr})` : ''}`;
+          expr = `${count}d${faces}${modStr} (Desvantagem) → [${rolls.join(', ')}] → Menor: ${lowest}${mod !== 0 ? ` (${lowest}${modStr})` : ''}`;
         } else {
-          expr = `${count}d${selectedFaces}${modStr} → [${lowest}]${mod !== 0 ? ` (${lowest}${modStr})` : ''}`;
+          expr = `${count}d${faces}${modStr} → [${lowest}]${mod !== 0 ? ` (${lowest}${modStr})` : ''}`;
         }
-        showResult(rolls, mod, finalSum, expr);
+        showToastResult(finalSum, expr);
       } else {
         const sumOfDice = rolls.reduce((a, b) => a + b, 0);
         chosenValue = sumOfDice;
         const finalSum = chosenValue + mod;
         if (rolls.length > 1) {
-          expr = `${count}d${selectedFaces}${modStr} → [${rolls.join(' + ')}] = ${sumOfDice}${mod !== 0 ? ` (${sumOfDice}${modStr})` : ''}`;
+          expr = `${count}d${faces}${modStr} → [${rolls.join(' + ')}] = ${sumOfDice}${mod !== 0 ? ` (${sumOfDice}${modStr})` : ''}`;
         } else {
-          expr = `${count}d${selectedFaces}${modStr} → [${rolls[0]}]${mod !== 0 ? ` (${rolls[0]}${modStr})` : ''}`;
+          expr = `${count}d${faces}${modStr} → [${rolls[0]}]${mod !== 0 ? ` (${rolls[0]}${modStr})` : ''}`;
         }
-        showResult(rolls, mod, finalSum, expr);
+        showToastResult(finalSum, expr);
       }
     }).catch(err => {
       console.error("Erro na rolagem 3D:", err);
@@ -678,116 +622,35 @@ import { isMobile } from './mobile.js';
     });
   }
 
-  rollBtn?.addEventListener('click', roll);
-
-  // ---- Abrir / Fechar e Posicionamento Adaptativo ----
-  function positionMobileDrop(triggerEl) {
-    if (!panel || !isMobile()) {
-      if (panel) {
-        panel.style.top = '';
-        panel.style.right = '';
-        panel.style.left = '';
-        panel.style.bottom = '';
-        panel.style.maxHeight = '';
-      }
-      return;
-    }
-
-    const trigger = triggerEl || (gmOpenBtn && gmOpenBtn.offsetParent ? gmOpenBtn : diceBtn);
-    if (!trigger || !trigger.getBoundingClientRect) return;
-
-    const rect = trigger.getBoundingClientRect();
-    const isRightSide = rect.left > window.innerWidth / 2;
-    const topPos = Math.max(10, Math.min(window.innerHeight - 200, rect.bottom + 8));
-
-    panel.style.top = `${topPos}px`;
-    panel.style.bottom = 'auto';
-
-    if (isRightSide) {
-      panel.style.right = `${Math.max(10, window.innerWidth - rect.right)}px`;
-      panel.style.left = 'auto';
-    } else {
-      panel.style.left = `${Math.max(10, rect.left)}px`;
-      panel.style.right = 'auto';
-    }
-
-    const maxH = window.innerHeight - topPos - 16;
-    panel.style.maxHeight = `${Math.max(260, maxH)}px`;
-  }
-
-  function openDice(e) { 
-    applyCustomStyles();
-    positionMobileDrop(e && e.currentTarget ? e.currentTarget : null);
-    overlay.classList.add('open'); 
-    initBox();
-  }
-  
-  function closeDice() {
-    overlay.classList.remove('open');
-    if (isBoxReady) Box.clear();
-  }
-
-  function toggleDice(e) {
-    if (overlay.classList.contains('open')) {
-      closeDice();
-    } else {
-      openDice(e);
-    }
-  }
-
-  diceBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleDice(e);
+  // Eventos de clique nas faces dos dados da coluna
+  wrap.querySelectorAll('.player-dice-col-btn[data-faces]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const faces = Number(/** @type {HTMLElement} */ (btn).dataset.faces);
+      rollDiceFace(faces);
+    });
   });
-  
-  closeBtn?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeDice();
-  });
-
-  overlay.addEventListener('click', (e) => { 
-    if (e.target === overlay) closeDice(); 
-  });
-
-  // Touch swipe para fechar (desliza pra baixo)
-  let touchStartY = 0;
-  panel?.addEventListener('touchstart', (e) => { touchStartY = e.touches[0].clientY; }, { passive: true });
-  panel?.addEventListener('touchend', (e) => {
-    if (e.changedTouches[0].clientY - touchStartY > 70) closeDice();
-  }, { passive: true });
-
-  // Reposiciona o drop no resize/orientação se estiver aberto no mobile
-  window.addEventListener('resize', () => {
-    if (overlay.classList.contains('open') && isMobile()) {
-      positionMobileDrop();
-    }
-  }, { passive: true });
 
   // ---- Integração GM vs Player ----
   const gmOpenBtn = document.getElementById('openDiceBtn');
 
   if (gmOpenBtn) {
-    // Modo Mestre: usa o botão existente no painel / barra
+    // No Mestre: sincroniza com o botão do topo da barra
     gmOpenBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      toggleDice(e);
+      toggleDiceDrop();
     });
-    // Remove o botão flutuante no desktop do mestre, mas mantém compatibilidade
-    if (diceBtn.parentNode && !isMobile()) {
-      diceBtn.parentNode.removeChild(diceBtn);
-    }
   } else {
-    // Modo Jogador: mostra o botão flutuante ("bolinha") quando conectar
-    document.addEventListener('rpg:connected', () => diceBtn.classList.remove('hidden'));
+    // No Jogador: mostra o botão flutuante quando conectado
+    document.addEventListener('rpg:connected', () => wrap.classList.remove('hidden'));
     setTimeout(() => {
       const vp = document.getElementById('viewport');
-      if (vp && !vp.classList.contains('hidden')) diceBtn.classList.remove('hidden');
+      if (vp && !vp.classList.contains('hidden')) wrap.classList.remove('hidden');
     }, 2500);
   }
 
-  selectFaces(20);
   applyCustomStyles();
-  updateConfigBadge();
+  initBox();
 
   // Observa troca de tema global da mesa
   const themeObserver = new MutationObserver(() => {
@@ -798,13 +661,11 @@ import { isMobile } from './mobile.js';
     if (e.key === 'rpg-table-theme' && customColor === 'theme') applyCustomStyles();
   });
 
-  // Expõe API para abrir rolagem programaticamente
+  // Expõe API para rolagem programática
   // @ts-ignore
   window.RPG = window.RPG || {};
   // @ts-ignore
-  window.RPG.openDice = openDice;
+  window.RPG.toggleDice = toggleDiceDrop;
   // @ts-ignore
-  window.RPG.closeDice = closeDice;
-  // @ts-ignore
-  window.RPG.toggleDice = toggleDice;
+  window.RPG.rollDice = rollDiceFace;
 })();
