@@ -447,6 +447,7 @@
   }
 
   // Envia pedido de rolagem para o GM (sem resultado — o GM vai rolar e nos responder)
+  // Retorna true se enviado com sucesso, false se não há conexão ativa
   function sendDiceRollRequest(requestData) {
     const conn = window.RPG.getActiveConnection ? window.RPG.getActiveConnection() : null;
     if (conn && conn.open) {
@@ -457,11 +458,14 @@
           senderName: myName,
           ...requestData
         });
+        return true;
       } catch (e) {
         console.warn('Erro ao enviar pedido de rolagem:', e);
       }
     }
+    return false;
   }
+
 
 
   // ---------- Init ----------

@@ -440,13 +440,21 @@ import { isAndroidOrIOS } from './mobile.js';
             }
           });
         } else {
-          // Jogador envia pedido de rolagem para o GM — o dado só aparece depois que o Mestre vê
-          if (window.RPG && typeof window.RPG.sendDiceRollRequest === 'function') {
-            window.RPG.sendDiceRollRequest({ faces, count, mod, mode: currentRollMode });
+          // Jogador: tenta enviar pedido para o GM (GM rola primeiro)
+          const sent = window.RPG && typeof window.RPG.sendDiceRollRequest === 'function'
+            ? window.RPG.sendDiceRollRequest({ faces, count, mod, mode: currentRollMode })
+            : false;
+
+          // Fallback: sem conexão com o GM, rola localmente para não ficar sem resposta
+          if (!sent) {
+            rollDiceEngine(faces, count, mod, currentRollMode, (sum, expr) => {
+              showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
+            });
           }
         }
       });
     });
+
 
 
     mColorPicker?.addEventListener('input', () => {
@@ -748,12 +756,20 @@ import { isAndroidOrIOS } from './mobile.js';
           }
         });
       } else {
-        // Jogador envia pedido de rolagem para o GM
-        if (window.RPG && typeof window.RPG.sendDiceRollRequest === 'function') {
-          window.RPG.sendDiceRollRequest({ faces: selectedFaces, count, mod, mode });
+        // Jogador: tenta enviar pedido para o GM (GM rola primeiro)
+        const sent = window.RPG && typeof window.RPG.sendDiceRollRequest === 'function'
+          ? window.RPG.sendDiceRollRequest({ faces: selectedFaces, count, mod, mode })
+          : false;
+
+        // Fallback: sem conexão, rola localmente
+        if (!sent) {
+          rollDiceEngine(selectedFaces, count, mod, mode, (sum, expr) => {
+            showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
+          });
         }
       }
     });
+
 
 
     function openDesktopDice() {
@@ -1013,7 +1029,7 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   // ---- Recepção de resultado de dado vindo do GM ----
-  // Mostra a animação 3D localmente (para efeito visual) + toast com o resultado correto do GM
+  // Mostra toast imediatamente + tenta animar em paralelo (animação não bloqueia o toast)
   window.RPG = window.RPG || {};
   window.RPG.onRemoteDiceRoll = (data) => {
     if (!data) return;
@@ -1021,14 +1037,17 @@ import { isAndroidOrIOS } from './mobile.js';
     const notation = `${data.count || 1}d${data.faces || 20}`;
     const color = data.themeColor || getEffectiveDiceColor();
 
+    // Toast aparece imediatamente, sem depender do estado do DiceBox
+    showSharedResultToast(data.senderName || 'Jogador', data.sum, data.expr, color);
+
+    // Animação 3D tenta rodar em paralelo (best-effort — não bloqueia o resultado)
     initBox().then(() => {
       if (isBoxReady) {
         Box.roll(notation, { themeColor: color }).catch(() => {});
       }
-      // Toast com o resultado exato do GM (não o resultado da animação local)
-      showSharedResultToast(data.senderName || 'Jogador', data.sum, data.expr, color);
-    });
+    }).catch(() => {});
   };
+
 
 
   // ---- GM rola em nome de um jogador (chamado por gm/sync.js) ----
