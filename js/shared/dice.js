@@ -1,13 +1,13 @@
 // @ts-ignore
-import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/dice-box.es.min.js';
+import DiceBox from 'https://cdn.jsdelivr.net/npm/@drdreo/dice-box-threejs@1.1.0/dist/dice-box-threejs.es.js';
 import { isAndroidOrIOS } from './mobile.js';
 
 /* ============================================================
-   Player & GM dice roller — motor 3D sincronizado via WebRTC
+   Player & GM dice roller — motor 3D perfeitamente sincronizado via WebRTC
    - PC: layout clássico de gaveta inferior
    - Mobile (Android / iOS): Speed-Dial flutuante
-   - Sincronização em tempo real: a rolagem 3D e o resultado aparecem
-     instantaneamente na tela de todos os presentes na mesa!
+   - Sincronização determinística: os dados 3D em TODAS as telas (Mestre e Jogadores)
+     são armados para cair exatamente no mesmo lado/resultado apurado na rolagem!
    - Mestre (GM): opção de "Rolagem Secreta / Oculta" para rolar sem
      exibir aos jogadores quando desejar.
    ============================================================ */
@@ -81,63 +81,6 @@ import { isAndroidOrIOS } from './mobile.js';
     boxCanvas.id = 'dice-box-canvas';
     document.body.appendChild(boxCanvas);
   }
-
-  // ---- Injeta Toast de Resultado Compartilhado (Popup na tela do Mestre) ----
-  let sharedToastEl = document.getElementById('playerDiceSharedToast');
-  if (!sharedToastEl) {
-    sharedToastEl = document.createElement('div');
-    sharedToastEl.id = 'playerDiceSharedToast';
-    sharedToastEl.className = 'player-dice-shared-toast hidden';
-    sharedToastEl.innerHTML = `
-      <div class="shared-toast-content">
-        <div class="shared-toast-header">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shared-toast-icon">
-            <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.2"/>
-            <polyline points="12 2 12 22"/>
-            <polyline points="21 7.5 12 12 3 7.5"/>
-          </svg>
-          <span class="shared-toast-user" id="sharedToastUser">Jogador</span>
-          <span class="shared-toast-action">rolou</span>
-        </div>
-        <div class="shared-toast-body">
-          <div class="shared-toast-total" id="sharedToastTotal">20</div>
-          <div class="shared-toast-formula" id="sharedToastFormula">1d20 → [20]</div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(sharedToastEl);
-  }
-
-  const toastUserEl = document.getElementById('sharedToastUser');
-  const toastTotalEl = document.getElementById('sharedToastTotal');
-  const toastFormulaEl = document.getElementById('sharedToastFormula');
-  let toastTimer = null;
-
-  function showSharedResultToast(userName, total, formula, color) {
-    if (!checkIsGM()) return; // Exibe APENAS para o Mestre
-    if (!sharedToastEl || !toastTotalEl || !toastFormulaEl) return;
-    if (toastUserEl) toastUserEl.textContent = userName || 'Jogador';
-    toastTotalEl.textContent = String(total);
-    toastFormulaEl.textContent = formula || '';
-    sharedToastEl.style.setProperty('--dice-active-color', color || getEffectiveDiceColor());
-
-    sharedToastEl.classList.remove('hidden');
-    sharedToastEl.classList.remove('pop');
-    void sharedToastEl.offsetWidth; // force reflow
-    sharedToastEl.classList.add('pop');
-
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      sharedToastEl.classList.remove('pop');
-      setTimeout(() => sharedToastEl.classList.add('hidden'), 350);
-    }, 4500);
-  }
-
-  sharedToastEl.addEventListener('click', () => {
-    if (toastTimer) clearTimeout(toastTimer);
-    sharedToastEl.classList.remove('pop');
-    setTimeout(() => sharedToastEl.classList.add('hidden'), 300);
-  });
 
   // Verifica se é estritamente Android ou iOS
   const isMobileOS = isAndroidOrIOS();
@@ -479,7 +422,7 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   // ============================================================
-  // MODO 2: PC / DESKTOP — LAYOUT CLÁSSICO ORIGINAL DE GAVETA
+  // MODO 2: PC / DESKTOP — LAYOUT CLÁSSICO DE GAVETA INFERIOR
   // ============================================================
   let desktopOverlay = null;
   let desktopPanel = null;
@@ -498,7 +441,6 @@ import { isAndroidOrIOS } from './mobile.js';
   let desktopModeSelect = null;
   let desktopModInput = null;
   let desktopRollBtn = null;
-  let desktopResultEl = null;
   let desktopGmSecretCheck = null;
 
   if (!isMobileOS) {
@@ -674,7 +616,8 @@ import { isAndroidOrIOS } from './mobile.js';
     });
 
     desktopModeSelect?.addEventListener('change', () => {
-      if ((desktopModeSelect.value === 'adv' || desktopModeSelect.value === 'dis') && parseInt(desktopCountInput.value, 10) === 1) {
+      currentRollMode = desktopModeSelect.value || 'normal';
+      if ((currentRollMode === 'adv' || currentRollMode === 'dis') && parseInt(desktopCountInput.value, 10) === 1) {
         desktopCountInput.value = '2';
       }
     });
@@ -722,6 +665,7 @@ import { isAndroidOrIOS } from './mobile.js';
     desktopRollBtn?.addEventListener('click', () => {
       const count = Math.min(20, Math.max(1, parseInt(desktopCountInput.value, 10) || 1));
       const mod = parseInt(desktopModInput.value, 10) || 0;
+      currentRollMode = desktopModeSelect?.value || 'normal';
 
       if (checkIsGM()) {
         gmRoll(selectedFaces, count, mod);
@@ -742,7 +686,6 @@ import { isAndroidOrIOS } from './mobile.js';
 
     function closeDesktopDice() {
       desktopOverlay.classList.remove('open');
-      if (isBoxReady) Box.clear();
       if (boxCanvas) boxCanvas.classList.remove('settled');
     }
 
@@ -766,7 +709,7 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   // ============================================================
-  // MOTOR 3D COMPARTILHADO & CONFIGURAÇÃO
+  // MOTOR 3D & CONFIGURAÇÃO COMPARTILHADA
   // ============================================================
   function getLocalCharacterName() {
     if (checkIsGM()) return 'Mestre';
@@ -794,12 +737,36 @@ import { isAndroidOrIOS } from './mobile.js';
     return getThemeColor();
   }
 
+  function getContrastTextColor(hex) {
+    if (!hex || hex === 'theme') return '#ffffff';
+    let c = hex.replace('#', '');
+    if (c.length === 3) c = c.split('').map(x => x + x).join('');
+    const r = parseInt(c.slice(0, 2), 16) || 0;
+    const g = parseInt(c.slice(2, 4), 16) || 0;
+    const b = parseInt(c.slice(4, 6), 16) || 0;
+    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return lum > 0.6 ? '#111111' : '#ffffff';
+  }
+
+  function createBoxColorset(colorHex) {
+    const effColor = colorHex || getEffectiveDiceColor();
+    return {
+      name: 'clr_' + effColor.replace(/[^a-zA-Z0-9]/g, '') + '_' + Date.now(),
+      foreground: getContrastTextColor(effColor),
+      background: effColor,
+      outline: 'none',
+      texture: 'none',
+      material: 'plastic'
+    };
+  }
+
   function saveAndApplyStyles() {
     try {
       localStorage.setItem(STORAGE_KEY_COLOR, customColor);
       localStorage.setItem(STORAGE_KEY_SCALE, String(customScale));
     } catch (e) {}
     applyCustomStyles();
+    updateBoxAppearance();
   }
 
   function applyCustomStyles() {
@@ -848,49 +815,69 @@ import { isAndroidOrIOS } from './mobile.js';
         });
       }
     }
-
-    if (Box && Box.config) {
-      Box.config.themeColor = effColor;
-      Box.config.scale = customScale;
-    }
-
-    if (isBoxReady && Box && typeof Box.updateConfig === 'function') {
-      try {
-        Box.updateConfig({ scale: customScale, themeColor: effColor });
-      } catch (e) {}
-    }
   }
 
+  let Box = null;
   let isBoxReady = false;
   let isRolling = false;
   let boxInitPromise = null;
 
-  const Box = new DiceBox({
-    container: "#dice-box-canvas",
-    assetPath: "/assets/",
-    origin: "https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist",
-    theme: "default",
-    themeColor: getEffectiveDiceColor(),
-    lightIntensity: 1.2,
-    enableShadows: true,
-    shadowTransparency: 0.8,
-    scale: customScale,
-    delay: 10,
-    offscreen: true
-  });
-
   function initBox() {
-    if (isBoxReady) return Promise.resolve();
+    if (isBoxReady && Box) return Promise.resolve(Box);
     if (!boxInitPromise) {
-      boxInitPromise = Box.init().then(() => {
-        isBoxReady = true;
-      }).catch(err => {
-        console.error("Erro inicializando DiceBox:", err);
-        boxInitPromise = null;
-        isBoxReady = false;
-      });
+      boxInitPromise = (async () => {
+        try {
+          let container = document.getElementById('dice-box-canvas');
+          if (!container) {
+            container = document.createElement('div');
+            container.id = 'dice-box-canvas';
+            document.body.appendChild(container);
+          }
+
+          const effColor = getEffectiveDiceColor();
+          const baseScaleVal = Math.round((customScale / 6) * 100);
+
+          Box = new DiceBox("#dice-box-canvas", {
+            assetPath: "https://cdn.jsdelivr.net/npm/@drdreo/dice-box-threejs@1.1.0/dist",
+            sounds: false,
+            shadows: true,
+            theme_surface: "green-felt",
+            sound_dieMaterial: "plastic",
+            theme_material: "plastic",
+            theme_customColorset: createBoxColorset(effColor),
+            light_intensity: 1.8,
+            baseScale: baseScaleVal,
+            gravity_multiplier: 400
+          });
+
+          await Box.initialize();
+          isBoxReady = true;
+          return Box;
+        } catch (err) {
+          console.error("Erro inicializando DiceBox 3D:", err);
+          boxInitPromise = null;
+          isBoxReady = false;
+          throw err;
+        }
+      })();
     }
     return boxInitPromise;
+  }
+
+  async function updateBoxAppearance(color, scale) {
+    if (!Box || !isBoxReady) return;
+    const effColor = color || getEffectiveDiceColor();
+    const effScale = scale !== undefined ? scale : customScale;
+    const baseScaleVal = Math.round((effScale / 6) * 100);
+
+    try {
+      await Box.updateConfig({
+        baseScale: baseScaleVal,
+        theme_customColorset: createBoxColorset(effColor)
+      });
+    } catch (e) {
+      console.warn("Erro atualizando aparência dos dados 3D:", e);
+    }
   }
 
   // Efeito de brilho suave quando o dado para/assenta
@@ -904,85 +891,98 @@ import { isAndroidOrIOS } from './mobile.js';
     }
   }
 
+  // ---- Gera o resultado determinístico e arma a notação 3D ----
+  function getRandomFace(faces) {
+    if (faces === 100) {
+      return (Math.floor(Math.random() * 10) + 1) * 10;
+    }
+    return Math.floor(Math.random() * faces) + 1;
+  }
+
+  function executeRoll(faces, count = 1, mod = 0, mode = 'normal') {
+    let diceCount = count;
+    if (mode === 'adv' || mode === 'dis') {
+      diceCount = Math.max(2, count);
+    }
+
+    const rolls = [];
+    for (let i = 0; i < diceCount; i++) {
+      rolls.push(getRandomFace(faces));
+    }
+
+    let finalDiceValue;
+    if (mode === 'adv') {
+      finalDiceValue = Math.max(...rolls);
+    } else if (mode === 'dis') {
+      finalDiceValue = Math.min(...rolls);
+    } else {
+      finalDiceValue = rolls.reduce((a, b) => a + b, 0);
+    }
+
+    const sum = finalDiceValue + mod;
+    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
+    let expr = '';
+    if (mode === 'adv') {
+      expr = `${diceCount}d${faces} [ADV: ${rolls.join(', ')}] → Maior: ${finalDiceValue}${modStr ? ' ' + modStr + ' = ' + sum : ''}`;
+    } else if (mode === 'dis') {
+      expr = `${diceCount}d${faces} [DIS: ${rolls.join(', ')}] → Menor: ${finalDiceValue}${modStr ? ' ' + modStr + ' = ' + sum : ''}`;
+    } else if (mod !== 0) {
+      expr = diceCount === 1 ? `Dado: ${rolls[0]} (${modStr}) = ${sum}` : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`;
+    } else {
+      expr = diceCount === 1 ? `1d${faces} → [${rolls[0]}]` : `${diceCount}d${faces} → [${rolls.join(' + ')}] = ${sum}`;
+    }
+
+    // Arma o DiceBox para que os dados caiam exatamente nas faces sorteadas
+    const notation = `${diceCount}d${faces}@${rolls.join(',')}`;
+
+    return {
+      faces,
+      count: diceCount,
+      mod,
+      mode,
+      rolls,
+      sum,
+      expr,
+      notation
+    };
+  }
+
   // ---- Rolagem do JOGADOR ----
   async function playerRoll(faces, count = 1, mod = 0) {
     if (isRolling) return;
     isRolling = true;
+    const mode = currentRollMode || 'normal';
+    const rollData = executeRoll(faces, count, mod, mode);
     const color = getEffectiveDiceColor();
     const senderName = getLocalCharacterName();
 
+    // 1. Transmite imediatamente para o Mestre e demais jogadores na mesa
+    if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
+      window.RPG.sendDiceRoll({
+        faces: rollData.faces,
+        count: rollData.count,
+        mod: rollData.mod,
+        mode: rollData.mode,
+        rolls: rollData.rolls,
+        sum: rollData.sum,
+        expr: rollData.expr,
+        notation: rollData.notation,
+        senderName,
+        themeColor: color,
+        scale: customScale
+      });
+    }
+
+    // 2. Anima fisicamente o dado na tela local
     try {
       await initBox();
-      if (!isBoxReady) throw new Error("DiceBox não inicializado");
-
-      if (typeof Box.updateConfig === 'function') {
-        try { Box.updateConfig({ scale: customScale, themeColor: color }); } catch (e) {}
-      }
-      try { if (typeof Box.clear === 'function') Box.clear(); } catch (e) {}
+      await updateBoxAppearance(color, customScale);
       if (boxCanvas) boxCanvas.classList.remove('settled');
-
-      const notation = `${count}d${faces}`;
-      const results = await Box.roll(notation, { themeColor: color });
-      
-      let rolls = [];
-      if (Array.isArray(results) && results.length > 0) {
-        rolls = results.map(r => Number(r.value) || 1);
-      } else {
-        for (let i = 0; i < count; i++) {
-          rolls.push(1 + Math.floor(Math.random() * faces));
-        }
-      }
-
-      const sumOfDice = rolls.reduce((a, b) => a + b, 0);
-      const sum = sumOfDice + mod;
-      const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
-      const expr = (mod !== 0)
-        ? (count === 1 ? `Dado: ${rolls[0]} (${modStr}) = ${sum}` : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`)
-        : (count === 1 ? `1d${faces} → [${rolls[0]}]` : `${count}d${faces} → [${rolls.join(' + ')}] = ${sum}`);
-
+      await Box.roll(rollData.notation);
       onSettle(color);
-
-      if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
-        window.RPG.sendDiceRoll({
-          faces,
-          count,
-          mod,
-          rolls,
-          sum,
-          expr,
-          senderName,
-          themeColor: color,
-          scale: customScale,
-        });
-      }
     } catch (err) {
-      console.warn("Fallback rolagem jogador:", err);
-      const rolls = [];
-      for (let i = 0; i < count; i++) {
-        rolls.push(1 + Math.floor(Math.random() * faces));
-      }
-      const sumOfDice = rolls.reduce((a, b) => a + b, 0);
-      const sum = sumOfDice + mod;
-      const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
-      const expr = (mod !== 0)
-        ? (count === 1 ? `Dado: ${rolls[0]} (${modStr}) = ${sum}` : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`)
-        : (count === 1 ? `1d${faces} → [${rolls[0]}]` : `${count}d${faces} → [${rolls.join(' + ')}] = ${sum}`);
-
+      console.warn("Fallback visual rolagem jogador:", err);
       onSettle(color);
-
-      if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
-        window.RPG.sendDiceRoll({
-          faces,
-          count,
-          mod,
-          rolls,
-          sum,
-          expr,
-          senderName,
-          themeColor: color,
-          scale: customScale,
-        });
-      }
     } finally {
       isRolling = false;
     }
@@ -992,85 +992,38 @@ import { isAndroidOrIOS } from './mobile.js';
   async function gmRoll(faces, count = 1, mod = 0) {
     if (isRolling) return;
     isRolling = true;
+    const mode = currentRollMode || 'normal';
+    const rollData = executeRoll(faces, count, mod, mode);
     const color = getEffectiveDiceColor();
     const senderName = isSecretRoll ? 'Mestre (Oculto)' : 'Mestre';
 
+    // 1. Se não for oculto, transmite para todas as telas dos jogadores conectados
+    if (!isSecretRoll && window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
+      window.RPG.sendDiceRoll({
+        faces: rollData.faces,
+        count: rollData.count,
+        mod: rollData.mod,
+        mode: rollData.mode,
+        rolls: rollData.rolls,
+        sum: rollData.sum,
+        expr: rollData.expr,
+        notation: rollData.notation,
+        senderName: 'Mestre',
+        themeColor: color,
+        scale: customScale
+      });
+    }
+
+    // 2. Anima fisicamente o dado na tela do Mestre
     try {
       await initBox();
-      if (!isBoxReady) throw new Error("DiceBox não inicializado");
-
-      if (typeof Box.updateConfig === 'function') {
-        try { Box.updateConfig({ scale: customScale, themeColor: color }); } catch (e) {}
-      }
-      try { if (typeof Box.clear === 'function') Box.clear(); } catch (e) {}
+      await updateBoxAppearance(color, customScale);
       if (boxCanvas) boxCanvas.classList.remove('settled');
-
-      const notation = `${count}d${faces}`;
-      const results = await Box.roll(notation, { themeColor: color });
-
-      let rolls = [];
-      if (Array.isArray(results) && results.length > 0) {
-        rolls = results.map(r => Number(r.value) || 1);
-      } else {
-        for (let i = 0; i < count; i++) {
-          rolls.push(1 + Math.floor(Math.random() * faces));
-        }
-      }
-
-      const sumOfDice = rolls.reduce((a, b) => a + b, 0);
-      const sum = sumOfDice + mod;
-      const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
-      const expr = (mod !== 0)
-        ? (count === 1 ? `Dado: ${rolls[0]} (${modStr}) = ${sum}` : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`)
-        : (count === 1 ? `1d${faces} → [${rolls[0]}]` : `${count}d${faces} → [${rolls.join(' + ')}] = ${sum}`);
-
+      await Box.roll(rollData.notation);
       onSettle(color);
-
-      // Mestre vê o popup imediatamente na sua tela com o valor real apurado do dado 3D
-      showSharedResultToast(senderName, sum, expr + (isSecretRoll ? ' [Oculto]' : ''), color);
-
-      if (!isSecretRoll && window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
-        window.RPG.sendDiceRoll({
-          faces,
-          count,
-          mod,
-          rolls,
-          sum,
-          expr,
-          senderName: 'Mestre',
-          themeColor: color,
-          scale: customScale,
-        });
-      }
     } catch (err) {
-      console.warn("Fallback rolagem mestre:", err);
-      const rolls = [];
-      for (let i = 0; i < count; i++) {
-        rolls.push(1 + Math.floor(Math.random() * faces));
-      }
-      const sumOfDice = rolls.reduce((a, b) => a + b, 0);
-      const sum = sumOfDice + mod;
-      const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
-      const expr = (mod !== 0)
-        ? (count === 1 ? `Dado: ${rolls[0]} (${modStr}) = ${sum}` : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`)
-        : (count === 1 ? `1d${faces} → [${rolls[0]}]` : `${count}d${faces} → [${rolls.join(' + ')}] = ${sum}`);
-
+      console.warn("Fallback visual rolagem mestre:", err);
       onSettle(color);
-      showSharedResultToast(senderName, sum, expr + (isSecretRoll ? ' [Oculto]' : ''), color);
-
-      if (!isSecretRoll && window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
-        window.RPG.sendDiceRoll({
-          faces,
-          count,
-          mod,
-          rolls,
-          sum,
-          expr,
-          senderName: 'Mestre',
-          themeColor: color,
-          scale: customScale,
-        });
-      }
     } finally {
       isRolling = false;
     }
@@ -1081,32 +1034,18 @@ import { isAndroidOrIOS } from './mobile.js';
   window.RPG.onRemoteDiceRoll = async (data) => {
     if (!data) return;
 
-    const faces = data.faces || 20;
-    const count = data.count || 1;
     const color = data.themeColor || getEffectiveDiceColor();
-    const senderName = data.senderName || 'Jogador';
-    const sum = data.sum !== undefined ? data.sum : 0;
-    const expr = data.expr || '';
-
-    // APENAS NA TELA DO MESTRE: exibe o popup com valor do dado + modificador
-    if (checkIsGM()) {
-      showSharedResultToast(senderName, sum, expr, color);
-    }
+    const scale = data.scale || customScale;
+    const notation = data.notation || `${data.count || (data.rolls ? data.rolls.length : 1)}d${data.faces || 20}@${(data.rolls || [1]).join(',')}`;
 
     try {
       await initBox();
-      if (isBoxReady) {
-        if (typeof Box.updateConfig === 'function') {
-          try { Box.updateConfig({ scale: data.scale || customScale, themeColor: color }); } catch (e) {}
-        }
-        try { if (typeof Box.clear === 'function') Box.clear(); } catch (e) {}
-        if (boxCanvas) boxCanvas.classList.remove('settled');
-
-        const notation = `${count}d${faces}`;
-        await Box.roll(notation, { themeColor: color });
-        onSettle(color);
-      }
-    } catch (_) {
+      await updateBoxAppearance(color, scale);
+      if (boxCanvas) boxCanvas.classList.remove('settled');
+      await Box.roll(notation);
+      onSettle(color);
+    } catch (err) {
+      console.warn("Fallback visual rolagem remota:", err);
       onSettle(color);
     }
   };
@@ -1115,11 +1054,17 @@ import { isAndroidOrIOS } from './mobile.js';
   initBox();
 
   const themeObserver = new MutationObserver(() => {
-    if (customColor === 'theme') applyCustomStyles();
+    if (customColor === 'theme') {
+      applyCustomStyles();
+      updateBoxAppearance();
+    }
   });
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   window.addEventListener('storage', (e) => {
-    if (e.key === 'rpg-table-theme' && customColor === 'theme') applyCustomStyles();
+    if (e.key === 'rpg-table-theme' && customColor === 'theme') {
+      applyCustomStyles();
+      updateBoxAppearance();
+    }
   });
 
   // API pública: rollDice (uso via console/macros)
