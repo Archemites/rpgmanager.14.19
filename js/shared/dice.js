@@ -428,16 +428,26 @@ import { isAndroidOrIOS } from './mobile.js';
         const count = Math.min(20, Math.max(1, parseInt(mCountInput.value, 10) || 1));
         const mod = parseInt(mModInput.value, 10) || 0;
 
-        rollDiceEngine(faces, count, mod, currentRollMode, (sum, expr) => {
-          const isGMActive = checkIsGM();
-          if (isGMActive && isSecretRoll) {
-            showSharedResultToast('Mestre (Oculto)', sum, expr + ' [Oculto]', getEffectiveDiceColor());
-          } else {
-            showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
+        const isGMActive = checkIsGM();
+
+        if (isGMActive) {
+          // Mestre rola localmente (com suporte a rolagem secreta)
+          rollDiceEngine(faces, count, mod, currentRollMode, (sum, expr) => {
+            if (isSecretRoll) {
+              showSharedResultToast('Mestre (Oculto)', sum, expr + ' [Oculto]', getEffectiveDiceColor());
+            } else {
+              showSharedResultToast('Mestre', sum, expr, getEffectiveDiceColor());
+            }
+          });
+        } else {
+          // Jogador envia pedido de rolagem para o GM — o dado só aparece depois que o Mestre vê
+          if (window.RPG && typeof window.RPG.sendDiceRollRequest === 'function') {
+            window.RPG.sendDiceRollRequest({ faces, count, mod, mode: currentRollMode });
           }
-        });
+        }
       });
     });
+
 
     mColorPicker?.addEventListener('input', () => {
       customColor = mColorPicker.value;
@@ -726,15 +736,25 @@ import { isAndroidOrIOS } from './mobile.js';
       const mod = parseInt(desktopModInput.value, 10) || 0;
       const mode = desktopModeSelect ? desktopModeSelect.value : 'normal';
 
-      rollDiceEngine(selectedFaces, count, mod, mode, (sum, expr) => {
-        const isGMActive = checkIsGM();
-        if (isGMActive && isSecretRoll) {
-          showSharedResultToast('Mestre (Oculto)', sum, expr + ' [Oculto dos jogadores]', getEffectiveDiceColor());
-        } else {
-          showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
+      const isGMActive = checkIsGM();
+
+      if (isGMActive) {
+        // Mestre rola localmente
+        rollDiceEngine(selectedFaces, count, mod, mode, (sum, expr) => {
+          if (isSecretRoll) {
+            showSharedResultToast('Mestre (Oculto)', sum, expr + ' [Oculto dos jogadores]', getEffectiveDiceColor());
+          } else {
+            showSharedResultToast('Mestre', sum, expr, getEffectiveDiceColor());
+          }
+        });
+      } else {
+        // Jogador envia pedido de rolagem para o GM
+        if (window.RPG && typeof window.RPG.sendDiceRollRequest === 'function') {
+          window.RPG.sendDiceRollRequest({ faces: selectedFaces, count, mod, mode });
         }
-      });
+      }
     });
+
 
     function openDesktopDice() {
       applyCustomStyles();
@@ -896,7 +916,7 @@ import { isAndroidOrIOS } from './mobile.js';
     return boxInitPromise;
   }
 
-  function rollDiceEngine(faces, count, mod, mode, onComplete) {
+  function rollDiceEngine(faces, count, mod, mode, onComplete, overrideSenderName) {
     if (isRolling) return;
     isRolling = true;
 
@@ -930,7 +950,7 @@ import { isAndroidOrIOS } from './mobile.js';
           } else {
             expr = `${count}d${faces}${modStr} → [${highest}]${mod !== 0 ? ` (${highest}${modStr})` : ''}`;
           }
-          finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete);
+          finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete, overrideSenderName);
         } else if (mode === 'dis') {
           const lowest = Math.min(...rolls);
           chosenValue = lowest;
@@ -940,7 +960,7 @@ import { isAndroidOrIOS } from './mobile.js';
           } else {
             expr = `${count}d${faces}${modStr} → [${lowest}]${mod !== 0 ? ` (${lowest}${modStr})` : ''}`;
           }
-          finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete);
+          finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete, overrideSenderName);
         } else {
           const sumOfDice = rolls.reduce((a, b) => a + b, 0);
           chosenValue = sumOfDice;
@@ -950,7 +970,7 @@ import { isAndroidOrIOS } from './mobile.js';
           } else {
             expr = `${count}d${faces}${modStr} → [${rolls[0]}]${mod !== 0 ? ` (${rolls[0]}${modStr})` : ''}`;
           }
-          finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete);
+          finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete, overrideSenderName);
         }
       }).catch(err => {
         console.error("Erro na rolagem 3D:", err);
@@ -959,23 +979,23 @@ import { isAndroidOrIOS } from './mobile.js';
     });
   }
 
-  function finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete) {
+
+  function finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete, overrideSenderName) {
     const isGMActive = checkIsGM();
 
-    // Se for o Mestre com rolagem secreta ativada, mostra só localmente e NÃO transmite
+    // Se for o Mestre com rolagem secreta, mostra apenas localmente e NÃO transmite
     if (isGMActive && isSecretRoll) {
       if (typeof onComplete === 'function') onComplete(finalSum, expr, rolls);
       return;
     }
 
-    // Mestre sempre vê o resultado imediatamente (ele é o host)
+    // Mestre sempre chama o callback local (mostra toast na própria tela)
     if (isGMActive) {
       if (typeof onComplete === 'function') onComplete(finalSum, expr, rolls);
     }
-    // Jogadores NÃO mostram o resultado localmente — o toast chega via GM (onRemoteDiceRoll)
-    // garantindo que o GM veja o dado primeiro
+    // Jogadores NÃO chamam onComplete aqui — o resultado chega via GM (onRemoteDiceRoll)
 
-    // Envia a rolagem via WebRTC para todos na mesa
+    // Envia resultado via WebRTC
     if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
       window.RPG.sendDiceRoll({
         faces,
@@ -986,25 +1006,31 @@ import { isAndroidOrIOS } from './mobile.js';
         scale: customScale,
         rolls,
         sum: finalSum,
-        expr
+        expr,
+        ...(overrideSenderName ? { senderName: overrideSenderName } : {})
       });
     }
   }
 
-
-  // ---- Recepção de Rolagem Remota via WebRTC ----
+  // ---- Recepção de resultado de dado vindo do GM ----
+  // Jogadores recebem este evento e mostram apenas o toast (o dado já rolou na tela do GM)
   window.RPG = window.RPG || {};
   window.RPG.onRemoteDiceRoll = (data) => {
     if (!data) return;
+    showSharedResultToast(data.senderName || 'Jogador', data.sum, data.expr, data.themeColor || '#45ff78');
+  };
 
-    initBox().then(() => {
-      if (isBoxReady) {
-        const notation = `${data.count || 1}d${data.faces || 20}`;
-        const color = data.themeColor || '#45ff78';
-        Box.roll(notation, { themeColor: color }).catch(() => {});
-      }
-      showSharedResultToast(data.senderName || 'Jogador', data.sum, data.expr, data.themeColor || '#45ff78');
-    });
+  // ---- GM rola em nome de um jogador (chamado por gm/sync.js) ----
+  // Recebe um pedido de rolagem de um jogador, executa Box.roll() aqui no GM,
+  // mostra na tela do GM e depois transmite o resultado para todos.
+  window.RPG.rollDiceFromRequest = (requestData) => {
+    const { faces, count, mod, mode, senderName, themeColor } = requestData;
+    const color = themeColor || getEffectiveDiceColor();
+    rollDiceEngine(faces || 20, count || 1, mod || 0, mode || 'normal', (sum, expr) => {
+      // Mostra na tela do GM com o nome do jogador que pediu
+      showSharedResultToast(senderName || 'Jogador', sum, expr, color);
+    }, senderName);
+    // finishRoll vai transmitir para todos com o senderName correto via sendDiceRoll do GM
   };
 
   applyCustomStyles();
@@ -1018,15 +1044,17 @@ import { isAndroidOrIOS } from './mobile.js';
     if (e.key === 'rpg-table-theme' && customColor === 'theme') applyCustomStyles();
   });
 
+  // API pública: rollDice (uso via console/macros, apenas para GM)
   // @ts-ignore
   window.RPG.rollDice = (faces, count = 1, mod = 0, mode = 'normal') => {
+    const isGMActive = checkIsGM();
     rollDiceEngine(faces, count, mod, mode, (sum, expr) => {
-      const isGMActive = checkIsGM();
       if (isGMActive && isSecretRoll) {
         showSharedResultToast('Mestre (Oculto)', sum, expr + ' [Oculto]', getEffectiveDiceColor());
       } else {
-        showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
+        showSharedResultToast(isGMActive ? 'Mestre' : 'Você', sum, expr, getEffectiveDiceColor());
       }
     });
   };
 })();
+

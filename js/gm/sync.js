@@ -381,17 +381,23 @@
         return;
       }
       if (!peer.admitted) return; // ignore everything else until the PIN checks out
+      if (msg.type === 'rpg-dice-roll-request') {
+        // Jogador pediu uma rolagem — GM executa Box.roll() aqui (dado aparece na tela do GM primeiro)
+        // O resultado é transmitido para TODOS (incluindo o jogador que pediu) após 700ms via finishRoll/sendDiceRoll
+        const senderName = msg.senderName || peer.name || 'Jogador';
+        if (window.RPG && typeof window.RPG.rollDiceFromRequest === 'function') {
+          window.RPG.rollDiceFromRequest({ ...msg, senderName });
+        }
+        return;
+      }
+
+      // Compatibilidade com rpg-dice-roll legado (caso alguém envie resultado diretamente)
       if (msg.type === 'rpg-dice-roll') {
         const senderName = msg.senderName || peer.name || 'Jogador';
         const rollPayload = { ...msg, senderName };
-
-        // 1. Exibe IMEDIATAMENTE no Mestre primeiro
-        if (window.RPG.onRemoteDiceRoll) {
+        if (window.RPG && window.RPG.onRemoteDiceRoll) {
           window.RPG.onRemoteDiceRoll(rollPayload);
         }
-
-        // 2. Re-transmite para TODOS os jogadores (incluindo quem rolou) após o delay
-        //    Os jogadores suprimem o toast local e aguardam esta mensagem para ver o resultado
         setTimeout(() => {
           for (const otherPeer of peers) {
             if (otherPeer.conn && otherPeer.conn.open) {
@@ -401,6 +407,7 @@
         }, 700);
         return;
       }
+
 
       if (msg.type === 'rpg-token-move' && typeof msg.x === 'number' && typeof msg.y === 'number') {
         if (!peer.tokenId) return;
@@ -500,17 +507,21 @@
     if (e.target === inviteOverlay) inviteOverlay.classList.remove('open');
   });
 
-  // Broadcast a dice roll from GM to all players (com delay para rolar primeiro na tela do mestre)
+  // Broadcast resultado de dado para todos os jogadores
+  // Quando chamado pelo GM rolando para si: senderName = 'Mestre'
+  // Quando chamado via rollDiceFromRequest (em nome de jogador): senderName = nome do jogador
   function sendDiceRoll(rollData) {
     const msg = {
       type: 'rpg-dice-roll',
-      senderName: 'Mestre',
+      senderName: rollData.senderName || 'Mestre',
       ...rollData
     };
+    // Delay de 700ms — GM já viu o dado, agora é a vez dos jogadores
     setTimeout(() => {
       broadcast(msg);
-    }, 400);
+    }, 700);
   }
+
 
   // ---------- Expose to window.RPG ----------
   window.RPG.sendState = sendState;
