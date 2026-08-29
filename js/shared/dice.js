@@ -8,6 +8,7 @@ import { isAndroidOrIOS } from './mobile.js';
    - Mobile (Android / iOS): Speed-Dial flutuante
    - Sincronização determinística: os dados 3D em TODAS as telas (Mestre e Jogadores)
      são armados para cair exatamente no mesmo lado/resultado apurado na rolagem!
+   - Personalização completa: tamanho do dado (slider), cor do dado e cor dos números/texto.
    - Mestre (GM): opção de "Rolagem Secreta / Oculta" para rolar sem
      exibir aos jogadores quando desejar.
    ============================================================ */
@@ -36,7 +37,7 @@ import { isAndroidOrIOS } from './mobile.js';
     isSecretRoll = localStorage.getItem(STORAGE_KEY_SECRET) === 'true';
   } catch (_) {}
 
-  // ---- Paleta de Cores ----
+  // ---- Paleta de Cores do Dado ----
   const COLOR_PALETTE = [
     { label: 'Tema da Mesa', value: 'theme', color: 'transparent', isTheme: true },
     { label: 'Dourado Imperial', value: '#f5b342' },
@@ -51,16 +52,34 @@ import { isAndroidOrIOS } from './mobile.js';
     { label: 'Preto Ônix', value: '#334155' }
   ];
 
+  // ---- Paleta de Cores do Texto / Números ----
+  const TEXT_COLOR_PALETTE = [
+    { label: 'Auto (Contraste)', value: 'auto', color: 'transparent', isAuto: true },
+    { label: 'Branco Puro', value: '#ffffff' },
+    { label: 'Preto Ônix', value: '#111111' },
+    { label: 'Dourado Imperial', value: '#f5b342' },
+    { label: 'Amarelo Ouro', value: '#facc15' },
+    { label: 'Verde Neon', value: '#45ff78' },
+    { label: 'Ciano Etéreo', value: '#06b6d4' },
+    { label: 'Azul Celeste', value: '#38bdf8' },
+    { label: 'Vermelho Fogo', value: '#e63946' },
+    { label: 'Rosa Magenta', value: '#f43f5e' },
+    { label: 'Roxo Arcano', value: '#a855f7' }
+  ];
+
   const STORAGE_KEY_COLOR = 'rpg-dice-color';
+  const STORAGE_KEY_TEXT_COLOR = 'rpg-dice-text-color';
   const STORAGE_KEY_SCALE = 'rpg-dice-scale';
 
   let customColor = 'theme';
+  let customTextColor = 'auto';
   let customScale = 6;
 
   try {
     customColor = localStorage.getItem(STORAGE_KEY_COLOR) || 'theme';
+    customTextColor = localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || 'auto';
     const savedScale = localStorage.getItem(STORAGE_KEY_SCALE);
-    if (savedScale) customScale = Math.min(9, Math.max(3, Number(savedScale) || 6));
+    if (savedScale) customScale = Math.min(14, Math.max(2, Number(savedScale) || 6));
   } catch (e) {}
 
   // ---- SVGs Poliédricos para os Dados ----
@@ -199,17 +218,19 @@ import { isAndroidOrIOS } from './mobile.js';
           <button type="button" id="mobileSettingsClose" class="settings-popover-close">✕</button>
         </div>
 
+        <!-- 1. Tamanho -->
         <div class="settings-row">
           <div class="settings-label-row">
             <span class="settings-label">Tamanho do Dado</span>
             <span id="mobileScaleVal" class="settings-val">100%</span>
           </div>
-          <input type="range" id="mobileScaleInput" min="3" max="9" value="6" step="0.5">
+          <input type="range" id="mobileScaleInput" min="2" max="14" value="6" step="0.5">
         </div>
         
+        <!-- 2. Cor do Dado -->
         <div class="settings-row">
           <div class="settings-label-row">
-            <span class="settings-label">Cor dos Dados</span>
+            <span class="settings-label">Cor do Dado</span>
             <button type="button" id="mobileResetBtn" class="reset-theme-btn" title="Restaurar cor do tema">Cor do Tema</button>
           </div>
           <div class="settings-color-bar">
@@ -223,6 +244,25 @@ import { isAndroidOrIOS } from './mobile.js';
             </div>
           </div>
           <div class="color-presets-grid" id="mobileColorGrid"></div>
+        </div>
+
+        <!-- 3. Cor dos Números / Texto -->
+        <div class="settings-row">
+          <div class="settings-label-row">
+            <span class="settings-label">Cor dos Números / Texto</span>
+            <button type="button" id="mobileTextAutoBtn" class="reset-theme-btn" title="Contraste automático">Auto</button>
+          </div>
+          <div class="settings-color-bar">
+            <div class="color-picker-dot" title="Espectro de Cores dos Números">
+              <input type="color" id="mobileTextColorPicker" value="#ffffff">
+            </div>
+            <div id="mobileTextPickerPreview" class="color-preview-dot"></div>
+            <div class="color-hex-field">
+              <span class="hex-prefix">#</span>
+              <input type="text" id="mobileTextHexInput" maxlength="6" placeholder="FFFFFF" spellcheck="false">
+            </div>
+          </div>
+          <div class="color-presets-grid" id="mobileTextColorGrid"></div>
         </div>
       </div>
     `;
@@ -256,6 +296,12 @@ import { isAndroidOrIOS } from './mobile.js';
     const mScaleVal = document.getElementById('mobileScaleVal');
     const mColorGrid = document.getElementById('mobileColorGrid');
     const mResetBtn = document.getElementById('mobileResetBtn');
+
+    const mTextColorPicker = /** @type {HTMLInputElement} */ (document.getElementById('mobileTextColorPicker'));
+    const mTextPreview = document.getElementById('mobileTextPickerPreview');
+    const mTextHexInput = /** @type {HTMLInputElement} */ (document.getElementById('mobileTextHexInput'));
+    const mTextColorGrid = document.getElementById('mobileTextColorGrid');
+    const mTextAutoBtn = document.getElementById('mobileTextAutoBtn');
 
     const mGmSecretBtn = document.getElementById('mobileGmSecretBtn');
     const mSecretLabel = document.getElementById('mobileSecretLabel');
@@ -393,6 +439,25 @@ import { isAndroidOrIOS } from './mobile.js';
       }
     });
 
+    mTextColorPicker?.addEventListener('input', () => {
+      customTextColor = mTextColorPicker.value;
+      saveAndApplyStyles();
+    });
+
+    mTextHexInput?.addEventListener('input', () => {
+      let raw = mTextHexInput.value.replace(/[^0-9a-fA-F]/g, '');
+      if (raw.length === 6) {
+        customTextColor = '#' + raw;
+        saveAndApplyStyles();
+      }
+    });
+
+    mTextAutoBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      customTextColor = 'auto';
+      saveAndApplyStyles();
+    });
+
     mScaleInput?.addEventListener('input', () => {
       customScale = Number(mScaleInput.value) || 6;
       saveAndApplyStyles();
@@ -401,7 +466,6 @@ import { isAndroidOrIOS } from './mobile.js';
     mResetBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       customColor = 'theme';
-      customScale = 6;
       saveAndApplyStyles();
     });
 
@@ -431,6 +495,11 @@ import { isAndroidOrIOS } from './mobile.js';
   let desktopColorPicker = null;
   let desktopActivePreview = null;
   let desktopHexInput = null;
+  let desktopTextColorPicker = null;
+  let desktopTextActivePreview = null;
+  let desktopTextHexInput = null;
+  let desktopTextColorGrid = null;
+  let desktopTextAutoBtn = null;
   let desktopScaleInput = null;
   let desktopScaleVal = null;
   let desktopColorGrid = null;
@@ -471,7 +540,7 @@ import { isAndroidOrIOS } from './mobile.js';
       <div id="playerDicePanel" class="player-dice-panel">
         <div class="player-dice-top-bar">
           <div class="player-dice-handle"></div>
-          <button type="button" id="playerDiceSettingsBtn" class="player-dice-settings-btn" title="Personalizar cor dos dados 3D">
+          <button type="button" id="playerDiceSettingsBtn" class="player-dice-settings-btn" title="Personalizar cor e aparência dos dados 3D">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
               <circle cx="12" cy="12" r="3" />
@@ -480,38 +549,7 @@ import { isAndroidOrIOS } from './mobile.js';
         </div>
 
         <div id="playerDiceSettingsDrawer" class="player-dice-settings-drawer">
-          <div class="player-dice-settings-title">
-            <span>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2C6.49 2 2 6.49 2 12c0 3.87 2.33 7.2 5.67 8.65.6.26 1.33-.19 1.33-.85v-.8c0-.55.45-1 1-1h1.5c3.58 0 6.5-2.92 6.5-6.5 0-4.96-2.69-9.5-6-9.5z" />
-                <circle cx="7.5" cy="10.5" r="1.5" fill="currentColor" />
-                <circle cx="11" cy="7.5" r="1.5" fill="currentColor" />
-                <circle cx="15.5" cy="9" r="1.5" fill="currentColor" />
-                <circle cx="16.5" cy="13.5" r="1.5" fill="currentColor" />
-              </svg>
-              Cor dos Dados 3D
-            </span>
-            <button type="button" class="player-dice-settings-reset" id="playerDiceResetBtn" title="Restaurar cor do tema da mesa">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-              </svg>
-              <span>Cor do Tema</span>
-            </button>
-          </div>
-
-          <div class="player-dice-picker-row">
-            <div class="player-dice-color-picker-wrap" title="Clique para abrir a paleta de cores (Hue / Espectro)">
-              <input type="color" id="playerDiceColorPicker" value="#45ff78">
-            </div>
-            <div class="player-dice-active-preview" id="playerDicePickerPreview" title="Cor ativa"></div>
-            <div class="player-dice-hex-wrap">
-              <span class="player-dice-hex-prefix">#</span>
-              <input type="text" id="playerDiceHexInput" class="player-dice-hex-input" maxlength="6" placeholder="45FF78" spellcheck="false" title="Digite o código HEX da cor">
-            </div>
-            <span class="player-dice-picker-hint">Código HEX</span>
-          </div>
-
+          <!-- 1. Tamanho do Dado -->
           <div class="player-dice-scale-row">
             <div class="player-dice-scale-header">
               <span class="player-dice-scale-title">
@@ -526,12 +564,77 @@ import { isAndroidOrIOS } from './mobile.js';
               <span id="playerDiceScaleVal" class="player-dice-scale-val">100%</span>
             </div>
             <div class="player-dice-scale-slider-wrap">
-              <input type="range" id="playerDiceScaleInput" min="3" max="9" value="6" step="0.5">
+              <input type="range" id="playerDiceScaleInput" min="2" max="14" value="6" step="0.5">
             </div>
           </div>
 
-          <div class="player-dice-presets-label">Presets rápidos:</div>
+          <!-- 2. Cor do Dado -->
+          <div class="player-dice-settings-title">
+            <span>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2C6.49 2 2 6.49 2 12c0 3.87 2.33 7.2 5.67 8.65.6.26 1.33-.19 1.33-.85v-.8c0-.55.45-1 1-1h1.5c3.58 0 6.5-2.92 6.5-6.5 0-4.96-2.69-9.5-6-9.5z" />
+                <circle cx="7.5" cy="10.5" r="1.5" fill="currentColor" />
+                <circle cx="11" cy="7.5" r="1.5" fill="currentColor" />
+                <circle cx="15.5" cy="9" r="1.5" fill="currentColor" />
+                <circle cx="16.5" cy="13.5" r="1.5" fill="currentColor" />
+              </svg>
+              Cor do Dado
+            </span>
+            <button type="button" class="player-dice-settings-reset" id="playerDiceResetBtn" title="Restaurar cor do tema da mesa">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              <span>Cor do Tema</span>
+            </button>
+          </div>
+
+          <div class="player-dice-picker-row">
+            <div class="player-dice-color-picker-wrap" title="Clique para abrir a paleta de cores do dado">
+              <input type="color" id="playerDiceColorPicker" value="#45ff78">
+            </div>
+            <div class="player-dice-active-preview" id="playerDicePickerPreview" title="Cor ativa do dado"></div>
+            <div class="player-dice-hex-wrap">
+              <span class="player-dice-hex-prefix">#</span>
+              <input type="text" id="playerDiceHexInput" class="player-dice-hex-input" maxlength="6" placeholder="45FF78" spellcheck="false" title="Código HEX">
+            </div>
+            <span class="player-dice-picker-hint">Código HEX</span>
+          </div>
+          <div class="player-dice-presets-label">Presets rápidos do dado:</div>
           <div class="player-dice-color-grid" id="playerDiceColorGrid"></div>
+
+          <!-- 3. Cor dos Números / Texto -->
+          <div class="player-dice-settings-title" style="margin-top: 14px;">
+            <span>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="4 7 4 4 20 4 20 7"/>
+                <line x1="9" y1="20" x2="15" y2="20"/>
+                <line x1="12" y1="4" x2="12" y2="20"/>
+              </svg>
+              Cor dos Números / Texto
+            </span>
+            <button type="button" class="player-dice-settings-reset" id="playerDiceTextAutoBtn" title="Contraste automático com a cor do dado">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>
+              </svg>
+              <span>Auto</span>
+            </button>
+          </div>
+
+          <div class="player-dice-picker-row">
+            <div class="player-dice-color-picker-wrap" title="Clique para abrir a paleta de cores dos números">
+              <input type="color" id="playerDiceTextColorPicker" value="#ffffff">
+            </div>
+            <div class="player-dice-active-preview" id="playerDiceTextPickerPreview" title="Cor ativa dos números"></div>
+            <div class="player-dice-hex-wrap">
+              <span class="player-dice-hex-prefix">#</span>
+              <input type="text" id="playerDiceTextHexInput" class="player-dice-hex-input" maxlength="6" placeholder="FFFFFF" spellcheck="false" title="Código HEX dos números">
+            </div>
+            <span class="player-dice-picker-hint">Código HEX</span>
+          </div>
+          <div class="player-dice-presets-label">Presets rápidos dos números:</div>
+          <div class="player-dice-color-grid" id="playerDiceTextColorGrid"></div>
         </div>
 
         <div class="player-dice-controls">
@@ -595,13 +698,24 @@ import { isAndroidOrIOS } from './mobile.js';
     desktopPanel = document.getElementById('playerDicePanel');
     desktopSettingsBtn = document.getElementById('playerDiceSettingsBtn');
     desktopSettingsDrawer = document.getElementById('playerDiceSettingsDrawer');
+    
+    // Cor do Dado
     desktopColorPicker = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceColorPicker'));
     desktopActivePreview = document.getElementById('playerDicePickerPreview');
     desktopHexInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceHexInput'));
-    desktopScaleInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceScaleInput'));
-    desktopScaleVal = document.getElementById('playerDiceScaleVal');
     desktopColorGrid = document.getElementById('playerDiceColorGrid');
     desktopResetBtn = document.getElementById('playerDiceResetBtn');
+
+    // Cor dos Números
+    desktopTextColorPicker = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceTextColorPicker'));
+    desktopTextActivePreview = document.getElementById('playerDiceTextPickerPreview');
+    desktopTextHexInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceTextHexInput'));
+    desktopTextColorGrid = document.getElementById('playerDiceTextColorGrid');
+    desktopTextAutoBtn = document.getElementById('playerDiceTextAutoBtn');
+
+    // Escala
+    desktopScaleInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceScaleInput'));
+    desktopScaleVal = document.getElementById('playerDiceScaleVal');
 
     desktopFaceButtons = desktopOverlay.querySelectorAll('.player-dice-face-btn');
     desktopCountInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceCount'));
@@ -640,6 +754,24 @@ import { isAndroidOrIOS } from './mobile.js';
       }
     });
 
+    desktopTextColorPicker?.addEventListener('input', () => {
+      customTextColor = desktopTextColorPicker.value;
+      saveAndApplyStyles();
+    });
+
+    desktopTextHexInput?.addEventListener('input', () => {
+      let raw = desktopTextHexInput.value.replace(/[^0-9a-fA-F]/g, '');
+      if (raw.length === 6) {
+        customTextColor = '#' + raw;
+        saveAndApplyStyles();
+      }
+    });
+
+    desktopTextAutoBtn?.addEventListener('click', () => {
+      customTextColor = 'auto';
+      saveAndApplyStyles();
+    });
+
     desktopScaleInput?.addEventListener('input', () => {
       customScale = Number(desktopScaleInput.value) || 6;
       saveAndApplyStyles();
@@ -647,7 +779,6 @@ import { isAndroidOrIOS } from './mobile.js';
 
     desktopResetBtn?.addEventListener('click', () => {
       customColor = 'theme';
-      customScale = 6;
       saveAndApplyStyles();
     });
 
@@ -748,11 +879,21 @@ import { isAndroidOrIOS } from './mobile.js';
     return lum > 0.6 ? '#111111' : '#ffffff';
   }
 
-  function createBoxColorset(colorHex) {
+  function getEffectiveTextColor() {
+    if (customTextColor && customTextColor !== 'auto') {
+      let c = String(customTextColor).trim();
+      if (!c.startsWith('#')) c = '#' + c;
+      return c;
+    }
+    return getContrastTextColor(getEffectiveDiceColor());
+  }
+
+  function createBoxColorset(colorHex, textColorHex) {
     const effColor = colorHex || getEffectiveDiceColor();
+    const effTextColor = textColorHex || getEffectiveTextColor();
     return {
-      name: 'clr_' + effColor.replace(/[^a-zA-Z0-9]/g, '') + '_' + Date.now(),
-      foreground: getContrastTextColor(effColor),
+      name: 'clr_' + effColor.replace(/[^a-zA-Z0-9]/g, '') + '_' + effTextColor.replace(/[^a-zA-Z0-9]/g, '') + '_' + Date.now(),
+      foreground: effTextColor,
       background: effColor,
       outline: 'none',
       texture: 'none',
@@ -760,9 +901,22 @@ import { isAndroidOrIOS } from './mobile.js';
     };
   }
 
+  function applyScaleToBox(scaleVal) {
+    if (!Box) return;
+    const s = scaleVal !== undefined ? scaleVal : customScale;
+    const baseScaleVal = Math.round((s / 6) * 100);
+    Box.baseScale = baseScaleVal;
+    if (Box.DiceFactory) {
+      Box.DiceFactory.baseScale = baseScaleVal;
+      Box.DiceFactory.geometries = {};
+      Box.DiceFactory.materials_cache = {};
+    }
+  }
+
   function saveAndApplyStyles() {
     try {
       localStorage.setItem(STORAGE_KEY_COLOR, customColor);
+      localStorage.setItem(STORAGE_KEY_TEXT_COLOR, customTextColor);
       localStorage.setItem(STORAGE_KEY_SCALE, String(customScale));
     } catch (e) {}
     applyCustomStyles();
@@ -771,9 +925,13 @@ import { isAndroidOrIOS } from './mobile.js';
 
   function applyCustomStyles() {
     const effColor = getEffectiveDiceColor();
+    const effTextColor = getEffectiveTextColor();
 
+    // 1. Desktop Panel
     if (desktopPanel) {
-      desktopPanel.style.setProperty('--dice-custom-color', effColor);
+      desktopPanel.style.setProperty('--dice-active-color', effColor);
+      
+      // Dado preview & inputs
       if (desktopActivePreview) {
         desktopActivePreview.style.background = effColor;
         desktopActivePreview.style.boxShadow = `0 0 10px ${effColor}`;
@@ -784,9 +942,24 @@ import { isAndroidOrIOS } from './mobile.js';
       if (desktopHexInput && document.activeElement !== desktopHexInput) {
         desktopHexInput.value = effColor.replace(/^#/, '').toUpperCase();
       }
+
+      // Números preview & inputs
+      if (desktopTextActivePreview) {
+        desktopTextActivePreview.style.background = effTextColor;
+        desktopTextActivePreview.style.boxShadow = `0 0 10px ${effTextColor}`;
+      }
+      if (desktopTextColorPicker && /^#[0-9a-fA-F]{6}$/.test(effTextColor)) {
+        desktopTextColorPicker.value = effTextColor;
+      }
+      if (desktopTextHexInput && document.activeElement !== desktopTextHexInput) {
+        desktopTextHexInput.value = (customTextColor === 'auto' ? 'AUTO' : effTextColor.replace(/^#/, '').toUpperCase());
+      }
+
+      // Escala
       if (desktopScaleInput) desktopScaleInput.value = String(customScale);
       if (desktopScaleVal) desktopScaleVal.textContent = Math.round((customScale / 6) * 100) + '%';
 
+      // Grid de presets de cor do dado
       if (desktopColorGrid) {
         desktopColorGrid.innerHTML = '';
         COLOR_PALETTE.forEach(p => {
@@ -814,6 +987,113 @@ import { isAndroidOrIOS } from './mobile.js';
           desktopColorGrid.appendChild(swatch);
         });
       }
+
+      // Grid de presets de cor dos números
+      if (desktopTextColorGrid) {
+        desktopTextColorGrid.innerHTML = '';
+        TEXT_COLOR_PALETTE.forEach(p => {
+          const swatch = document.createElement('div');
+          swatch.className = 'player-dice-color-swatch';
+          swatch.title = p.label;
+          if (p.isAuto) {
+            swatch.style.background = `linear-gradient(135deg, #ffffff 50%, #111111 50%)`;
+            swatch.style.setProperty('--swatch-color', '#ffffff');
+            if (customTextColor === 'auto') swatch.classList.add('active');
+            swatch.addEventListener('click', () => {
+              customTextColor = 'auto';
+              saveAndApplyStyles();
+            });
+          } else {
+            swatch.style.background = p.value;
+            swatch.style.setProperty('--swatch-color', p.value);
+            if (customTextColor.toLowerCase() === p.value.toLowerCase()) swatch.classList.add('active');
+            swatch.addEventListener('click', () => {
+              customTextColor = p.value;
+              saveAndApplyStyles();
+            });
+          }
+          desktopTextColorGrid.appendChild(swatch);
+        });
+      }
+    }
+
+    // 2. Mobile Popover
+    if (isMobileOS) {
+      if (mPreview) {
+        mPreview.style.background = effColor;
+        mPreview.style.boxShadow = `0 0 8px ${effColor}`;
+      }
+      if (mColorPicker && /^#[0-9a-fA-F]{6}$/.test(effColor)) {
+        mColorPicker.value = effColor;
+      }
+      if (mHexInput && document.activeElement !== mHexInput) {
+        mHexInput.value = effColor.replace(/^#/, '').toUpperCase();
+      }
+
+      if (mTextPreview) {
+        mTextPreview.style.background = effTextColor;
+        mTextPreview.style.boxShadow = `0 0 8px ${effTextColor}`;
+      }
+      if (mTextColorPicker && /^#[0-9a-fA-F]{6}$/.test(effTextColor)) {
+        mTextColorPicker.value = effTextColor;
+      }
+      if (mTextHexInput && document.activeElement !== mTextHexInput) {
+        mTextHexInput.value = (customTextColor === 'auto' ? 'AUTO' : effTextColor.replace(/^#/, '').toUpperCase());
+      }
+
+      if (mScaleInput) mScaleInput.value = String(customScale);
+      if (mScaleVal) mScaleVal.textContent = Math.round((customScale / 6) * 100) + '%';
+
+      if (mColorGrid) {
+        mColorGrid.innerHTML = '';
+        COLOR_PALETTE.forEach(p => {
+          const swatch = document.createElement('div');
+          swatch.className = 'player-dice-color-swatch';
+          swatch.title = p.label;
+          if (p.isTheme) {
+            const tColor = getThemeColor();
+            swatch.style.background = `linear-gradient(135deg, ${tColor} 50%, #000 50%)`;
+            if (customColor === 'theme') swatch.classList.add('active');
+            swatch.addEventListener('click', () => {
+              customColor = 'theme';
+              saveAndApplyStyles();
+            });
+          } else {
+            swatch.style.background = p.value;
+            if (customColor.toLowerCase() === p.value.toLowerCase()) swatch.classList.add('active');
+            swatch.addEventListener('click', () => {
+              customColor = p.value;
+              saveAndApplyStyles();
+            });
+          }
+          mColorGrid.appendChild(swatch);
+        });
+      }
+
+      if (mTextColorGrid) {
+        mTextColorGrid.innerHTML = '';
+        TEXT_COLOR_PALETTE.forEach(p => {
+          const swatch = document.createElement('div');
+          swatch.className = 'player-dice-color-swatch';
+          swatch.title = p.label;
+          if (p.isAuto) {
+            swatch.style.background = `linear-gradient(135deg, #fff 50%, #111 50%)`;
+            if (customTextColor === 'auto') swatch.classList.add('active');
+            swatch.addEventListener('click', () => {
+              customTextColor = 'auto';
+              saveAndApplyStyles();
+            });
+          } else {
+            swatch.style.background = p.value;
+            if (customTextColor.toLowerCase() === p.value.toLowerCase()) swatch.classList.add('active');
+            swatch.addEventListener('click', () => {
+              customTextColor = p.value;
+              saveAndApplyStyles();
+            });
+          }
+          mTextColorGrid.appendChild(swatch);
+        });
+      }
     }
   }
 
@@ -835,6 +1115,7 @@ import { isAndroidOrIOS } from './mobile.js';
           }
 
           const effColor = getEffectiveDiceColor();
+          const effTextColor = getEffectiveTextColor();
           const baseScaleVal = Math.round((customScale / 6) * 100);
 
           Box = new DiceBox("#dice-box-canvas", {
@@ -844,7 +1125,7 @@ import { isAndroidOrIOS } from './mobile.js';
             theme_surface: "green-felt",
             sound_dieMaterial: "plastic",
             theme_material: "plastic",
-            theme_customColorset: createBoxColorset(effColor),
+            theme_customColorset: createBoxColorset(effColor, effTextColor),
             light_intensity: 1.8,
             baseScale: baseScaleVal,
             gravity_multiplier: 400
@@ -852,6 +1133,7 @@ import { isAndroidOrIOS } from './mobile.js';
 
           await Box.initialize();
           isBoxReady = true;
+          applyScaleToBox(customScale);
           return Box;
         } catch (err) {
           console.error("Erro inicializando DiceBox 3D:", err);
@@ -864,17 +1146,31 @@ import { isAndroidOrIOS } from './mobile.js';
     return boxInitPromise;
   }
 
-  async function updateBoxAppearance(color, scale) {
-    if (!Box || !isBoxReady) return;
-    const effColor = color || getEffectiveDiceColor();
+  async function updateBoxAppearance(diceColor, textColor, scale) {
+    const effColor = diceColor || getEffectiveDiceColor();
+    const effTextColor = textColor || getEffectiveTextColor();
     const effScale = scale !== undefined ? scale : customScale;
     const baseScaleVal = Math.round((effScale / 6) * 100);
 
+    applyScaleToBox(effScale);
+
+    if (!Box || !isBoxReady) return;
+
     try {
+      const colorSet = createBoxColorset(effColor, effTextColor);
       await Box.updateConfig({
         baseScale: baseScaleVal,
-        theme_customColorset: createBoxColorset(effColor)
+        theme_customColorset: colorSet
       });
+      Box.baseScale = baseScaleVal;
+      if (Box.DiceFactory) {
+        Box.DiceFactory.baseScale = baseScaleVal;
+        Box.DiceFactory.label_color = effTextColor;
+        Box.DiceFactory.dice_color = effColor;
+        Box.DiceFactory.edge_color = effColor;
+        Box.DiceFactory.geometries = {};
+        Box.DiceFactory.materials_cache = {};
+      }
     } catch (e) {
       console.warn("Erro atualizando aparência dos dados 3D:", e);
     }
@@ -954,6 +1250,7 @@ import { isAndroidOrIOS } from './mobile.js';
     const mode = currentRollMode || 'normal';
     const rollData = executeRoll(faces, count, mod, mode);
     const color = getEffectiveDiceColor();
+    const textColor = getEffectiveTextColor();
     const senderName = getLocalCharacterName();
 
     // 1. Transmite imediatamente para o Mestre e demais jogadores na mesa
@@ -969,6 +1266,7 @@ import { isAndroidOrIOS } from './mobile.js';
         notation: rollData.notation,
         senderName,
         themeColor: color,
+        textColor: textColor,
         scale: customScale
       });
     }
@@ -976,7 +1274,8 @@ import { isAndroidOrIOS } from './mobile.js';
     // 2. Anima fisicamente o dado na tela local
     try {
       await initBox();
-      await updateBoxAppearance(color, customScale);
+      await updateBoxAppearance(color, textColor, customScale);
+      applyScaleToBox(customScale);
       if (boxCanvas) boxCanvas.classList.remove('settled');
       await Box.roll(rollData.notation);
       onSettle(color);
@@ -995,6 +1294,7 @@ import { isAndroidOrIOS } from './mobile.js';
     const mode = currentRollMode || 'normal';
     const rollData = executeRoll(faces, count, mod, mode);
     const color = getEffectiveDiceColor();
+    const textColor = getEffectiveTextColor();
     const senderName = isSecretRoll ? 'Mestre (Oculto)' : 'Mestre';
 
     // 1. Se não for oculto, transmite para todas as telas dos jogadores conectados
@@ -1010,6 +1310,7 @@ import { isAndroidOrIOS } from './mobile.js';
         notation: rollData.notation,
         senderName: 'Mestre',
         themeColor: color,
+        textColor: textColor,
         scale: customScale
       });
     }
@@ -1017,7 +1318,8 @@ import { isAndroidOrIOS } from './mobile.js';
     // 2. Anima fisicamente o dado na tela do Mestre
     try {
       await initBox();
-      await updateBoxAppearance(color, customScale);
+      await updateBoxAppearance(color, textColor, customScale);
+      applyScaleToBox(customScale);
       if (boxCanvas) boxCanvas.classList.remove('settled');
       await Box.roll(rollData.notation);
       onSettle(color);
@@ -1035,12 +1337,14 @@ import { isAndroidOrIOS } from './mobile.js';
     if (!data) return;
 
     const color = data.themeColor || getEffectiveDiceColor();
+    const textColor = data.textColor || getEffectiveTextColor();
     const scale = data.scale || customScale;
     const notation = data.notation || `${data.count || (data.rolls ? data.rolls.length : 1)}d${data.faces || 20}@${(data.rolls || [1]).join(',')}`;
 
     try {
       await initBox();
-      await updateBoxAppearance(color, scale);
+      await updateBoxAppearance(color, textColor, scale);
+      applyScaleToBox(scale);
       if (boxCanvas) boxCanvas.classList.remove('settled');
       await Box.roll(notation);
       onSettle(color);
@@ -1054,14 +1358,14 @@ import { isAndroidOrIOS } from './mobile.js';
   initBox();
 
   const themeObserver = new MutationObserver(() => {
-    if (customColor === 'theme') {
+    if (customColor === 'theme' || customTextColor === 'auto') {
       applyCustomStyles();
       updateBoxAppearance();
     }
   });
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   window.addEventListener('storage', (e) => {
-    if (e.key === 'rpg-table-theme' && customColor === 'theme') {
+    if (e.key === 'rpg-table-theme' && (customColor === 'theme' || customTextColor === 'auto')) {
       applyCustomStyles();
       updateBoxAppearance();
     }
