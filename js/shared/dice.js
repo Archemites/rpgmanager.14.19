@@ -960,14 +960,20 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   function finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete) {
-    if (typeof onComplete === 'function') onComplete(finalSum, expr, rolls);
-
     const isGMActive = checkIsGM();
 
-    // Se for o Mestre com rolagem secreta ativada, NÃO transmite para os jogadores
+    // Se for o Mestre com rolagem secreta ativada, mostra só localmente e NÃO transmite
     if (isGMActive && isSecretRoll) {
+      if (typeof onComplete === 'function') onComplete(finalSum, expr, rolls);
       return;
     }
+
+    // Mestre sempre vê o resultado imediatamente (ele é o host)
+    if (isGMActive) {
+      if (typeof onComplete === 'function') onComplete(finalSum, expr, rolls);
+    }
+    // Jogadores NÃO mostram o resultado localmente — o toast chega via GM (onRemoteDiceRoll)
+    // garantindo que o GM veja o dado primeiro
 
     // Envia a rolagem via WebRTC para todos na mesa
     if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
@@ -984,6 +990,7 @@ import { isAndroidOrIOS } from './mobile.js';
       });
     }
   }
+
 
   // ---- Recepção de Rolagem Remota via WebRTC ----
   window.RPG = window.RPG || {};

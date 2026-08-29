@@ -390,16 +390,18 @@
           window.RPG.onRemoteDiceRoll(rollPayload);
         }
 
-        // 2. Re-transmite para os demais jogadores logo em seguida (com suspense/prioridade para o mestre)
+        // 2. Re-transmite para TODOS os jogadores (incluindo quem rolou) após o delay
+        //    Os jogadores suprimem o toast local e aguardam esta mensagem para ver o resultado
         setTimeout(() => {
           for (const otherPeer of peers) {
-            if (otherPeer.id !== peer.id && otherPeer.conn && otherPeer.conn.open) {
+            if (otherPeer.conn && otherPeer.conn.open) {
               try { otherPeer.conn.send(rollPayload); } catch (_) {}
             }
           }
         }, 700);
         return;
       }
+
       if (msg.type === 'rpg-token-move' && typeof msg.x === 'number' && typeof msg.y === 'number') {
         if (!peer.tokenId) return;
         const allTokens = window.RPG.allTokens;

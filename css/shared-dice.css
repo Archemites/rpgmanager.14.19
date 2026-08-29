@@ -1203,9 +1203,9 @@
 /* ── Banner / Toast Compartilhado de Resultado (PC & Mobile) ── */
 .player-dice-shared-toast {
   position: fixed;
-  top: 74px;
+  bottom: 24px;
   left: 50%;
-  transform: translateX(-50%) translateY(-24px) scale(0.85);
+  transform: translateX(-50%) translateY(24px) scale(0.85);
   z-index: 9999;
   pointer-events: auto;
   cursor: pointer;
@@ -1218,6 +1218,7 @@
   opacity: 1;
 }
 .player-dice-shared-toast.hidden { display: none !important; }
+
 
 .shared-toast-content {
   --toast-accent: var(--dice-active-color, var(--accent));
