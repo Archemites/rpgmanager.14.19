@@ -1029,7 +1029,7 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   // ---- Recepção de resultado de dado vindo do GM ----
-  // Mostra toast imediatamente + tenta animar em paralelo (animação não bloqueia o toast)
+  // Anima o dado 3D e só mostra o toast DEPOIS que a animação terminar
   window.RPG = window.RPG || {};
   window.RPG.onRemoteDiceRoll = (data) => {
     if (!data) return;
@@ -1037,16 +1037,22 @@ import { isAndroidOrIOS } from './mobile.js';
     const notation = `${data.count || 1}d${data.faces || 20}`;
     const color = data.themeColor || getEffectiveDiceColor();
 
-    // Toast aparece imediatamente, sem depender do estado do DiceBox
-    showSharedResultToast(data.senderName || 'Jogador', data.sum, data.expr, color);
+    const showToast = () => {
+      showSharedResultToast(data.senderName || 'Jogador', data.sum, data.expr, color);
+    };
 
-    // Animação 3D tenta rodar em paralelo (best-effort — não bloqueia o resultado)
     initBox().then(() => {
       if (isBoxReady) {
-        Box.roll(notation, { themeColor: color }).catch(() => {});
+        // Aguarda a animação terminar, depois mostra o resultado
+        Box.roll(notation, { themeColor: color })
+          .then(showToast)
+          .catch(showToast); // se a animação falhar, mostra o toast mesmo assim
+      } else {
+        showToast(); // DiceBox não disponível — mostra direto
       }
-    }).catch(() => {});
+    }).catch(showToast);
   };
+
 
 
 
