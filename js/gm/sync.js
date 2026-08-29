@@ -381,6 +381,23 @@
         return;
       }
       if (!peer.admitted) return; // ignore everything else until the PIN checks out
+      if (msg.type === 'rpg-dice-roll') {
+        const senderName = msg.senderName || peer.name || 'Jogador';
+        const rollPayload = { ...msg, senderName };
+
+        // 1. Exibe localmente no Mestre
+        if (window.RPG.onRemoteDiceRoll) {
+          window.RPG.onRemoteDiceRoll(rollPayload);
+        }
+
+        // 2. Re-transmite para todos os outros jogadores conectados
+        for (const otherPeer of peers) {
+          if (otherPeer.id !== peer.id && otherPeer.conn && otherPeer.conn.open) {
+            try { otherPeer.conn.send(rollPayload); } catch (_) {}
+          }
+        }
+        return;
+      }
       if (msg.type === 'rpg-token-move' && typeof msg.x === 'number' && typeof msg.y === 'number') {
         if (!peer.tokenId) return;
         const allTokens = window.RPG.allTokens;
@@ -479,14 +496,22 @@
     if (e.target === inviteOverlay) inviteOverlay.classList.remove('open');
   });
 
-  const updatePlayerBtn = document.getElementById('updatePlayerBtn');
-  updatePlayerBtn.addEventListener('click', () => sendStateForced(true));
+  // Broadcast a dice roll from GM to all players
+  function sendDiceRoll(rollData) {
+    const msg = {
+      type: 'rpg-dice-roll',
+      senderName: 'Mestre',
+      ...rollData
+    };
+    broadcast(msg);
+  }
 
   // ---------- Expose to window.RPG ----------
   window.RPG.sendState = sendState;
   window.RPG.sendStateForced = sendStateForced;
   window.RPG.sendFx = sendFx;
   window.RPG.sendTheme = sendTheme;
+  window.RPG.sendDiceRoll = sendDiceRoll;
   window.RPG.setSceneSyncPending = (v) => { sceneSyncPending = v; };
   window.RPG.getSceneSyncPending = () => sceneSyncPending;
 })();

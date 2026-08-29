@@ -192,6 +192,12 @@
       if (window.RPG.spawnFx) window.RPG.spawnFx(msg.fxType, msg.x, msg.y, msg.opts);
       return;
     }
+    if (msg && msg.type === 'rpg-dice-roll') {
+      if (window.RPG.onRemoteDiceRoll) {
+        window.RPG.onRemoteDiceRoll(msg);
+      }
+      return;
+    }
     // whole-app theme skin, mirrored from the GM window (see js/gm/theme.js)
     if (msg && msg.type === 'rpg-theme') {
       const THEMES = ['cyberpunk', 'dnd', 'cthulhu', 'black', 'cream'];
@@ -424,7 +430,24 @@
     else entryNameInput.focus();
   }
 
+  function sendDiceRoll(rollData) {
+    const conn = window.RPG.getActiveConnection ? window.RPG.getActiveConnection() : null;
+    if (conn && conn.open) {
+      const myName = (entryNameInput.value.trim() || localStorage.getItem(NAME_KEY) || 'Jogador').slice(0, 40);
+      try {
+        conn.send({
+          type: 'rpg-dice-roll',
+          senderName: myName,
+          ...rollData
+        });
+      } catch (e) {
+        console.warn('Erro ao enviar rolagem:', e);
+      }
+    }
+  }
+
   // ---------- Init ----------
+  window.RPG.sendDiceRoll = sendDiceRoll;
   window.RPG.resizeCanvas();
   window.RPG.centerView();
 })();

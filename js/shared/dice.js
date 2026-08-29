@@ -3,9 +3,11 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@3d-dice/dice-box@1.1.4/dist/d
 import { isAndroidOrIOS } from './mobile.js';
 
 /* ============================================================
-   Player & GM dice roller — motor 3D com @3d-dice/dice-box
-   - PC: layout clássico de gaveta inferior com todos os controles originais
-   - Mobile (Android / iOS): Speed-Dial flutuante (Bolinha + Coluna de dados abaixo + Qtd/Mod/Modo à esquerda + Engrenagem)
+   Player & GM dice roller — motor 3D sincronizado via WebRTC
+   - PC: layout clássico de gaveta inferior
+   - Mobile (Android / iOS): Speed-Dial flutuante
+   - Sincronização em tempo real: a rolagem 3D e o resultado aparecem
+     instantaneamente na tela de todos os presentes na mesa!
    ============================================================ */
 
 (() => {
@@ -54,13 +56,67 @@ import { isAndroidOrIOS } from './mobile.js';
     100: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><polygon points="9,2 17,8 9,20 1,8" fill="currentColor" fill-opacity="0.12"/><line x1="9" y1="2" x2="9" y2="13"/><line x1="1" y1="8" x2="9" y2="13"/><line x1="17" y1="8" x2="9" y2="13"/><line x1="9" y1="20" x2="9" y2="13"/><circle cx="18" cy="5" r="2" stroke-width="1.4"/><line x1="22" y1="5" x2="14" y2="18" stroke-width="1.4"/><circle cx="20" cy="17" r="2" stroke-width="1.4"/></svg>`
   };
 
-  // ---- Injeta Canvas 3D Compartilhado ----
+  // ---- Injeta Canvas 3D Compartilhado em Tela Cheia ----
   let boxCanvas = document.getElementById('dice-box-canvas');
   if (!boxCanvas) {
     boxCanvas = document.createElement('div');
     boxCanvas.id = 'dice-box-canvas';
     document.body.appendChild(boxCanvas);
   }
+
+  // ---- Injeta Banner / Toast Compartilhado de Resultado ----
+  let sharedToast = document.getElementById('playerDiceSharedToast');
+  if (!sharedToast) {
+    sharedToast = document.createElement('div');
+    sharedToast.id = 'playerDiceSharedToast';
+    sharedToast.className = 'player-dice-shared-toast hidden';
+    sharedToast.innerHTML = `
+      <div class="shared-toast-content" id="sharedToastContent">
+        <div class="shared-toast-header">
+          <span class="shared-toast-icon">🎲</span>
+          <span class="shared-toast-user" id="sharedToastUser">Jogador</span>
+          <span class="shared-toast-action">rolou:</span>
+        </div>
+        <div class="shared-toast-body">
+          <span class="shared-toast-total" id="sharedToastTotal">20</span>
+          <span class="shared-toast-formula" id="sharedToastFormula">1d20 → [20]</span>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(sharedToast);
+  }
+
+  const toastUser = document.getElementById('sharedToastUser');
+  const toastTotal = document.getElementById('sharedToastTotal');
+  const toastFormula = document.getElementById('sharedToastFormula');
+  const toastContent = document.getElementById('sharedToastContent');
+  let toastTimer = null;
+
+  function showSharedResultToast(senderName, sum, formula, themeColor) {
+    if (!sharedToast || !toastTotal || !toastFormula) return;
+    
+    if (toastUser) toastUser.textContent = senderName || 'Jogador';
+    toastTotal.textContent = String(sum);
+    toastFormula.textContent = formula;
+
+    if (toastContent && themeColor) {
+      toastContent.style.setProperty('--toast-accent', themeColor);
+    }
+
+    sharedToast.classList.remove('hidden');
+    sharedToast.classList.add('pop');
+
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      sharedToast.classList.remove('pop');
+      setTimeout(() => sharedToast.classList.add('hidden'), 350);
+    }, 6000);
+  }
+
+  sharedToast.addEventListener('click', () => {
+    sharedToast.classList.remove('pop');
+    setTimeout(() => sharedToast.classList.add('hidden'), 300);
+  });
 
   // Verifica se é estritamente Android ou iOS
   const isMobileOS = isAndroidOrIOS();
@@ -193,14 +249,6 @@ import { isAndroidOrIOS } from './mobile.js';
           <div class="color-presets-grid" id="mobileColorGrid"></div>
         </div>
       </div>
-
-      <!-- Toast Flutuante de Resultado -->
-      <div id="mobileResultToast" class="player-dice-result-toast hidden">
-        <div class="toast-content">
-          <span class="toast-total" id="mobileResultTotal">20</span>
-          <span class="toast-formula" id="mobileResultFormula">1d20 → [20]</span>
-        </div>
-      </div>
     `;
     document.body.appendChild(mobileWrap);
 
@@ -232,12 +280,6 @@ import { isAndroidOrIOS } from './mobile.js';
     const mScaleVal = document.getElementById('mobileScaleVal');
     const mColorGrid = document.getElementById('mobileColorGrid');
     const mResetBtn = document.getElementById('mobileResetBtn');
-
-    const mToast = document.getElementById('mobileResultToast');
-    const mToastTotal = document.getElementById('mobileResultTotal');
-    const mToastFormula = document.getElementById('mobileResultFormula');
-
-    let toastTimer = null;
 
     let isExpanded = false;
     function toggleMobileDrop(force) {
@@ -334,21 +376,6 @@ import { isAndroidOrIOS } from './mobile.js';
       }
     });
 
-    function showMobileToast(sum, formula) {
-      if (!mToast || !mToastTotal || !mToastFormula) return;
-      mToastTotal.textContent = String(sum);
-      mToastFormula.textContent = formula;
-
-      mToast.classList.remove('hidden');
-      mToast.classList.add('pop');
-
-      if (toastTimer) clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => {
-        mToast.classList.remove('pop');
-        setTimeout(() => mToast.classList.add('hidden'), 300);
-      }, 5500);
-    }
-
     mobileWrap.querySelectorAll('.mobile-dice-col-btn[data-faces]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -356,7 +383,9 @@ import { isAndroidOrIOS } from './mobile.js';
         const count = Math.min(20, Math.max(1, parseInt(mCountInput.value, 10) || 1));
         const mod = parseInt(mModInput.value, 10) || 0;
 
-        rollDiceEngine(faces, count, mod, currentRollMode, showMobileToast);
+        rollDiceEngine(faces, count, mod, currentRollMode, (sum, expr) => {
+          showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
+        });
       });
     });
 
@@ -471,7 +500,6 @@ import { isAndroidOrIOS } from './mobile.js';
   let desktopResultEl = null;
 
   if (!isMobileOS) {
-    // DOM: botão flutuante clássico do jogador no desktop
     const pcDiceBtn = document.createElement('button');
     pcDiceBtn.id = 'playerDiceBtn';
     pcDiceBtn.title = 'Rolar dados';
@@ -493,7 +521,6 @@ import { isAndroidOrIOS } from './mobile.js';
     pcDiceBtn.classList.add('hidden');
     document.body.appendChild(pcDiceBtn);
 
-    // DOM: overlay e gaveta clássica inferior
     desktopOverlay = document.createElement('div');
     desktopOverlay.id = 'playerDiceOverlay';
     desktopOverlay.innerHTML = `
@@ -508,7 +535,6 @@ import { isAndroidOrIOS } from './mobile.js';
           </button>
         </div>
 
-        <!-- Gaveta retrátil de personalização -->
         <div id="playerDiceSettingsDrawer" class="player-dice-settings-drawer">
           <div class="player-dice-settings-title">
             <span>
@@ -696,6 +722,7 @@ import { isAndroidOrIOS } from './mobile.js';
 
       rollDiceEngine(selectedFaces, count, mod, mode, (sum, expr, rolls) => {
         showDesktopResult(rolls, mod, sum, expr);
+        showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
       });
     });
 
@@ -888,7 +915,7 @@ import { isAndroidOrIOS } from './mobile.js';
           } else {
             expr = `${count}d${faces}${modStr} → [${highest}]${mod !== 0 ? ` (${highest}${modStr})` : ''}`;
           }
-          if (typeof onComplete === 'function') onComplete(finalSum, expr, rolls);
+          finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete);
         } else if (mode === 'dis') {
           const lowest = Math.min(...rolls);
           chosenValue = lowest;
@@ -898,7 +925,7 @@ import { isAndroidOrIOS } from './mobile.js';
           } else {
             expr = `${count}d${faces}${modStr} → [${lowest}]${mod !== 0 ? ` (${lowest}${modStr})` : ''}`;
           }
-          if (typeof onComplete === 'function') onComplete(finalSum, expr, rolls);
+          finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete);
         } else {
           const sumOfDice = rolls.reduce((a, b) => a + b, 0);
           chosenValue = sumOfDice;
@@ -908,7 +935,7 @@ import { isAndroidOrIOS } from './mobile.js';
           } else {
             expr = `${count}d${faces}${modStr} → [${rolls[0]}]${mod !== 0 ? ` (${rolls[0]}${modStr})` : ''}`;
           }
-          if (typeof onComplete === 'function') onComplete(finalSum, expr, rolls);
+          finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete);
         }
       }).catch(err => {
         console.error("Erro na rolagem 3D:", err);
@@ -916,6 +943,40 @@ import { isAndroidOrIOS } from './mobile.js';
       });
     });
   }
+
+  function finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete) {
+    if (typeof onComplete === 'function') onComplete(finalSum, expr, rolls);
+
+    // Envia a rolagem via WebRTC para todos na mesa
+    if (window.RPG.sendDiceRoll) {
+      window.RPG.sendDiceRoll({
+        faces,
+        count,
+        mod,
+        mode,
+        themeColor: currentColor,
+        scale: customScale,
+        rolls,
+        sum: finalSum,
+        expr
+      });
+    }
+  }
+
+  // ---- Recepção de Rolagem Remota via WebRTC ----
+  window.RPG = window.RPG || {};
+  window.RPG.onRemoteDiceRoll = (data) => {
+    if (!data) return;
+
+    initBox().then(() => {
+      if (isBoxReady) {
+        const notation = `${data.count || 1}d${data.faces || 20}`;
+        const color = data.themeColor || '#45ff78';
+        Box.roll(notation, { themeColor: color }).catch(() => {});
+      }
+      showSharedResultToast(data.senderName || 'Jogador', data.sum, data.expr, data.themeColor || '#45ff78');
+    });
+  };
 
   applyCustomStyles();
   initBox();
@@ -929,9 +990,9 @@ import { isAndroidOrIOS } from './mobile.js';
   });
 
   // @ts-ignore
-  window.RPG = window.RPG || {};
-  // @ts-ignore
   window.RPG.rollDice = (faces, count = 1, mod = 0, mode = 'normal') => {
-    rollDiceEngine(faces, count, mod, mode, null);
+    rollDiceEngine(faces, count, mod, mode, (sum, expr) => {
+      showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
+    });
   };
 })();
