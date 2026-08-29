@@ -382,29 +382,13 @@
       }
       if (!peer.admitted) return; // ignore everything else until the PIN checks out
       if (msg.type === 'rpg-dice-roll-request') {
-        // Jogador pediu uma rolagem — GM executa Box.roll() aqui (dado aparece na tela do GM primeiro)
-        // O resultado é transmitido para TODOS (incluindo o jogador que pediu) após 700ms via finishRoll/sendDiceRoll
+        // Jogador pediu uma rolagem — GM calcula matematicamente (sem animação),
+        // mostra resultado textual ao GM imediatamente, depois envia para TODOS
+        // (GM + jogadores) com os valores fixos para animação simultânea idêntica.
         const senderName = msg.senderName || peer.name || 'Jogador';
         if (window.RPG && typeof window.RPG.rollDiceFromRequest === 'function') {
           window.RPG.rollDiceFromRequest({ ...msg, senderName });
         }
-        return;
-      }
-
-      // Compatibilidade com rpg-dice-roll legado (caso alguém envie resultado diretamente)
-      if (msg.type === 'rpg-dice-roll') {
-        const senderName = msg.senderName || peer.name || 'Jogador';
-        const rollPayload = { ...msg, senderName };
-        if (window.RPG && window.RPG.onRemoteDiceRoll) {
-          window.RPG.onRemoteDiceRoll(rollPayload);
-        }
-        setTimeout(() => {
-          for (const otherPeer of peers) {
-            if (otherPeer.conn && otherPeer.conn.open) {
-              try { otherPeer.conn.send(rollPayload); } catch (_) {}
-            }
-          }
-        }, 700);
         return;
       }
 
@@ -507,19 +491,22 @@
     if (e.target === inviteOverlay) inviteOverlay.classList.remove('open');
   });
 
-  // Broadcast resultado de dado para todos os jogadores
-  // Quando chamado pelo GM rolando para si: senderName = 'Mestre'
-  // Quando chamado via rollDiceFromRequest (em nome de jogador): senderName = nome do jogador
+  // Broadcast resultado de dado para todos os jogadores.
+  // O timing de exibição é controlado pelo fim da animação 3D em cada cliente.
+  // Também dispara a animação local no GM — EXCETO quando o GM já animou localmente
+  // (flag _gmAlreadyAnimated, set pelo rollDiceEngine quando rola para si mesmo).
   function sendDiceRoll(rollData) {
-    const msg = {
-      type: 'rpg-dice-roll',
-      senderName: rollData.senderName || 'Mestre',
-      ...rollData
-    };
-    // Delay de 700ms — GM já viu o dado, agora é a vez dos jogadores
-    setTimeout(() => {
-      broadcast(msg);
-    }, 700);
+    const gmAlreadyAnimated = rollData._gmAlreadyAnimated;
+    const msg = { type: 'rpg-dice-roll', senderName: rollData.senderName || 'Mestre' };
+    // copia tudo exceto a flag interna
+    for (const k in rollData) {
+      if (k !== '_gmAlreadyAnimated') msg[k] = rollData[k];
+    }
+    broadcast(msg);
+    // GM anima localmente com os mesmos valores fixos — só quando o GM não animou ainda
+    if (!gmAlreadyAnimated && window.RPG && typeof window.RPG.onRemoteDiceRoll === 'function') {
+      window.RPG.onRemoteDiceRoll(msg);
+    }
   }
 
 

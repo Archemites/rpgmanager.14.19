@@ -932,71 +932,75 @@ import { isAndroidOrIOS } from './mobile.js';
     return boxInitPromise;
   }
 
+  // ---- Calcula valores de dados matematicamente (sem animação 3D) ----
+  function rollMath(faces, count, mod, mode) {
+    const rolls = [];
+    for (let i = 0; i < count; i++) {
+      rolls.push(1 + Math.floor(Math.random() * faces));
+    }
+    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
+    let sum, expr;
+    if (mode === 'adv') {
+      const highest = Math.max(...rolls);
+      sum = highest + mod;
+      expr = rolls.length > 1
+        ? `${count}d${faces}${modStr} (Vantagem) → [${rolls.join(', ')}] → Maior: ${highest}${mod !== 0 ? ` (${highest}${modStr})` : ''}`
+        : `${count}d${faces}${modStr} → [${highest}]${mod !== 0 ? ` (${highest}${modStr})` : ''}`;
+    } else if (mode === 'dis') {
+      const lowest = Math.min(...rolls);
+      sum = lowest + mod;
+      expr = rolls.length > 1
+        ? `${count}d${faces}${modStr} (Desvantagem) → [${rolls.join(', ')}] → Menor: ${lowest}${mod !== 0 ? ` (${lowest}${modStr})` : ''}`
+        : `${count}d${faces}${modStr} → [${lowest}]${mod !== 0 ? ` (${lowest}${modStr})` : ''}`;
+    } else {
+      const sumOfDice = rolls.reduce((a, b) => a + b, 0);
+      sum = sumOfDice + mod;
+      expr = rolls.length > 1
+        ? `${count}d${faces}${modStr} → [${rolls.join(' + ')}] = ${sumOfDice}${mod !== 0 ? ` (${sumOfDice}${modStr})` : ''}`
+        : `${count}d${faces}${modStr} → [${rolls[0]}]${mod !== 0 ? ` (${rolls[0]}${modStr})` : ''}`;
+    }
+    return { rolls, sum, expr };
+  }
+
+  // ---- Anima dado 3D com valores PRÉ-FIXADOS (notação @) ----
+  // Garante que a animação 3D seja idêntica em todas as telas.
+  function animateDiceFixed(faces, count, rolls, color, onDone) {
+    const fixedNotation = `${count}d${faces}@${rolls.join(',')}`;
+    initBox().then(() => {
+      if (isBoxReady) {
+        const colorToUse = color || getEffectiveDiceColor();
+        if (typeof Box.updateConfig === 'function') {
+          try { Box.updateConfig({ scale: customScale, themeColor: colorToUse }); } catch (e) {}
+        }
+        Box.roll(fixedNotation, { themeColor: colorToUse })
+          .then(onDone)
+          .catch(onDone);
+      } else {
+        if (typeof onDone === 'function') onDone();
+      }
+    }).catch(() => { if (typeof onDone === 'function') onDone(); });
+  }
+
+  // rollDiceEngine: mantido para uso do GM ao rolar para si mesmo (sem pedido de jogador)
   function rollDiceEngine(faces, count, mod, mode, onComplete, overrideSenderName) {
     if (isRolling) return;
     isRolling = true;
 
-    initBox().then(() => {
-      const currentColor = getEffectiveDiceColor();
-      if (isBoxReady && typeof Box.updateConfig === 'function') {
-        try {
-          Box.updateConfig({ scale: customScale, themeColor: currentColor });
-        } catch (e) {}
-      }
+    const { rolls, sum: finalSum, expr } = rollMath(faces, count, mod, mode);
+    const currentColor = getEffectiveDiceColor();
 
-      const notation = `${count}d${faces}`;
+    // GM rola para si: o GM vê o resultado imediatamente (preview secreto se aplicável)
+    // gmAlreadyAnimated=true → sendDiceRoll não vai animar de novo no GM
+    finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete, overrideSenderName, /*gmAlreadyAnimated=*/true);
 
-      Box.roll(notation, { themeColor: currentColor }).then(results => {
-        isRolling = false;
-
-        const group = results && results[0];
-        const rollsData = group && group.rolls ? group.rolls : results;
-        const rolls = Array.isArray(rollsData) ? rollsData.map(r => r.value) : [group ? group.value : 0];
-
-        const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
-        let chosenValue = 0;
-        let expr = '';
-
-        if (mode === 'adv') {
-          const highest = Math.max(...rolls);
-          chosenValue = highest;
-          const finalSum = chosenValue + mod;
-          if (rolls.length > 1) {
-            expr = `${count}d${faces}${modStr} (Vantagem) → [${rolls.join(', ')}] → Maior: ${highest}${mod !== 0 ? ` (${highest}${modStr})` : ''}`;
-          } else {
-            expr = `${count}d${faces}${modStr} → [${highest}]${mod !== 0 ? ` (${highest}${modStr})` : ''}`;
-          }
-          finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete, overrideSenderName);
-        } else if (mode === 'dis') {
-          const lowest = Math.min(...rolls);
-          chosenValue = lowest;
-          const finalSum = chosenValue + mod;
-          if (rolls.length > 1) {
-            expr = `${count}d${faces}${modStr} (Desvantagem) → [${rolls.join(', ')}] → Menor: ${lowest}${mod !== 0 ? ` (${lowest}${modStr})` : ''}`;
-          } else {
-            expr = `${count}d${faces}${modStr} → [${lowest}]${mod !== 0 ? ` (${lowest}${modStr})` : ''}`;
-          }
-          finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete, overrideSenderName);
-        } else {
-          const sumOfDice = rolls.reduce((a, b) => a + b, 0);
-          chosenValue = sumOfDice;
-          const finalSum = chosenValue + mod;
-          if (rolls.length > 1) {
-            expr = `${count}d${faces}${modStr} → [${rolls.join(' + ')}] = ${sumOfDice}${mod !== 0 ? ` (${sumOfDice}${modStr})` : ''}`;
-          } else {
-            expr = `${count}d${faces}${modStr} → [${rolls[0]}]${mod !== 0 ? ` (${rolls[0]}${modStr})` : ''}`;
-          }
-          finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete, overrideSenderName);
-        }
-      }).catch(err => {
-        console.error("Erro na rolagem 3D:", err);
-        isRolling = false;
-      });
+    // Anima localmente no GM — a animação 3D já acontece aqui
+    animateDiceFixed(faces, count, rolls, currentColor, () => {
+      isRolling = false;
     });
   }
 
 
-  function finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete, overrideSenderName) {
+  function finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete, overrideSenderName, gmAlreadyAnimated) {
     const isGMActive = checkIsGM();
 
     // Se for o Mestre com rolagem secreta, mostra apenas localmente e NÃO transmite
@@ -1005,13 +1009,12 @@ import { isAndroidOrIOS } from './mobile.js';
       return;
     }
 
-    // Mestre sempre chama o callback local (mostra toast na própria tela)
+    // Mestre chama o callback local (mostra toast na própria tela)
     if (isGMActive) {
       if (typeof onComplete === 'function') onComplete(finalSum, expr, rolls);
     }
-    // Jogadores NÃO chamam onComplete aqui — o resultado chega via GM (onRemoteDiceRoll)
 
-    // Envia resultado via WebRTC
+    // Envia resultado via WebRTC (sem delay — sincronização pela animação @notation)
     if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
       window.RPG.sendDiceRoll({
         faces,
@@ -1023,50 +1026,74 @@ import { isAndroidOrIOS } from './mobile.js';
         rolls,
         sum: finalSum,
         expr,
+        _gmAlreadyAnimated: !!gmAlreadyAnimated,
         ...(overrideSenderName ? { senderName: overrideSenderName } : {})
       });
     }
   }
 
   // ---- Recepção de resultado de dado vindo do GM ----
-  // Anima o dado 3D e só mostra o toast DEPOIS que a animação terminar
+  // Anima o dado 3D com valores FIXOS (@notation) e só mostra o toast DEPOIS.
+  // A animação é PRECISAMENTE igual em todas as telas.
   window.RPG = window.RPG || {};
   window.RPG.onRemoteDiceRoll = (data) => {
     if (!data) return;
 
-    const notation = `${data.count || 1}d${data.faces || 20}`;
-    const color = data.themeColor || getEffectiveDiceColor();
+    const faces   = data.faces || 20;
+    const count   = data.count || 1;
+    const rolls   = Array.isArray(data.rolls) && data.rolls.length ? data.rolls : null;
+    const color   = data.themeColor || getEffectiveDiceColor();
 
     const showToast = () => {
       showSharedResultToast(data.senderName || 'Jogador', data.sum, data.expr, color);
     };
 
-    initBox().then(() => {
-      if (isBoxReady) {
-        // Aguarda a animação terminar, depois mostra o resultado
-        Box.roll(notation, { themeColor: color })
-          .then(showToast)
-          .catch(showToast); // se a animação falhar, mostra o toast mesmo assim
-      } else {
-        showToast(); // DiceBox não disponível — mostra direto
-      }
-    }).catch(showToast);
+    if (rolls) {
+      // Anima com valores pré-determinados → idêntico em todos os clientes
+      animateDiceFixed(faces, count, rolls, color, showToast);
+    } else {
+      // Fallback: animação livre (sem valores fixos — legado)
+      initBox().then(() => {
+        if (isBoxReady) {
+          Box.roll(`${count}d${faces}`, { themeColor: color })
+            .then(showToast).catch(showToast);
+        } else {
+          showToast();
+        }
+      }).catch(showToast);
+    }
   };
 
 
-
-
   // ---- GM rola em nome de um jogador (chamado por gm/sync.js) ----
-  // Recebe um pedido de rolagem de um jogador, executa Box.roll() aqui no GM,
-  // mostra na tela do GM e depois transmite o resultado para todos.
+  // 1. Calcula resultado matematicamente (sem animação) → mostra ao GM imediatamente
+  // 2. Envia resultado com rolls fixos para TODOS (GM + jogadores) simultaneamente
+  // 3. Todos animam com os mesmos valores → animação idêntica em todas as telas
   window.RPG.rollDiceFromRequest = (requestData) => {
     const { faces, count, mod, mode, senderName, themeColor } = requestData;
     const color = themeColor || getEffectiveDiceColor();
-    rollDiceEngine(faces || 20, count || 1, mod || 0, mode || 'normal', (sum, expr) => {
-      // Mostra na tela do GM com o nome do jogador que pediu
-      showSharedResultToast(senderName || 'Jogador', sum, expr, color);
-    }, senderName);
-    // finishRoll vai transmitir para todos com o senderName correto via sendDiceRoll do GM
+
+    // Passo 1: calcula sem animação
+    const { rolls, sum, expr } = rollMath(faces || 20, count || 1, mod || 0, mode || 'normal');
+
+    // Passo 2: mostra resultado ao GM imediatamente como preview (só texto, sem animação ainda)
+    showSharedResultToast(senderName || 'Jogador', sum, expr + ' [→ exibindo para todos]', color);
+
+    // Passo 3: envia para todos (inclusive GM) — cada um vai animar com os valores fixos
+    if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
+      window.RPG.sendDiceRoll({
+        faces: faces || 20,
+        count: count || 1,
+        mod: mod || 0,
+        mode: mode || 'normal',
+        themeColor: color,
+        scale: customScale,
+        rolls,
+        sum,
+        expr,
+        senderName: senderName || 'Jogador',
+      });
+    }
   };
 
   applyCustomStyles();
