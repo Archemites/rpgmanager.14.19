@@ -1153,156 +1153,42 @@
   box-shadow: 0 0 8px var(--swatch-color, #fff);
 }
 
-/* Toast de Resultado Mobile */
-.player-dice-result-toast {
-  position: fixed;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%) translateY(-20px) scale(0.85);
-  z-index: 9999;
-  pointer-events: none;
-  opacity: 0;
-  transition: transform 0.3s cubic-bezier(0.22, 1.5, 0.36, 1), opacity 0.25s ease;
-}
-.player-dice-result-toast.pop {
-  transform: translateX(-50%) translateY(0) scale(1);
-  opacity: 1;
-}
-.player-dice-result-toast.hidden { display: none; }
-
-.toast-content {
-  background: var(--float-bg, rgba(12, 15, 22, 0.96));
-  border: 1px solid var(--dice-active-color);
-  border-radius: var(--radius, 10px);
-  padding: 8px 18px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), 0 0 20px rgba(var(--accent-rgb), 0.4);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-}
-.toast-total {
-  font-size: 38px;
-  font-weight: 900;
-  font-family: var(--font-head, inherit);
-  color: var(--dice-active-color);
-  text-shadow: 0 0 16px var(--dice-active-color), var(--glow-strong);
-  line-height: 1;
-}
-.toast-formula {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-dim);
-  font-family: var(--font-body, inherit);
-  white-space: nowrap;
-}
-
-/* ── Banner / Toast Compartilhado de Resultado (PC & Mobile) ── */
-.player-dice-shared-toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%) translateY(24px) scale(0.85);
-  z-index: 9999;
-  pointer-events: auto;
-  cursor: pointer;
-  opacity: 0;
-  transition: transform 0.3s cubic-bezier(0.22, 1.5, 0.36, 1), opacity 0.25s ease;
-  user-select: none;
-}
-.player-dice-shared-toast.pop {
-  transform: translateX(-50%) translateY(0) scale(1);
-  opacity: 1;
-}
-.player-dice-shared-toast.hidden { display: none !important; }
-
-
-.shared-toast-content {
-  --toast-accent: var(--dice-active-color, var(--accent));
-  background: var(--float-bg, rgba(10, 13, 20, 0.96));
-  border: 1px solid var(--toast-accent);
-  border-radius: var(--radius, 10px);
-  padding: 8px 20px;
-  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.75), 0 0 22px color-mix(in srgb, var(--toast-accent) 50%, transparent);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  min-width: 170px;
-  max-width: 90vw;
-  animation: toastGlowPulse 2.5s infinite alternate ease-in-out;
-}
-
-@keyframes toastGlowPulse {
-  from { box-shadow: 0 10px 36px rgba(0, 0, 0, 0.75), 0 0 16px color-mix(in srgb, var(--toast-accent) 35%, transparent); }
-  to   { box-shadow: 0 10px 36px rgba(0, 0, 0, 0.75), 0 0 28px color-mix(in srgb, var(--toast-accent) 65%, transparent); }
-}
-
-.shared-toast-header {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-family: var(--font-head, inherit);
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-.shared-toast-icon {
-  font-size: 13px;
-}
-.shared-toast-user {
-  color: var(--toast-accent);
-  text-shadow: 0 0 8px color-mix(in srgb, var(--toast-accent) 70%, transparent);
-}
-.shared-toast-action {
-  color: var(--text-dim);
-  font-size: 10px;
-}
-
-.shared-toast-body {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-}
-.shared-toast-total {
-  font-size: 40px;
-  font-weight: 900;
-  font-family: var(--font-head, inherit);
-  color: var(--toast-accent);
-  text-shadow: 0 0 16px var(--toast-accent), var(--glow-strong);
-  line-height: 1;
-}
-.shared-toast-formula {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-dim);
-  font-family: var(--font-body, inherit);
-  white-space: nowrap;
-  max-width: 85vw;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: center;
-}
-
 /* 3D WebGL Canvas */
 #dice-box-canvas {
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 1;
+  z-index: 9200;
   pointer-events: none;
 }
 #dice-box-canvas canvas {
   width: 100% !important;
   height: 100% !important;
-  filter: brightness(1.2) contrast(1.08) saturate(1.12);
+  filter: brightness(1.15) contrast(1.06) saturate(1.1);
+  transition: filter 0.45s ease;
+}
+
+/* Brilho suave quando os dados assentam na mesa */
+#dice-box-canvas.settled canvas {
+  animation: diceSettleGlow 2.2s ease-in-out infinite alternate;
+}
+
+@keyframes diceSettleGlow {
+  0% {
+    filter: drop-shadow(0 0 3px var(--dice-settle-color, var(--accent)))
+            drop-shadow(0 0 8px var(--dice-settle-color, var(--accent)))
+            brightness(1.12);
+  }
+  50% {
+    filter: drop-shadow(0 0 7px var(--dice-settle-color, var(--accent)))
+            drop-shadow(0 0 16px var(--dice-settle-color, var(--accent)))
+            drop-shadow(0 0 3px rgba(255, 255, 255, 0.75))
+            brightness(1.24);
+  }
+  100% {
+    filter: drop-shadow(0 0 4px var(--dice-settle-color, var(--accent)))
+            drop-shadow(0 0 10px var(--dice-settle-color, var(--accent)))
+            brightness(1.14);
+  }
 }

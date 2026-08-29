@@ -446,31 +446,8 @@
     }
   }
 
-  // Envia pedido de rolagem para o GM (sem resultado — o GM vai rolar e nos responder)
-  // Retorna true se enviado com sucesso, false se não há conexão ativa
-  function sendDiceRollRequest(requestData) {
-    const conn = window.RPG.getActiveConnection ? window.RPG.getActiveConnection() : null;
-    if (conn && conn.open) {
-      const myName = (entryNameInput.value.trim() || localStorage.getItem(NAME_KEY) || 'Jogador').slice(0, 40);
-      try {
-        conn.send({
-          type: 'rpg-dice-roll-request',
-          senderName: myName,
-          ...requestData
-        });
-        return true;
-      } catch (e) {
-        console.warn('Erro ao enviar pedido de rolagem:', e);
-      }
-    }
-    return false;
-  }
-
-
-
   // ---------- Init ----------
   window.RPG.sendDiceRoll = sendDiceRoll;
-  window.RPG.sendDiceRollRequest = sendDiceRollRequest;
   window.RPG.resizeCanvas();
   window.RPG.centerView();
 })();
