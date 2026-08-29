@@ -428,10 +428,8 @@ import { isAndroidOrIOS } from './mobile.js';
         const count = Math.min(20, Math.max(1, parseInt(mCountInput.value, 10) || 1));
         const mod = parseInt(mModInput.value, 10) || 0;
 
-        const isGMActive = checkIsGM();
-
-        if (isGMActive) {
-          // Mestre rola localmente (com suporte a rolagem secreta)
+        if (checkIsGM()) {
+          // Mestre rola com DiceBox real → lê valor físico → broadcast
           rollDiceEngine(faces, count, mod, currentRollMode, (sum, expr) => {
             if (isSecretRoll) {
               showSharedResultToast('Mestre (Oculto)', sum, expr + ' [Oculto]', getEffectiveDiceColor());
@@ -440,20 +438,12 @@ import { isAndroidOrIOS } from './mobile.js';
             }
           });
         } else {
-          // Jogador: tenta enviar pedido para o GM (GM rola primeiro)
-          const sent = window.RPG && typeof window.RPG.sendDiceRollRequest === 'function'
-            ? window.RPG.sendDiceRollRequest({ faces, count, mod, mode: currentRollMode })
-            : false;
-
-          // Fallback: sem conexão com o GM, rola localmente para não ficar sem resposta
-          if (!sent) {
-            rollDiceEngine(faces, count, mod, currentRollMode, (sum, expr) => {
-              showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
-            });
-          }
+          // Jogador: anima livremente → lê valor REAL quando para → envia ao GM
+          playerRoll(faces, count, mod, currentRollMode);
         }
       });
     });
+
 
 
 
@@ -744,10 +734,8 @@ import { isAndroidOrIOS } from './mobile.js';
       const mod = parseInt(desktopModInput.value, 10) || 0;
       const mode = desktopModeSelect ? desktopModeSelect.value : 'normal';
 
-      const isGMActive = checkIsGM();
-
-      if (isGMActive) {
-        // Mestre rola localmente
+      if (checkIsGM()) {
+        // Mestre rola com DiceBox real → lê valor físico → broadcast
         rollDiceEngine(selectedFaces, count, mod, mode, (sum, expr) => {
           if (isSecretRoll) {
             showSharedResultToast('Mestre (Oculto)', sum, expr + ' [Oculto dos jogadores]', getEffectiveDiceColor());
@@ -756,19 +744,11 @@ import { isAndroidOrIOS } from './mobile.js';
           }
         });
       } else {
-        // Jogador: tenta enviar pedido para o GM (GM rola primeiro)
-        const sent = window.RPG && typeof window.RPG.sendDiceRollRequest === 'function'
-          ? window.RPG.sendDiceRollRequest({ faces: selectedFaces, count, mod, mode })
-          : false;
-
-        // Fallback: sem conexão, rola localmente
-        if (!sent) {
-          rollDiceEngine(selectedFaces, count, mod, mode, (sum, expr) => {
-            showSharedResultToast('Você', sum, expr, getEffectiveDiceColor());
-          });
-        }
+        // Jogador: anima livremente → lê valor REAL quando para → envia ao GM
+        playerRoll(selectedFaces, count, mod, mode);
       }
     });
+
 
 
 
@@ -932,12 +912,18 @@ import { isAndroidOrIOS } from './mobile.js';
     return boxInitPromise;
   }
 
-  // ---- Calcula valores de dados matematicamente (sem animação 3D) ----
-  function rollMath(faces, count, mod, mode) {
-    const rolls = [];
-    for (let i = 0; i < count; i++) {
-      rolls.push(1 + Math.floor(Math.random() * faces));
-    }
+
+  // ---- Extrai valores reais do resultado do DiceBox ----
+  function extractRolls(results) {
+    const group = results && results[0];
+    const rollsData = group && group.rolls ? group.rolls : results;
+    return Array.isArray(rollsData)
+      ? rollsData.map(r => r.value)
+      : [group ? group.value : 0];
+  }
+
+  // ---- Monta sum e expr a partir de rolls REAIS (da física do DiceBox) ----
+  function buildResultFromRolls(faces, count, mod, mode, rolls) {
     const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : '';
     let sum, expr;
     if (mode === 'adv') {
@@ -959,11 +945,19 @@ import { isAndroidOrIOS } from './mobile.js';
         ? `${count}d${faces}${modStr} → [${rolls.join(' + ')}] = ${sumOfDice}${mod !== 0 ? ` (${sumOfDice}${modStr})` : ''}`
         : `${count}d${faces}${modStr} → [${rolls[0]}]${mod !== 0 ? ` (${rolls[0]}${modStr})` : ''}`;
     }
-    return { rolls, sum, expr };
+    return { sum, expr };
+  }
+
+  // ---- Fallback puramente matemático (sem DiceBox) ----
+  function rollMath(faces, count, mod, mode) {
+    const rolls = [];
+    for (let i = 0; i < count; i++) rolls.push(1 + Math.floor(Math.random() * faces));
+    return { rolls, ...buildResultFromRolls(faces, count, mod, mode, rolls) };
   }
 
   // ---- Anima dado 3D com valores PRÉ-FIXADOS (notação @) ----
-  // Garante que a animação 3D seja idêntica em todas as telas.
+  // Garante animação idêntica em todas as telas.
+  // IMPORTANTE: limpa dados anteriores antes de rolar para não mostrar face antiga.
   function animateDiceFixed(faces, count, rolls, color, onDone) {
     const fixedNotation = `${count}d${faces}@${rolls.join(',')}`;
     initBox().then(() => {
@@ -972,6 +966,8 @@ import { isAndroidOrIOS } from './mobile.js';
         if (typeof Box.updateConfig === 'function') {
           try { Box.updateConfig({ scale: customScale, themeColor: colorToUse }); } catch (e) {}
         }
+        // Limpa dados da tela antes de rolar com valores fixos — evita face antiga aparecer
+        try { if (typeof Box.clear === 'function') Box.clear(); } catch (e) {}
         Box.roll(fixedNotation, { themeColor: colorToUse })
           .then(onDone)
           .catch(onDone);
@@ -981,23 +977,75 @@ import { isAndroidOrIOS } from './mobile.js';
     }).catch(() => { if (typeof onDone === 'function') onDone(); });
   }
 
-  // rollDiceEngine: mantido para uso do GM ao rolar para si mesmo (sem pedido de jogador)
+  // ---- Rola com DiceBox livremente e lê o valor REAL quando para ----
+  // Garante que o valor registrado é exatamente o que a física mostrou.
+  function rollDiceBoxFree(faces, count, color, onResult) {
+    initBox().then(() => {
+      if (isBoxReady) {
+        const colorToUse = color || getEffectiveDiceColor();
+        if (typeof Box.updateConfig === 'function') {
+          try { Box.updateConfig({ scale: customScale, themeColor: colorToUse }); } catch (e) {}
+        }
+        try { if (typeof Box.clear === 'function') Box.clear(); } catch (e) {}
+        Box.roll(`${count}d${faces}`, { themeColor: colorToUse })
+          .then(results => { onResult(extractRolls(results)); })
+          .catch(() => {
+            // DiceBox falhou: fallback matemático
+            const { rolls } = rollMath(faces, count, 0, 'normal');
+            onResult(rolls);
+          });
+      } else {
+        const { rolls } = rollMath(faces, count, 0, 'normal');
+        onResult(rolls);
+      }
+    }).catch(() => {
+      const { rolls } = rollMath(faces, count, 0, 'normal');
+      onResult(rolls);
+    });
+  }
+
+  // ---- Rolagem do JOGADOR: anima livremente, lê valor real, envia ao GM ----
+  // O valor é registrado APENAS quando o dado para (resolve da Promise do DiceBox).
+  // Envia os rolls reais ao GM para que o GM possa fazer o broadcast com os valores exatos.
+  function playerRoll(faces, count, mod, mode) {
+    if (isRolling) return;
+    isRolling = true;
+    const color = getEffectiveDiceColor();
+
+    rollDiceBoxFree(faces, count, color, (rolls) => {
+      isRolling = false;
+      const { sum, expr } = buildResultFromRolls(faces, count, mod, mode, rolls);
+
+      // Envia ao GM os valores REAIS da física (não Math.random)
+      const sent = window.RPG && typeof window.RPG.sendDiceRollRequest === 'function'
+        ? window.RPG.sendDiceRollRequest({ faces, count, mod, mode, rolls })
+        : false;
+
+      if (!sent) {
+        // Sem conexão com GM: exibe resultado localmente
+        showSharedResultToast('Você', sum, expr, color);
+      }
+      // Se enviado: aguarda broadcast do GM → onRemoteDiceRoll vai exibir para todos simultaneamente
+    });
+  }
+
+  // rollDiceEngine: APENAS para o GM rolar para si mesmo
+  // Rola com DiceBox real (não Math.random) → lê valor físico → broadcast com valores fixos
   function rollDiceEngine(faces, count, mod, mode, onComplete, overrideSenderName) {
     if (isRolling) return;
     isRolling = true;
+    const color = getEffectiveDiceColor();
 
-    const { rolls, sum: finalSum, expr } = rollMath(faces, count, mod, mode);
-    const currentColor = getEffectiveDiceColor();
-
-    // GM rola para si: o GM vê o resultado imediatamente (preview secreto se aplicável)
-    // gmAlreadyAnimated=true → sendDiceRoll não vai animar de novo no GM
-    finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete, overrideSenderName, /*gmAlreadyAnimated=*/true);
-
-    // Anima localmente no GM — a animação 3D já acontece aqui
-    animateDiceFixed(faces, count, rolls, currentColor, () => {
+    rollDiceBoxFree(faces, count, color, (rolls) => {
       isRolling = false;
+      const { sum, expr } = buildResultFromRolls(faces, count, mod, mode, rolls);
+
+      // GM vê o resultado imediatamente via callback (toast local, secreto se aplicável)
+      // gmAlreadyAnimated=true → sendDiceRoll não re-anima no GM (já animou em rollDiceBoxFree)
+      finishRoll(faces, count, mod, mode, color, rolls, sum, expr, onComplete, overrideSenderName, /*gmAlreadyAnimated=*/true);
     });
   }
+
 
 
   function finishRoll(faces, count, mod, mode, currentColor, rolls, finalSum, expr, onComplete, overrideSenderName, gmAlreadyAnimated) {
@@ -1033,28 +1081,31 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   // ---- Recepção de resultado de dado vindo do GM ----
-  // Anima o dado 3D com valores FIXOS (@notation) e só mostra o toast DEPOIS.
+  // Anima o dado 3D com valores FIXOS (@notation) usando os rolls reais da física.
+  // Box.clear() é chamado antes para evitar que dado antigo apareça com valor errado.
   // A animação é PRECISAMENTE igual em todas as telas.
   window.RPG = window.RPG || {};
   window.RPG.onRemoteDiceRoll = (data) => {
     if (!data) return;
 
-    const faces   = data.faces || 20;
-    const count   = data.count || 1;
-    const rolls   = Array.isArray(data.rolls) && data.rolls.length ? data.rolls : null;
-    const color   = data.themeColor || getEffectiveDiceColor();
+    const faces = data.faces || 20;
+    const count = data.count || 1;
+    const rolls = Array.isArray(data.rolls) && data.rolls.length ? data.rolls : null;
+    const color = data.themeColor || getEffectiveDiceColor();
 
     const showToast = () => {
       showSharedResultToast(data.senderName || 'Jogador', data.sum, data.expr, color);
     };
 
     if (rolls) {
-      // Anima com valores pré-determinados → idêntico em todos os clientes
+      // Anima com valores REAIS da física → idêntico em todos os clientes
+      // animateDiceFixed já chama Box.clear() antes de rolar
       animateDiceFixed(faces, count, rolls, color, showToast);
     } else {
-      // Fallback: animação livre (sem valores fixos — legado)
+      // Fallback: sem valores fixos — anima livremente e mostra toast
       initBox().then(() => {
         if (isBoxReady) {
+          try { if (typeof Box.clear === 'function') Box.clear(); } catch (e) {}
           Box.roll(`${count}d${faces}`, { themeColor: color })
             .then(showToast).catch(showToast);
         } else {
@@ -1065,36 +1116,41 @@ import { isAndroidOrIOS } from './mobile.js';
   };
 
 
-  // ---- GM rola em nome de um jogador (chamado por gm/sync.js) ----
-  // 1. Calcula resultado matematicamente (sem animação) → mostra ao GM imediatamente
-  // 2. Envia resultado com rolls fixos para TODOS (GM + jogadores) simultaneamente
-  // 3. Todos animam com os mesmos valores → animação idêntica em todas as telas
+  // ---- GM processa pedido de rolagem de um jogador (chamado por gm/sync.js) ----
+  // Se o jogador já enviou os rolls reais (da física do DiceBox dele), usa esses valores.
+  // Caso contrário, o GM rola com seu próprio DiceBox (também física real, não Math.random).
+  // Depois broadcast para TODOS (GM + jogadores) animarem simultaneamente com @notation.
   window.RPG.rollDiceFromRequest = (requestData) => {
     const { faces, count, mod, mode, senderName, themeColor } = requestData;
+    const f = faces || 20, c = count || 1, m = mod || 0, mo = mode || 'normal';
     const color = themeColor || getEffectiveDiceColor();
 
-    // Passo 1: calcula sem animação
-    const { rolls, sum, expr } = rollMath(faces || 20, count || 1, mod || 0, mode || 'normal');
+    const doWithRolls = (rolls) => {
+      const { sum, expr } = buildResultFromRolls(f, c, m, mo, rolls);
 
-    // Passo 2: mostra resultado ao GM imediatamente como preview (só texto, sem animação ainda)
-    showSharedResultToast(senderName || 'Jogador', sum, expr + ' [→ exibindo para todos]', color);
+      // Mestre vê o resultado imediatamente como preview de texto
+      showSharedResultToast(senderName || 'Jogador', sum, expr + ' [→ exibindo para todos]', color);
 
-    // Passo 3: envia para todos (inclusive GM) — cada um vai animar com os valores fixos
-    if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
-      window.RPG.sendDiceRoll({
-        faces: faces || 20,
-        count: count || 1,
-        mod: mod || 0,
-        mode: mode || 'normal',
-        themeColor: color,
-        scale: customScale,
-        rolls,
-        sum,
-        expr,
-        senderName: senderName || 'Jogador',
-      });
+      // Broadcast para TODOS (GM + jogadores) — todos vão animar com @notation simultaneamente
+      if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
+        window.RPG.sendDiceRoll({
+          faces: f, count: c, mod: m, mode: mo,
+          themeColor: color, scale: customScale,
+          rolls, sum, expr,
+          senderName: senderName || 'Jogador',
+        });
+      }
+    };
+
+    if (Array.isArray(requestData.rolls) && requestData.rolls.length) {
+      // Jogador enviou os valores REAIS da física do DiceBox dele — usa diretamente
+      doWithRolls(requestData.rolls);
+    } else {
+      // Fallback: GM rola com seu próprio DiceBox (física real, não Math.random)
+      rollDiceBoxFree(f, c, color, doWithRolls);
     }
   };
+
 
   applyCustomStyles();
   initBox();
