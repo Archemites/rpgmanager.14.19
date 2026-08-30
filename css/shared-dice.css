@@ -869,10 +869,12 @@
   border: none;
   outline: none;
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 .mobile-stepper-pill input[type="number"]::-webkit-outer-spin-button,
 .mobile-stepper-pill input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
+  appearance: none;
   margin: 0;
 }
 
