@@ -1034,34 +1034,34 @@ import { isAndroidOrIOS } from './mobile.js';
       return def;
     };
 
-    // Material com brilho polido e sombreamento geométrico nítido em cada face
+    // Material com acabamento acetinado equilibrado e facetas geométricas limpas
     factory.material_options = {
-      specular: 0x444444, // Brilho especular nítido nas quinas e arestas
+      specular: 0x222222, // Brilho suave sem estourar ou desbotar as cores
       color: 0xffffff,
-      shininess: 38,      // Acabamento de resina polida de RPG
-      flatShading: true   // Facetas geométricas destacadas e nítidas
+      shininess: 20,      // Acabamento acetinado limpo
+      flatShading: true   // Facetas geométricas nítidas
     };
   }
 
   function calibrateSceneLighting(box) {
     if (!box) return;
     if (box.renderer) {
-      // 0 = THREE.NoToneMapping: renderização 1:1 sem compressão de brilho ou desvio de matiz
+      // 0 = THREE.NoToneMapping: renderização 1:1 sem distorção ou desvio de matiz
       box.renderer.toneMapping = 0;
       if (box.renderer.shadowMap) {
         box.renderer.shadowMap.enabled = true;
       }
     }
-    // Luz ambiente suave neutra (preenchimento de sombra sem clarear/lavar o contraste 3D)
+    // Luz ambiente suave e neutra (preenchimento equilibrado mantendo a saturação natural)
     if (box.light_amb) {
       box.light_amb.color.setHex(0xffffff);
-      if (box.light_amb.groundColor) box.light_amb.groundColor.setHex(0x888888);
-      box.light_amb.intensity = 0.75;
+      if (box.light_amb.groundColor) box.light_amb.groundColor.setHex(0xaaaaaa);
+      box.light_amb.intensity = 0.6;
     }
-    // Luz principal direcional angular (Key light) criando volume, brilho especular e sombras nítidas
+    // Luz direcional suave (Key light) com sombra e volume sem estourar o brilho
     if (box.light) {
       box.light.color.setHex(0xffffff);
-      box.light.intensity = 1.8;
+      box.light.intensity = 0.95;
       box.light.castShadow = true;
       if (box.light.position) {
         box.light.position.set(30, 100, 45);
@@ -1284,7 +1284,7 @@ import { isAndroidOrIOS } from './mobile.js';
             theme_material: "plastic",
             color_spotlight: 0xffffff,
             theme_customColorset: createBoxColorset(effColor, effTextColor),
-            light_intensity: 1.5,
+            light_intensity: 1.0,
             baseScale: baseScaleVal,
             gravity_multiplier: 400
           });
