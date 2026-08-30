@@ -62,7 +62,7 @@
   transition: background 0.3s;
 }
 #playerDiceOverlay.open {
-  background: rgba(0,0,0,0.25);
+  background: rgba(0, 0, 0, 0.4);
   pointer-events: auto;
 }
 
@@ -1161,7 +1161,7 @@
   inset: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 9200;
+  z-index: 9600;
   pointer-events: none;
 }
 #dice-box-canvas canvas {
@@ -1178,19 +1178,19 @@
 
 @keyframes diceSettleGlow {
   0% {
-    filter: drop-shadow(0 0 3px var(--dice-settle-color, var(--accent)))
-            drop-shadow(0 0 8px var(--dice-settle-color, var(--accent)))
+    filter: drop-shadow(0 0 3px var(--dice-settle-color, #e63946))
+            drop-shadow(0 0 8px var(--dice-settle-color, #e63946))
             brightness(1.12);
   }
   50% {
-    filter: drop-shadow(0 0 7px var(--dice-settle-color, var(--accent)))
-            drop-shadow(0 0 16px var(--dice-settle-color, var(--accent)))
+    filter: drop-shadow(0 0 7px var(--dice-settle-color, #e63946))
+            drop-shadow(0 0 16px var(--dice-settle-color, #e63946))
             drop-shadow(0 0 3px rgba(255, 255, 255, 0.75))
             brightness(1.24);
   }
   100% {
-    filter: drop-shadow(0 0 4px var(--dice-settle-color, var(--accent)))
-            drop-shadow(0 0 10px var(--dice-settle-color, var(--accent)))
+    filter: drop-shadow(0 0 4px var(--dice-settle-color, #e63946))
+            drop-shadow(0 0 10px var(--dice-settle-color, #e63946))
             brightness(1.14);
   }
 }

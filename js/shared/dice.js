@@ -37,19 +37,21 @@ import { isAndroidOrIOS } from './mobile.js';
     isSecretRoll = localStorage.getItem(STORAGE_KEY_SECRET) === 'true';
   } catch (_) {}
 
-  // ---- Paleta de Cores do Dado ----
+  // ---- Paleta de Cores do Dado (Totalmente Independente do Tema) ----
+  const DEFAULT_DICE_COLOR = '#e63946';
+  const DEFAULT_TEXT_COLOR = 'auto';
+
   const COLOR_PALETTE = [
-    { label: 'Tema da Mesa', value: 'theme', color: 'transparent', isTheme: true },
+    { label: 'Vermelho Carmim', value: '#e63946' },
     { label: 'Dourado Imperial', value: '#f5b342' },
-    { label: 'Verde Cyberpunk', value: '#45ff78' },
-    { label: 'Vermelho Sangue', value: '#e63946' },
-    { label: 'Roxo Arcano', value: '#a855f7' },
+    { label: 'Verde Esmeralda', value: '#45ff78' },
     { label: 'Azul Glacial', value: '#38bdf8' },
+    { label: 'Roxo Arcano', value: '#a855f7' },
     { label: 'Ciano Etéreo', value: '#06b6d4' },
     { label: 'Laranja Fogo', value: '#ff7b00' },
     { label: 'Rosa Neon', value: '#f43f5e' },
     { label: 'Branco Prata', value: '#e2e8f0' },
-    { label: 'Preto Ônix', value: '#334155' }
+    { label: 'Preto Ônix', value: '#222222' }
   ];
 
   // ---- Paleta de Cores do Texto / Números ----
@@ -71,13 +73,18 @@ import { isAndroidOrIOS } from './mobile.js';
   const STORAGE_KEY_TEXT_COLOR = 'rpg-dice-text-color';
   const STORAGE_KEY_SCALE = 'rpg-dice-scale';
 
-  let customColor = 'theme';
-  let customTextColor = 'auto';
+  let customColor = DEFAULT_DICE_COLOR;
+  let customTextColor = DEFAULT_TEXT_COLOR;
   let customScale = 6;
 
   try {
-    customColor = localStorage.getItem(STORAGE_KEY_COLOR) || 'theme';
-    customTextColor = localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || 'auto';
+    const savedColor = localStorage.getItem(STORAGE_KEY_COLOR);
+    if (savedColor && savedColor !== 'theme' && /^#[0-9a-fA-F]{3,6}$/.test(savedColor)) {
+      customColor = savedColor;
+    } else {
+      customColor = DEFAULT_DICE_COLOR;
+    }
+    customTextColor = localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || DEFAULT_TEXT_COLOR;
     const savedScale = localStorage.getItem(STORAGE_KEY_SCALE);
     if (savedScale) customScale = Math.min(14, Math.max(2, Number(savedScale) || 6));
   } catch (e) {}
@@ -231,7 +238,7 @@ import { isAndroidOrIOS } from './mobile.js';
         <div class="settings-row">
           <div class="settings-label-row">
             <span class="settings-label">Cor do Dado</span>
-            <button type="button" id="mobileResetBtn" class="reset-theme-btn" title="Restaurar cor do tema">Cor do Tema</button>
+            <button type="button" id="mobileResetBtn" class="reset-theme-btn" title="Restaurar cor padrão do dado">Padrão</button>
           </div>
           <div class="settings-color-bar">
             <div class="color-picker-dot" title="Espectro de Cores">
@@ -501,7 +508,7 @@ import { isAndroidOrIOS } from './mobile.js';
 
     mResetBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
-      customColor = 'theme';
+      customColor = DEFAULT_DICE_COLOR;
       saveAndApplyStyles();
     });
 
@@ -616,12 +623,12 @@ import { isAndroidOrIOS } from './mobile.js';
               </svg>
               Cor do Dado
             </span>
-            <button type="button" class="player-dice-settings-reset" id="playerDiceResetBtn" title="Restaurar cor do tema da mesa">
+            <button type="button" class="player-dice-settings-reset" id="playerDiceResetBtn" title="Restaurar cor padrão do dado">
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                 <path d="M3 3v5h5" />
               </svg>
-              <span>Cor do Tema</span>
+              <span>Padrão</span>
             </button>
           </div>
 
@@ -850,7 +857,7 @@ import { isAndroidOrIOS } from './mobile.js';
     });
 
     desktopResetBtn?.addEventListener('click', () => {
-      customColor = 'theme';
+      customColor = DEFAULT_DICE_COLOR;
       saveAndApplyStyles();
     });
 
@@ -958,22 +965,6 @@ import { isAndroidOrIOS } from './mobile.js';
     return name || 'Jogador';
   }
 
-  function getThemeColor() {
-    const raw = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-    if (!raw) return '#45ff78';
-    if (raw.startsWith('#')) return raw;
-    if (raw.startsWith('rgb')) {
-      const match = raw.match(/\d+/g);
-      if (match && match.length >= 3) {
-        const r = parseInt(match[0], 10).toString(16).padStart(2, '0');
-        const g = parseInt(match[1], 10).toString(16).padStart(2, '0');
-        const b = parseInt(match[2], 10).toString(16).padStart(2, '0');
-        return '#' + r + g + b;
-      }
-    }
-    return '#45ff78';
-  }
-
   function getEffectiveDiceColor() {
     if (customColor && customColor !== 'theme') {
       let c = String(customColor).trim();
@@ -981,9 +972,9 @@ import { isAndroidOrIOS } from './mobile.js';
       if (c.length === 4) {
         c = '#' + c[1] + c[1] + c[2] + c[2] + c[3] + c[3];
       }
-      return c;
+      if (/^#[0-9a-fA-F]{6}$/.test(c)) return c;
     }
-    return getThemeColor();
+    return DEFAULT_DICE_COLOR;
   }
 
   function getContrastTextColor(hex) {
@@ -1117,24 +1108,13 @@ import { isAndroidOrIOS } from './mobile.js';
           const swatch = document.createElement('div');
           swatch.className = 'player-dice-color-swatch';
           swatch.title = p.label;
-          if (p.isTheme) {
-            const tColor = getThemeColor();
-            swatch.style.background = `linear-gradient(135deg, ${tColor} 50%, var(--panel, #000) 50%)`;
-            swatch.style.setProperty('--swatch-color', tColor);
-            if (customColor === 'theme') swatch.classList.add('active');
-            swatch.addEventListener('click', () => {
-              customColor = 'theme';
-              saveAndApplyStyles();
-            });
-          } else {
-            swatch.style.background = p.value;
-            swatch.style.setProperty('--swatch-color', p.value);
-            if (customColor.toLowerCase() === p.value.toLowerCase()) swatch.classList.add('active');
-            swatch.addEventListener('click', () => {
-              customColor = p.value;
-              saveAndApplyStyles();
-            });
-          }
+          swatch.style.background = p.value;
+          swatch.style.setProperty('--swatch-color', p.value);
+          if (customColor.toLowerCase() === p.value.toLowerCase()) swatch.classList.add('active');
+          swatch.addEventListener('click', () => {
+            customColor = p.value;
+            saveAndApplyStyles();
+          });
           desktopColorGrid.appendChild(swatch);
         });
       }
@@ -1170,6 +1150,9 @@ import { isAndroidOrIOS } from './mobile.js';
 
     // 2. Mobile Popover
     if (isMobileOS) {
+      if (typeof mobileWrap !== 'undefined' && mobileWrap) {
+        mobileWrap.style.setProperty('--dice-active-color', effColor);
+      }
       if (mPreview) {
         mPreview.style.background = effColor;
         mPreview.style.boxShadow = `0 0 8px ${effColor}`;
@@ -1201,22 +1184,13 @@ import { isAndroidOrIOS } from './mobile.js';
           const swatch = document.createElement('div');
           swatch.className = 'player-dice-color-swatch';
           swatch.title = p.label;
-          if (p.isTheme) {
-            const tColor = getThemeColor();
-            swatch.style.background = `linear-gradient(135deg, ${tColor} 50%, #000 50%)`;
-            if (customColor === 'theme') swatch.classList.add('active');
-            swatch.addEventListener('click', () => {
-              customColor = 'theme';
-              saveAndApplyStyles();
-            });
-          } else {
-            swatch.style.background = p.value;
-            if (customColor.toLowerCase() === p.value.toLowerCase()) swatch.classList.add('active');
-            swatch.addEventListener('click', () => {
-              customColor = p.value;
-              saveAndApplyStyles();
-            });
-          }
+          swatch.style.background = p.value;
+          swatch.style.setProperty('--swatch-color', p.value);
+          if (customColor.toLowerCase() === p.value.toLowerCase()) swatch.classList.add('active');
+          swatch.addEventListener('click', () => {
+            customColor = p.value;
+            saveAndApplyStyles();
+          });
           mColorGrid.appendChild(swatch);
         });
       }
@@ -1518,20 +1492,6 @@ import { isAndroidOrIOS } from './mobile.js';
 
   applyCustomStyles();
   initBox();
-
-  const themeObserver = new MutationObserver(() => {
-    if (customColor === 'theme' || customTextColor === 'auto') {
-      applyCustomStyles();
-      updateBoxAppearance();
-    }
-  });
-  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'rpg-table-theme' && (customColor === 'theme' || customTextColor === 'auto')) {
-      applyCustomStyles();
-      updateBoxAppearance();
-    }
-  });
 
   // API pública: rollDice (uso via console/macros)
   // @ts-ignore
