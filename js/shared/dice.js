@@ -4,8 +4,7 @@ import { isAndroidOrIOS } from './mobile.js';
 
 /* ============================================================
    Player & GM dice roller — Motor 3D sincronizado via WebRTC
-   - PC: Gaveta inferior retrátil clássica
-   - Mobile (Android / iOS): Speed-Dial flutuante
+   - Three.js + Cannon-es puro sem dependência de Babylon/WASM Workers quebrados
    - Sem sombras no chão (renderização limpa e transparente sobre o mapa)
    - Suporte completo a d4, d6, d8, d10, d12, d20 e d100
    ============================================================ */
@@ -1025,7 +1024,7 @@ import { isAndroidOrIOS } from './mobile.js';
       return def;
     };
 
-    // Material sem sombras no chão com realces nítidos e limpos
+    // Material limpo sem reflexos escuros e com facetas poliedrais nítidas
     factory.material_options = {
       specular: 0x333333,
       color: 0xffffff,
@@ -1042,16 +1041,16 @@ import { isAndroidOrIOS } from './mobile.js';
         box.renderer.shadowMap.enabled = false;
       }
     }
-    // Luz ambiente suave e limpa sem sombras
+    // Luz ambiente 100% branca sem sombras
     if (box.light_amb) {
       box.light_amb.color.setHex(0xffffff);
       if (box.light_amb.groundColor) box.light_amb.groundColor.setHex(0xffffff);
-      box.light_amb.intensity = 0.9;
+      box.light_amb.intensity = 0.95;
     }
-    // Luz direcional branca pura sem projetar sombra no plano do chão
+    // Luz direcional branca pura sem projetar sombras
     if (box.light) {
       box.light.color.setHex(0xffffff);
-      box.light.intensity = 0.9;
+      box.light.intensity = 0.95;
       box.light.castShadow = false;
       if (box.light.position) {
         box.light.position.set(30, 100, 45);
@@ -1155,7 +1154,6 @@ import { isAndroidOrIOS } from './mobile.js';
             });
           } else {
             swatch.style.background = p.value;
-            swatch.style.setProperty('--swatch-color', p.value);
             if (customTextColor.toLowerCase() === p.value.toLowerCase()) swatch.classList.add('active');
             swatch.addEventListener('click', () => {
               customTextColor = p.value;
