@@ -13,7 +13,6 @@
 <link rel="stylesheet" href="css/layout.css">
 <link rel="stylesheet" href="css/components.css?v=8">
 <link rel="stylesheet" href="css/modals.css">
-<link rel="stylesheet" href="css/shared-dice.css">
 </head>
 <body>
 <div id="app">
@@ -67,21 +66,6 @@
       </button>
       <button id="openGlossaryBtn" class="top-circle-btn" title="Glossário de efeitos" aria-label="Glossário de efeitos">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-      </button>
-      <button id="openDiceBtn" class="top-circle-btn" title="Rolar dados" aria-label="Rolar dados">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.15" />
-          <polygon points="12,7.5 18,17 6,17" fill="currentColor" fill-opacity="0.25" />
-          <line x1="12" y1="2" x2="12" y2="7.5" />
-          <line x1="21" y1="7.5" x2="18" y2="17" />
-          <line x1="21" y1="16.5" x2="18" y2="17" />
-          <line x1="12" y1="22" x2="18" y2="17" />
-          <line x1="12" y1="22" x2="6" y2="17" />
-          <line x1="3" y1="16.5" x2="6" y2="17" />
-          <line x1="3" y1="7.5" x2="6" y2="17" />
-          <line x1="12" y1="7.5" x2="21" y2="7.5" />
-          <line x1="12" y1="7.5" x2="3" y2="7.5" />
-        </svg>
       </button>
     </div>
 
@@ -472,40 +456,6 @@
     </div>
     <div id="inviteCloseRow">
       <button type="button" class="secondary" id="inviteCloseBtn">Fechar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Dice roller modal -->
-<div id="diceOverlay" class="modal-overlay">
-  <div id="diceModal" class="modal-dialog">
-    <h3>Rolar dados</h3>
-    <div class="hint hint-m0">&gt; Escolha um dado, ajuste quantidade/modificador e role.</div>
-    <div id="diceFaceRow">
-      <button class="dice-face-btn" data-faces="4">d4</button>
-      <button class="dice-face-btn" data-faces="6">d6</button>
-      <button class="dice-face-btn" data-faces="8">d8</button>
-      <button class="dice-face-btn" data-faces="10">d10</button>
-      <button class="dice-face-btn" data-faces="12">d12</button>
-      <button class="dice-face-btn" data-faces="20">d20</button>
-      <button class="dice-face-btn" data-faces="100">d100</button>
-    </div>
-    <div class="two-col">
-      <div class="field">
-        <label for="diceCountInput">Quantidade</label>
-        <input type="number" id="diceCountInput" value="1" min="1" max="20">
-      </div>
-      <div class="field">
-        <label for="diceModInput">Modificador</label>
-        <input type="number" id="diceModInput" value="0">
-      </div>
-    </div>
-    <div id="diceResult"></div>
-    <button class="full" id="diceRollBtn">Rolar</button>
-    <div id="diceHistory"></div>
-    <div id="diceActions">
-      <button class="secondary" id="diceClearHistoryBtn">Limpar histórico</button>
-      <button class="secondary" id="diceCloseBtn">Fechar</button>
     </div>
   </div>
 </div>
