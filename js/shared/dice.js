@@ -1034,12 +1034,12 @@ import { isAndroidOrIOS } from './mobile.js';
       return def;
     };
 
-    // Material com acabamento acetinado equilibrado e facetas geométricas limpas
+    // Material com realces de especular pura 100% branca e facetas geométricas limpas
     factory.material_options = {
-      specular: 0x222222, // Brilho suave sem estourar ou desbotar as cores
+      specular: 0xffffff, // Realce especular 100% branco para saturação viva e brilho nítido
       color: 0xffffff,
-      shininess: 20,      // Acabamento acetinado limpo
-      flatShading: true   // Facetas geométricas nítidas
+      shininess: 30,      // Acabamento nítido e definido
+      flatShading: true   // Facetas geométricas limpas
     };
   }
 
@@ -1052,20 +1052,24 @@ import { isAndroidOrIOS } from './mobile.js';
         box.renderer.shadowMap.enabled = true;
       }
     }
-    // Luz ambiente suave e neutra (preenchimento equilibrado mantendo a saturação natural)
+    // Luz ambiente 100% branca pura (preenchimento sem desbotar a cor original)
     if (box.light_amb) {
       box.light_amb.color.setHex(0xffffff);
-      if (box.light_amb.groundColor) box.light_amb.groundColor.setHex(0xaaaaaa);
-      box.light_amb.intensity = 0.6;
+      if (box.light_amb.groundColor) box.light_amb.groundColor.setHex(0xffffff);
+      box.light_amb.intensity = 1.0;
     }
-    // Luz direcional suave (Key light) com sombra e volume sem estourar o brilho
+    // Luz direcional 100% branca pura (intensidade máxima)
     if (box.light) {
       box.light.color.setHex(0xffffff);
-      box.light.intensity = 0.95;
+      box.light.intensity = 1.0;
       box.light.castShadow = true;
       if (box.light.position) {
         box.light.position.set(30, 100, 45);
       }
+    }
+    if (box.spotlight) {
+      box.spotlight.color.setHex(0xffffff);
+      box.spotlight.intensity = 1.0;
     }
     if (box.desk) {
       box.desk.receiveShadow = true;
