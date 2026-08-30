@@ -1063,42 +1063,42 @@ import { isAndroidOrIOS } from './mobile.js';
       return def;
     };
 
-    // Material com realces de especular pura 100% branca e facetas geométricas limpas
+    // Material com especular acetinada e facetas geométricas 3D nítidas
     factory.material_options = {
-      specular: 0xffffff, // Realce especular 100% branco para saturação viva e brilho nítido
+      specular: 0x444444, // Especular acetinada que destaca o contorno 3D sem desbotar as faces
       color: 0xffffff,
-      shininess: 30,      // Acabamento nítido e definido
-      flatShading: true   // Facetas geométricas limpas
+      shininess: 35,      // Brilho acetinado e volumétrico
+      flatShading: true   // Sombreamento multifacetado para destacar cada face do poliedro
     };
   }
 
   function calibrateSceneLighting(box) {
     if (!box) return;
     if (box.renderer) {
-      // 0 = THREE.NoToneMapping: renderização 1:1 sem distorção ou desvio de matiz
+      // 0 = THREE.NoToneMapping: renderização 1:1 com fidelidade total de cor
       box.renderer.toneMapping = 0;
       if (box.renderer.shadowMap) {
         box.renderer.shadowMap.enabled = true;
       }
     }
-    // Luz ambiente 100% branca pura (preenchimento sem desbotar a cor original)
+    // Luz ambiente proporcional (ilumina sem achatar o volume ou remover as sombras)
     if (box.light_amb) {
       box.light_amb.color.setHex(0xffffff);
-      if (box.light_amb.groundColor) box.light_amb.groundColor.setHex(0xffffff);
-      box.light_amb.intensity = 1.0;
+      if (box.light_amb.groundColor) box.light_amb.groundColor.setHex(0x444444);
+      box.light_amb.intensity = 0.55;
     }
-    // Luz direcional 100% branca pura (intensidade máxima)
+    // Luz direcional principal 100% branca pura (cria contraste de luz, sombra e volume 3D)
     if (box.light) {
       box.light.color.setHex(0xffffff);
-      box.light.intensity = 1.0;
+      box.light.intensity = 1.25;
       box.light.castShadow = true;
       if (box.light.position) {
-        box.light.position.set(30, 100, 45);
+        box.light.position.set(40, 120, 50);
       }
     }
     if (box.spotlight) {
       box.spotlight.color.setHex(0xffffff);
-      box.spotlight.intensity = 1.0;
+      box.spotlight.intensity = 0.8;
     }
     if (box.desk) {
       box.desk.receiveShadow = true;
