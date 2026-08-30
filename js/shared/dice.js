@@ -438,6 +438,18 @@ import { isAndroidOrIOS } from './mobile.js';
         saveAndApplyStyles();
       }
     });
+    mHexInput?.addEventListener('change', () => {
+      let raw = mHexInput.value.replace(/[^0-9a-fA-F]/g, '');
+      if (raw.length === 3) {
+        customColor = '#' + raw.split('').map(c => c + c).join('');
+        saveAndApplyStyles();
+      } else if (raw.length === 6) {
+        customColor = '#' + raw;
+        saveAndApplyStyles();
+      } else {
+        applyCustomStyles();
+      }
+    });
 
     mTextColorPicker?.addEventListener('input', () => {
       customTextColor = mTextColorPicker.value;
@@ -445,10 +457,34 @@ import { isAndroidOrIOS } from './mobile.js';
     });
 
     mTextHexInput?.addEventListener('input', () => {
-      let raw = mTextHexInput.value.replace(/[^0-9a-fA-F]/g, '');
+      let val = mTextHexInput.value.trim().toLowerCase();
+      if (val === 'auto') {
+        customTextColor = 'auto';
+        saveAndApplyStyles();
+        return;
+      }
+      let raw = val.replace(/[^0-9a-fA-F]/g, '');
       if (raw.length === 6) {
         customTextColor = '#' + raw;
         saveAndApplyStyles();
+      }
+    });
+    mTextHexInput?.addEventListener('change', () => {
+      let val = mTextHexInput.value.trim().toLowerCase();
+      if (val === 'auto') {
+        customTextColor = 'auto';
+        saveAndApplyStyles();
+        return;
+      }
+      let raw = val.replace(/[^0-9a-fA-F]/g, '');
+      if (raw.length === 3) {
+        customTextColor = '#' + raw.split('').map(c => c + c).join('');
+        saveAndApplyStyles();
+      } else if (raw.length === 6) {
+        customTextColor = '#' + raw;
+        saveAndApplyStyles();
+      } else {
+        applyCustomStyles();
       }
     });
 
@@ -753,6 +789,18 @@ import { isAndroidOrIOS } from './mobile.js';
         saveAndApplyStyles();
       }
     });
+    desktopHexInput?.addEventListener('change', () => {
+      let raw = desktopHexInput.value.replace(/[^0-9a-fA-F]/g, '');
+      if (raw.length === 3) {
+        customColor = '#' + raw.split('').map(c => c + c).join('');
+        saveAndApplyStyles();
+      } else if (raw.length === 6) {
+        customColor = '#' + raw;
+        saveAndApplyStyles();
+      } else {
+        applyCustomStyles();
+      }
+    });
 
     desktopTextColorPicker?.addEventListener('input', () => {
       customTextColor = desktopTextColorPicker.value;
@@ -760,10 +808,34 @@ import { isAndroidOrIOS } from './mobile.js';
     });
 
     desktopTextHexInput?.addEventListener('input', () => {
-      let raw = desktopTextHexInput.value.replace(/[^0-9a-fA-F]/g, '');
+      let val = desktopTextHexInput.value.trim().toLowerCase();
+      if (val === 'auto') {
+        customTextColor = 'auto';
+        saveAndApplyStyles();
+        return;
+      }
+      let raw = val.replace(/[^0-9a-fA-F]/g, '');
       if (raw.length === 6) {
         customTextColor = '#' + raw;
         saveAndApplyStyles();
+      }
+    });
+    desktopTextHexInput?.addEventListener('change', () => {
+      let val = desktopTextHexInput.value.trim().toLowerCase();
+      if (val === 'auto') {
+        customTextColor = 'auto';
+        saveAndApplyStyles();
+        return;
+      }
+      let raw = val.replace(/[^0-9a-fA-F]/g, '');
+      if (raw.length === 3) {
+        customTextColor = '#' + raw.split('').map(c => c + c).join('');
+        saveAndApplyStyles();
+      } else if (raw.length === 6) {
+        customTextColor = '#' + raw;
+        saveAndApplyStyles();
+      } else {
+        applyCustomStyles();
       }
     });
 
@@ -817,7 +889,7 @@ import { isAndroidOrIOS } from './mobile.js';
 
     function closeDesktopDice() {
       desktopOverlay.classList.remove('open');
-      if (boxCanvas) boxCanvas.classList.remove('settled');
+      clearSettledDice();
     }
 
     pcDiceBtn.addEventListener('click', openDesktopDice);
@@ -842,6 +914,37 @@ import { isAndroidOrIOS } from './mobile.js';
   // ============================================================
   // MOTOR 3D & CONFIGURAÇÃO COMPARTILHADA
   // ============================================================
+  let hasSettledDice = false;
+
+  function clearSettledDice() {
+    if (Box && isBoxReady) {
+      try {
+        Box.clearDice();
+      } catch (_) {}
+    }
+    if (boxCanvas) {
+      boxCanvas.classList.remove('settled');
+    }
+    hasSettledDice = false;
+  }
+
+  // Desaparece com os dados ao clicar em qualquer lugar da tela após a rolagem
+  document.addEventListener('pointerdown', (e) => {
+    if (!hasSettledDice || isRolling) return;
+    const target = /** @type {HTMLElement} */ (e.target);
+    if (!target) return;
+
+    const isDesktopPanel = desktopPanel && desktopPanel.contains(target);
+    const mobilePanel = document.getElementById('playerDiceMobileWrap');
+    const isMobileWrap = mobilePanel && mobilePanel.contains(target);
+    const isPcBtn = document.getElementById('playerDiceBtn')?.contains(target);
+    const isGmBtn = document.getElementById('openDiceBtn')?.contains(target);
+
+    if (!isDesktopPanel && !isMobileWrap && !isPcBtn && !isGmBtn) {
+      clearSettledDice();
+    }
+  }, true);
+
   function getLocalCharacterName() {
     if (checkIsGM()) return 'Mestre';
     let name = '';
@@ -856,13 +959,28 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   function getThemeColor() {
-    return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || "#45ff78";
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    if (!raw) return '#45ff78';
+    if (raw.startsWith('#')) return raw;
+    if (raw.startsWith('rgb')) {
+      const match = raw.match(/\d+/g);
+      if (match && match.length >= 3) {
+        const r = parseInt(match[0], 10).toString(16).padStart(2, '0');
+        const g = parseInt(match[1], 10).toString(16).padStart(2, '0');
+        const b = parseInt(match[2], 10).toString(16).padStart(2, '0');
+        return '#' + r + g + b;
+      }
+    }
+    return '#45ff78';
   }
 
   function getEffectiveDiceColor() {
     if (customColor && customColor !== 'theme') {
       let c = String(customColor).trim();
       if (!c.startsWith('#')) c = '#' + c;
+      if (c.length === 4) {
+        c = '#' + c[1] + c[1] + c[2] + c[2] + c[3] + c[3];
+      }
       return c;
     }
     return getThemeColor();
@@ -872,6 +990,7 @@ import { isAndroidOrIOS } from './mobile.js';
     if (!hex || hex === 'theme') return '#ffffff';
     let c = hex.replace('#', '');
     if (c.length === 3) c = c.split('').map(x => x + x).join('');
+    if (c.length !== 6) return '#ffffff';
     const r = parseInt(c.slice(0, 2), 16) || 0;
     const g = parseInt(c.slice(2, 4), 16) || 0;
     const b = parseInt(c.slice(4, 6), 16) || 0;
@@ -883,6 +1002,9 @@ import { isAndroidOrIOS } from './mobile.js';
     if (customTextColor && customTextColor !== 'auto') {
       let c = String(customTextColor).trim();
       if (!c.startsWith('#')) c = '#' + c;
+      if (c.length === 4) {
+        c = '#' + c[1] + c[1] + c[2] + c[2] + c[3] + c[3];
+      }
       return c;
     }
     return getContrastTextColor(getEffectiveDiceColor());
@@ -898,6 +1020,35 @@ import { isAndroidOrIOS } from './mobile.js';
       outline: 'none',
       texture: 'none',
       material: 'plastic'
+    };
+  }
+
+  function patchDiceFactory(factory) {
+    if (!factory || factory.__dicePatched) return;
+    factory.__dicePatched = true;
+
+    // Garante que todas as definições de dados tenham uma família de fontes válida
+    const diceKeys = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100', 'd2'];
+    diceKeys.forEach(k => {
+      try {
+        const def = factory.get(k);
+        if (def && !def.font) def.font = 'sans-serif';
+      } catch (_) {}
+    });
+
+    const origGet = factory.get.bind(factory);
+    factory.get = function(type) {
+      const def = origGet(type);
+      if (def && !def.font) def.font = 'sans-serif';
+      return def;
+    };
+
+    // Fundo neutro branco para manter as cores das texturas 100% fiéis
+    factory.material_options = {
+      specular: 0x333333,
+      color: 0xffffff,
+      shininess: 25,
+      flatShading: true
     };
   }
 
@@ -1133,7 +1284,8 @@ import { isAndroidOrIOS } from './mobile.js';
 
           await Box.initialize();
           isBoxReady = true;
-          applyScaleToBox(customScale);
+          if (Box.DiceFactory) patchDiceFactory(Box.DiceFactory);
+          await updateBoxAppearance(effColor, effTextColor, customScale);
           return Box;
         } catch (err) {
           console.error("Erro inicializando DiceBox 3D:", err);
@@ -1158,18 +1310,24 @@ import { isAndroidOrIOS } from './mobile.js';
 
     try {
       const colorSet = createBoxColorset(effColor, effTextColor);
-      await Box.updateConfig({
-        baseScale: baseScaleVal,
-        theme_customColorset: colorSet
-      });
+      Box.theme_customColorset = colorSet;
+      Box.colorData = colorSet;
       Box.baseScale = baseScaleVal;
+
       if (Box.DiceFactory) {
+        patchDiceFactory(Box.DiceFactory);
         Box.DiceFactory.baseScale = baseScaleVal;
+        Box.DiceFactory.dice_material = 'none';
+        Box.DiceFactory.applyColorSet(colorSet);
         Box.DiceFactory.label_color = effTextColor;
         Box.DiceFactory.dice_color = effColor;
         Box.DiceFactory.edge_color = effColor;
         Box.DiceFactory.geometries = {};
         Box.DiceFactory.materials_cache = {};
+      }
+
+      if (Box.DiceColors) {
+        Box.DiceColors.colorsets[colorSet.name] = colorSet;
       }
     } catch (e) {
       console.warn("Erro atualizando aparência dos dados 3D:", e);
@@ -1179,6 +1337,7 @@ import { isAndroidOrIOS } from './mobile.js';
   // Efeito de brilho suave quando o dado para/assenta
   function onSettle(color) {
     isRolling = false;
+    hasSettledDice = true;
     if (boxCanvas) {
       boxCanvas.style.setProperty('--dice-settle-color', color || getEffectiveDiceColor());
       boxCanvas.classList.remove('settled');
@@ -1246,6 +1405,7 @@ import { isAndroidOrIOS } from './mobile.js';
   // ---- Rolagem do JOGADOR ----
   async function playerRoll(faces, count = 1, mod = 0) {
     if (isRolling) return;
+    clearSettledDice();
     isRolling = true;
     const mode = currentRollMode || 'normal';
     const rollData = executeRoll(faces, count, mod, mode);
@@ -1290,6 +1450,7 @@ import { isAndroidOrIOS } from './mobile.js';
   // ---- Rolagem do MESTRE ----
   async function gmRoll(faces, count = 1, mod = 0) {
     if (isRolling) return;
+    clearSettledDice();
     isRolling = true;
     const mode = currentRollMode || 'normal';
     const rollData = executeRoll(faces, count, mod, mode);
@@ -1335,6 +1496,7 @@ import { isAndroidOrIOS } from './mobile.js';
   window.RPG = window.RPG || {};
   window.RPG.onRemoteDiceRoll = async (data) => {
     if (!data) return;
+    clearSettledDice();
 
     const color = data.themeColor || getEffectiveDiceColor();
     const textColor = data.textColor || getEffectiveTextColor();
