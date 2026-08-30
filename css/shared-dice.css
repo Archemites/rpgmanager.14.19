@@ -57,19 +57,19 @@
   align-items: flex-end;
   justify-content: center;
   padding-bottom: 0;
-  background: rgba(0,0,0,0);
+  background: transparent;
   pointer-events: none;
-  transition: background 0.3s;
 }
 #playerDiceOverlay.open {
-  background: rgba(0, 0, 0, 0.4);
-  pointer-events: auto;
+  background: transparent;
+  pointer-events: none;
 }
 
 /* Painel estilo drawer retrátil desktop */
 #playerDicePanel {
   position: relative;
   z-index: 9700;
+  pointer-events: auto;
   --dice-active-color: var(--dice-custom-color, var(--accent));
   background: var(--panel);
   border: var(--border-width, 1px) var(--border-style, solid) var(--panel-border);

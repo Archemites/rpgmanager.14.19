@@ -1018,7 +1018,7 @@ import { isAndroidOrIOS } from './mobile.js';
     if (!factory || factory.__dicePatched) return;
     factory.__dicePatched = true;
 
-    // Garante que todas as definições de dados tenham uma família de fontes válida
+    // Garante que todas as definições de dados tenham uma família de fontes válida e d100 seja compatível
     const diceKeys = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100', 'd2'];
     diceKeys.forEach(k => {
       try {
@@ -1026,6 +1026,35 @@ import { isAndroidOrIOS } from './mobile.js';
         if (def && !def.font) def.font = 'sans-serif';
       } catch (_) {}
     });
+
+    try {
+      const d100Def = factory.get('d100');
+      if (d100Def) {
+        if (!d100Def.font) d100Def.font = 'sans-serif';
+        if (Array.isArray(d100Def.values)) {
+          const zeroIdx = d100Def.values.findIndex(v => v === 0 || v === '0' || v === '00' || v === 100);
+          const targetZeroIdx = zeroIdx !== -1 ? zeroIdx : 0;
+          if (!d100Def.values.includes(100)) {
+            d100Def.values.push(100);
+            if (Array.isArray(d100Def.normals)) d100Def.normals.push(d100Def.normals[targetZeroIdx]);
+          }
+          if (!d100Def.values.includes('100')) {
+            d100Def.values.push('100');
+            if (Array.isArray(d100Def.normals)) d100Def.normals.push(d100Def.normals[targetZeroIdx]);
+          }
+          if (!d100Def.values.includes(0)) {
+            d100Def.values.push(0);
+            if (Array.isArray(d100Def.normals)) d100Def.normals.push(d100Def.normals[targetZeroIdx]);
+          }
+          if (!d100Def.values.includes('00')) {
+            d100Def.values.push('00');
+            if (Array.isArray(d100Def.normals)) d100Def.normals.push(d100Def.normals[targetZeroIdx]);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Erro ao ajustar definição do d100:", e);
+    }
 
     const origGet = factory.get.bind(factory);
     factory.get = function(type) {
@@ -1362,9 +1391,21 @@ import { isAndroidOrIOS } from './mobile.js';
   // ---- Gera o resultado determinístico e arma a notação 3D ----
   function getRandomFace(faces) {
     if (faces === 100) {
-      return (Math.floor(Math.random() * 10) + 1) * 10;
+      return Math.floor(Math.random() * 100) + 1;
     }
     return Math.floor(Math.random() * faces) + 1;
+  }
+
+  function get3dTargetNotation(faces, count, rolls) {
+    if (faces === 100) {
+      const targets = rolls.map(r => {
+        if (r === 100) return 0;
+        const tens = Math.floor(r / 10) * 10;
+        return tens;
+      });
+      return `${count}d100@${targets.join(',')}`;
+    }
+    return `${count}d${faces}@${rolls.join(',')}`;
   }
 
   function executeRoll(faces, count = 1, mod = 0, mode = 'normal') {
@@ -1401,7 +1442,7 @@ import { isAndroidOrIOS } from './mobile.js';
     }
 
     // Arma o DiceBox para que os dados caiam exatamente nas faces sorteadas
-    const notation = `${diceCount}d${faces}@${rolls.join(',')}`;
+    const notation = get3dTargetNotation(faces, diceCount, rolls);
 
     return {
       faces,
@@ -1514,7 +1555,7 @@ import { isAndroidOrIOS } from './mobile.js';
     const color = data.themeColor || getEffectiveDiceColor();
     const textColor = data.textColor || getEffectiveTextColor();
     const scale = data.scale || customScale;
-    const notation = data.notation || `${data.count || (data.rolls ? data.rolls.length : 1)}d${data.faces || 20}@${(data.rolls || [1]).join(',')}`;
+    const notation = data.notation || get3dTargetNotation(data.faces || 20, data.count || (data.rolls ? data.rolls.length : 1), data.rolls || [1]);
 
     try {
       await initBox();
