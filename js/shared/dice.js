@@ -3,14 +3,11 @@ import DiceBox from 'https://cdn.jsdelivr.net/npm/@drdreo/dice-box-threejs@1.1.0
 import { isAndroidOrIOS } from './mobile.js';
 
 /* ============================================================
-   Player & GM dice roller — motor 3D perfeitamente sincronizado via WebRTC
-   - PC: layout clássico de gaveta inferior
+   Player & GM dice roller — Motor 3D sincronizado via WebRTC
+   - PC: Gaveta inferior retrátil clássica
    - Mobile (Android / iOS): Speed-Dial flutuante
-   - Sincronização determinística: os dados 3D em TODAS as telas (Mestre e Jogadores)
-     são armados para cair exatamente no mesmo lado/resultado apurado na rolagem!
-   - Personalização completa: tamanho do dado (slider), cor do dado e cor dos números/texto.
-   - Mestre (GM): opção de "Rolagem Secreta / Oculta" para rolar sem
-     exibir aos jogadores quando desejar.
+   - Sem sombras no chão (renderização limpa e transparente sobre o mapa)
+   - Suporte completo a d4, d6, d8, d10, d12, d20 e d100
    ============================================================ */
 
 (() => {
@@ -37,7 +34,7 @@ import { isAndroidOrIOS } from './mobile.js';
     isSecretRoll = localStorage.getItem(STORAGE_KEY_SECRET) === 'true';
   } catch (_) {}
 
-  // ---- Paleta de Cores do Dado (Totalmente Independente do Tema) ----
+  // ---- Paleta de Cores do Dado ----
   const DEFAULT_DICE_COLOR = '#e63946';
   const DEFAULT_TEXT_COLOR = 'auto';
 
@@ -87,7 +84,7 @@ import { isAndroidOrIOS } from './mobile.js';
     customTextColor = localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || DEFAULT_TEXT_COLOR;
     const savedScale = localStorage.getItem(STORAGE_KEY_SCALE);
     if (savedScale) customScale = Math.min(14, Math.max(2, Number(savedScale) || 6));
-  } catch (e) {}
+  } catch (_) {}
 
   // ---- SVGs Poliédricos para os Dados ----
   const DICE_SVGS = {
@@ -108,25 +105,19 @@ import { isAndroidOrIOS } from './mobile.js';
     document.body.appendChild(boxCanvas);
   }
 
-  // Verifica se é estritamente Android ou iOS
   const isMobileOS = isAndroidOrIOS();
   const isGM = checkIsGM();
 
   // ============================================================
-  // MODO 1: MOBILE (ANDROID / IOS) — SPEED-DIAL FLUTUANTE
+  // MODO 1: MOBILE (SPEED-DIAL FLUTUANTE)
   // ============================================================
   if (isMobileOS) {
     const mobileWrap = document.createElement('div');
     mobileWrap.id = 'playerDiceMobileWrap';
     mobileWrap.className = 'player-dice-mobile-wrap';
     mobileWrap.innerHTML = `
-      <!-- Linha Superior: Controles à Esquerda + Bolinha -->
       <div class="player-dice-mobile-header">
-        
-        <!-- Controles à Esquerda da Bolinha -->
         <div id="mobileSideControls" class="player-dice-mobile-side collapsed">
-          
-          <!-- Botão Secreto/Oculto (apenas Mestre) -->
           ${isGM ? `
             <button type="button" id="mobileGmSecretBtn" class="mobile-control-btn secret-btn ${isSecretRoll ? 'secret' : 'public'}" title="Alternar visibilidade para os jogadores">
               <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -137,7 +128,6 @@ import { isAndroidOrIOS } from './mobile.js';
             </button>
           ` : ''}
 
-          <!-- Modo de Rolagem com Subdrop -->
           <div class="mobile-mode-dropdown-wrap">
             <button type="button" id="mobileModeBtn" class="mobile-control-btn mode-btn" title="Modo de Rolagem">
               <span id="mobileModeLabel">NORMAL</span>
@@ -145,8 +135,6 @@ import { isAndroidOrIOS } from './mobile.js';
                 <polyline points="6 9 12 15 18 9"/>
               </svg>
             </button>
-            
-            <!-- Menu do Subdrop de Modo -->
             <div id="mobileModeMenu" class="mobile-subdrop-menu hidden">
               <button type="button" class="mobile-subdrop-item active" data-mode="normal">
                 <span class="mode-dot normal"></span>
@@ -163,7 +151,6 @@ import { isAndroidOrIOS } from './mobile.js';
             </div>
           </div>
 
-          <!-- Quantidade (Qtd) com Stepper -->
           <div class="mobile-stepper-pill" title="Quantidade de dados">
             <span class="pill-label">Qtd</span>
             <button type="button" id="mobileCountDec" class="pill-btn">−</button>
@@ -171,17 +158,14 @@ import { isAndroidOrIOS } from './mobile.js';
             <button type="button" id="mobileCountInc" class="pill-btn">+</button>
           </div>
 
-          <!-- Modificador (Mod) com Stepper -->
           <div class="mobile-stepper-pill" title="Modificador numérico">
             <span class="pill-label">Mod</span>
             <button type="button" id="mobileModDec" class="pill-btn">−</button>
             <input type="number" id="mobileModInput" min="-99" max="99" value="0" title="Mod">
             <button type="button" id="mobileModInc" class="pill-btn">+</button>
           </div>
-
         </div>
 
-        <!-- A Bolinha (Botão Principal) -->
         <button type="button" id="mobileDiceBtn" class="player-dice-circle-btn" title="Rolar dados" aria-label="Rolar dados">
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.15" />
@@ -197,10 +181,8 @@ import { isAndroidOrIOS } from './mobile.js';
             <line x1="12" y1="7.5" x2="3" y2="7.5" />
           </svg>
         </button>
-
       </div>
 
-      <!-- Coluna Vertical de Dados (Abaixo da Bolinha) -->
       <div id="mobileDiceColumn" class="player-dice-mobile-column collapsed">
         ${FACES.map(f => `
           <button type="button" class="mobile-dice-col-btn" data-faces="${f}" title="Rolar d${f}">
@@ -209,7 +191,6 @@ import { isAndroidOrIOS } from './mobile.js';
           </button>
         `).join('')}
 
-        <!-- Engrenagem no Final da Coluna -->
         <button type="button" id="mobileSettingsBtn" class="mobile-dice-col-btn settings-btn" title="Personalizar dados 3D">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
@@ -218,14 +199,12 @@ import { isAndroidOrIOS } from './mobile.js';
         </button>
       </div>
 
-      <!-- Popover de Configurações da Engrenagem -->
       <div id="mobileSettingsPanel" class="mobile-settings-popover collapsed">
         <div class="settings-popover-header">
           <span>Aparência dos Dados 3D</span>
           <button type="button" id="mobileSettingsClose" class="settings-popover-close">✕</button>
         </div>
 
-        <!-- 1. Tamanho -->
         <div class="settings-row">
           <div class="settings-label-row">
             <span class="settings-label">Tamanho do Dado</span>
@@ -234,11 +213,10 @@ import { isAndroidOrIOS } from './mobile.js';
           <input type="range" id="mobileScaleInput" min="2" max="14" value="6" step="0.5">
         </div>
         
-        <!-- 2. Cor do Dado -->
         <div class="settings-row">
           <div class="settings-label-row">
             <span class="settings-label">Cor do Dado</span>
-            <button type="button" id="mobileResetBtn" class="reset-theme-btn" title="Restaurar cor padrão do dado">Padrão</button>
+            <button type="button" id="mobileResetBtn" class="reset-theme-btn" title="Restaurar cor padrão">Padrão</button>
           </div>
           <div class="settings-color-bar">
             <div class="color-picker-dot" title="Espectro de Cores">
@@ -253,10 +231,9 @@ import { isAndroidOrIOS } from './mobile.js';
           <div class="color-presets-grid" id="mobileColorGrid"></div>
         </div>
 
-        <!-- 3. Cor dos Números / Texto -->
         <div class="settings-row">
           <div class="settings-label-row">
-            <span class="settings-label">Cor dos Números / Texto</span>
+            <span class="settings-label">Cor dos Números</span>
             <button type="button" id="mobileTextAutoBtn" class="reset-theme-btn" title="Contraste automático">Auto</button>
           </div>
           <div class="settings-color-bar">
@@ -275,7 +252,6 @@ import { isAndroidOrIOS } from './mobile.js';
     `;
     document.body.appendChild(mobileWrap);
 
-    // Referências DOM Mobile
     const mobileBtn = document.getElementById('mobileDiceBtn');
     const mobileSide = document.getElementById('mobileSideControls');
     const mobileCol = document.getElementById('mobileDiceColumn');
@@ -327,25 +303,25 @@ import { isAndroidOrIOS } from './mobile.js';
     function toggleMobileDrop(force) {
       isExpanded = typeof force === 'boolean' ? force : !isExpanded;
       mobileWrap.classList.toggle('open', isExpanded);
-      mobileBtn.classList.toggle('active', isExpanded);
-      mobileSide.classList.toggle('collapsed', !isExpanded);
-      mobileCol.classList.toggle('collapsed', !isExpanded);
+      mobileBtn?.classList.toggle('active', isExpanded);
+      mobileSide?.classList.toggle('collapsed', !isExpanded);
+      mobileCol?.classList.toggle('collapsed', !isExpanded);
 
       if (!isExpanded) {
-        mModeMenu.classList.add('hidden');
-        mSettingsPanel.classList.add('collapsed');
-        mSettingsBtn.classList.remove('active');
+        mModeMenu?.classList.add('hidden');
+        mSettingsPanel?.classList.add('collapsed');
+        mSettingsBtn?.classList.remove('active');
       }
     }
 
-    mobileBtn.addEventListener('click', (e) => {
+    mobileBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleMobileDrop();
     });
 
-    mModeBtn.addEventListener('click', (e) => {
+    mModeBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
-      mModeMenu.classList.toggle('hidden');
+      mModeMenu?.classList.toggle('hidden');
     });
 
     function setMobileMode(mode) {
@@ -355,18 +331,18 @@ import { isAndroidOrIOS } from './mobile.js';
       });
 
       if (mode === 'adv') {
-        mModeLabel.textContent = 'VANTAGEM';
-        mModeBtn.className = 'mobile-control-btn mode-btn adv';
-        if (parseInt(mCountInput.value, 10) === 1) mCountInput.value = '2';
+        if (mModeLabel) mModeLabel.textContent = 'VANTAGEM';
+        if (mModeBtn) mModeBtn.className = 'mobile-control-btn mode-btn adv';
+        if (mCountInput && parseInt(mCountInput.value, 10) === 1) mCountInput.value = '2';
       } else if (mode === 'dis') {
-        mModeLabel.textContent = 'DESVANTAGEM';
-        mModeBtn.className = 'mobile-control-btn mode-btn dis';
-        if (parseInt(mCountInput.value, 10) === 1) mCountInput.value = '2';
+        if (mModeLabel) mModeLabel.textContent = 'DESVANTAGEM';
+        if (mModeBtn) mModeBtn.className = 'mobile-control-btn mode-btn dis';
+        if (mCountInput && parseInt(mCountInput.value, 10) === 1) mCountInput.value = '2';
       } else {
-        mModeLabel.textContent = 'NORMAL';
-        mModeBtn.className = 'mobile-control-btn mode-btn normal';
+        if (mModeLabel) mModeLabel.textContent = 'NORMAL';
+        if (mModeBtn) mModeBtn.className = 'mobile-control-btn mode-btn normal';
       }
-      mModeMenu.classList.add('hidden');
+      mModeMenu?.classList.add('hidden');
     }
 
     mModeItems.forEach(item => {
@@ -376,40 +352,40 @@ import { isAndroidOrIOS } from './mobile.js';
       });
     });
 
-    mCountDec.addEventListener('click', (e) => {
+    mCountDec?.addEventListener('click', (e) => {
       e.stopPropagation();
       let val = parseInt(mCountInput.value, 10) || 1;
       if (val > 1) mCountInput.value = String(val - 1);
     });
 
-    mCountInc.addEventListener('click', (e) => {
+    mCountInc?.addEventListener('click', (e) => {
       e.stopPropagation();
       let val = parseInt(mCountInput.value, 10) || 1;
       if (val < 20) mCountInput.value = String(val + 1);
     });
 
-    mModDec.addEventListener('click', (e) => {
+    mModDec?.addEventListener('click', (e) => {
       e.stopPropagation();
       let val = parseInt(mModInput.value, 10) || 0;
       if (val > -99) mModInput.value = String(val - 1);
     });
 
-    mModInc.addEventListener('click', (e) => {
+    mModInc?.addEventListener('click', (e) => {
       e.stopPropagation();
       let val = parseInt(mModInput.value, 10) || 0;
       if (val < 99) mModInput.value = String(val + 1);
     });
 
-    mSettingsBtn.addEventListener('click', (e) => {
+    mSettingsBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
-      const isCol = mSettingsPanel.classList.toggle('collapsed');
+      const isCol = mSettingsPanel?.classList.toggle('collapsed');
       mSettingsBtn.classList.toggle('active', !isCol);
     });
 
-    mSettingsClose.addEventListener('click', (e) => {
+    mSettingsClose?.addEventListener('click', (e) => {
       e.stopPropagation();
-      mSettingsPanel.classList.add('collapsed');
-      mSettingsBtn.classList.remove('active');
+      mSettingsPanel?.classList.add('collapsed');
+      mSettingsBtn?.classList.remove('active');
     });
 
     document.addEventListener('click', (e) => {
@@ -512,7 +488,6 @@ import { isAndroidOrIOS } from './mobile.js';
       saveAndApplyStyles();
     });
 
-    // GM vs Player no Mobile
     const gmBtn = document.getElementById('openDiceBtn');
     if (gmBtn) {
       gmBtn.addEventListener('click', (e) => {
@@ -529,7 +504,7 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   // ============================================================
-  // MODO 2: PC / DESKTOP — LAYOUT CLÁSSICO DE GAVETA INFERIOR
+  // MODO 2: PC / DESKTOP (GAVETA INFERIOR)
   // ============================================================
   let desktopOverlay = null;
   let desktopPanel = null;
@@ -592,7 +567,6 @@ import { isAndroidOrIOS } from './mobile.js';
         </div>
 
         <div id="playerDiceSettingsDrawer" class="player-dice-settings-drawer">
-          <!-- 1. Tamanho do Dado -->
           <div class="player-dice-scale-row">
             <div class="player-dice-scale-header">
               <span class="player-dice-scale-title">
@@ -611,7 +585,6 @@ import { isAndroidOrIOS } from './mobile.js';
             </div>
           </div>
 
-          <!-- 2. Cor do Dado -->
           <div class="player-dice-settings-title">
             <span>
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -623,7 +596,7 @@ import { isAndroidOrIOS } from './mobile.js';
               </svg>
               Cor do Dado
             </span>
-            <button type="button" class="player-dice-settings-reset" id="playerDiceResetBtn" title="Restaurar cor padrão do dado">
+            <button type="button" class="player-dice-settings-reset" id="playerDiceResetBtn" title="Restaurar cor padrão">
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                 <path d="M3 3v5h5" />
@@ -646,7 +619,6 @@ import { isAndroidOrIOS } from './mobile.js';
           <div class="player-dice-presets-label">Presets rápidos do dado:</div>
           <div class="player-dice-color-grid" id="playerDiceColorGrid"></div>
 
-          <!-- 3. Cor dos Números / Texto -->
           <div class="player-dice-settings-title" style="margin-top: 14px;">
             <span>
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -690,9 +662,8 @@ import { isAndroidOrIOS } from './mobile.js';
             `).join('')}
           </div>
 
-          <!-- Opção Secreta para o Mestre no PC -->
           <div id="gmSecretDiceRow" class="player-dice-secret-row ${isGM ? '' : 'hidden'}">
-            <label class="player-dice-secret-toggle" title="Se marcado, a rolagem só aparece na tela do mestre (oculta dos jogadores)">
+            <label class="player-dice-secret-toggle" title="Se marcado, a rolagem só aparece na tela do mestre">
               <input type="checkbox" id="gmSecretDiceCheckbox" ${isSecretRoll ? 'checked' : ''}>
               <span class="secret-toggle-switch"></span>
               <span class="secret-toggle-text">Rolagem Secreta / Oculta (somente Mestre)</span>
@@ -737,26 +708,22 @@ import { isAndroidOrIOS } from './mobile.js';
     `;
     document.body.appendChild(desktopOverlay);
 
-    // Referências DOM Desktop
     desktopPanel = document.getElementById('playerDicePanel');
     desktopSettingsBtn = document.getElementById('playerDiceSettingsBtn');
     desktopSettingsDrawer = document.getElementById('playerDiceSettingsDrawer');
     
-    // Cor do Dado
     desktopColorPicker = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceColorPicker'));
     desktopActivePreview = document.getElementById('playerDicePickerPreview');
     desktopHexInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceHexInput'));
     desktopColorGrid = document.getElementById('playerDiceColorGrid');
     desktopResetBtn = document.getElementById('playerDiceResetBtn');
 
-    // Cor dos Números
     desktopTextColorPicker = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceTextColorPicker'));
     desktopTextActivePreview = document.getElementById('playerDiceTextPickerPreview');
     desktopTextHexInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceTextHexInput'));
     desktopTextColorGrid = document.getElementById('playerDiceTextColorGrid');
     desktopTextAutoBtn = document.getElementById('playerDiceTextAutoBtn');
 
-    // Escala
     desktopScaleInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceScaleInput'));
     desktopScaleVal = document.getElementById('playerDiceScaleVal');
 
@@ -863,12 +830,12 @@ import { isAndroidOrIOS } from './mobile.js';
 
     function selectFacesDesktop(faces) {
       selectedFaces = faces;
-      desktopFaceButtons.forEach(btn => {
+      desktopFaceButtons?.forEach(btn => {
         btn.classList.toggle('active', Number(/** @type {HTMLElement} */ (btn).dataset.faces) === faces);
       });
     }
 
-    desktopFaceButtons.forEach(btn => {
+    desktopFaceButtons?.forEach(btn => {
       btn.addEventListener('click', () => selectFacesDesktop(Number(/** @type {HTMLElement} */ (btn).dataset.faces)));
     });
 
@@ -890,21 +857,20 @@ import { isAndroidOrIOS } from './mobile.js';
       const secretRow = document.getElementById('gmSecretDiceRow');
       if (secretRow) secretRow.classList.toggle('hidden', !isGMActive);
 
-      desktopOverlay.classList.add('open');
+      desktopOverlay?.classList.add('open');
       initBox();
     }
 
     function closeDesktopDice() {
-      desktopOverlay.classList.remove('open');
+      desktopOverlay?.classList.remove('open');
       clearSettledDice();
     }
 
-    pcDiceBtn.addEventListener('click', openDesktopDice);
-    desktopOverlay.addEventListener('click', (e) => {
+    pcDiceBtn?.addEventListener('click', openDesktopDice);
+    desktopOverlay?.addEventListener('click', (e) => {
       if (e.target === desktopOverlay) closeDesktopDice();
     });
 
-    // GM vs Player no Desktop
     const gmBtn = document.getElementById('openDiceBtn');
     if (gmBtn) {
       gmBtn.addEventListener('click', openDesktopDice);
@@ -929,13 +895,10 @@ import { isAndroidOrIOS } from './mobile.js';
         Box.clearDice();
       } catch (_) {}
     }
-    if (boxCanvas) {
-      boxCanvas.classList.remove('settled');
-    }
     hasSettledDice = false;
   }
 
-  // Desaparece com os dados ao clicar em qualquer lugar da tela após a rolagem
+  // Limpa os dados ao clicar em qualquer lugar da tela após a rolagem
   document.addEventListener('pointerdown', (e) => {
     if (!hasSettledDice || isRolling) return;
     const target = /** @type {HTMLElement} */ (e.target);
@@ -1018,7 +981,6 @@ import { isAndroidOrIOS } from './mobile.js';
     if (!factory || factory.__dicePatched) return;
     factory.__dicePatched = true;
 
-    // Garante que todas as definições de dados tenham uma família de fontes válida e d100 seja compatível
     const diceKeys = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100', 'd2'];
     diceKeys.forEach(k => {
       try {
@@ -1063,48 +1025,45 @@ import { isAndroidOrIOS } from './mobile.js';
       return def;
     };
 
-    // Material com especular acetinada e facetas geométricas 3D nítidas
+    // Material sem sombras no chão com realces nítidos e limpos
     factory.material_options = {
-      specular: 0x444444, // Especular acetinada que destaca o contorno 3D sem desbotar as faces
+      specular: 0x333333,
       color: 0xffffff,
-      shininess: 35,      // Brilho acetinado e volumétrico
-      flatShading: true   // Sombreamento multifacetado para destacar cada face do poliedro
+      shininess: 25,
+      flatShading: true
     };
   }
 
   function calibrateSceneLighting(box) {
     if (!box) return;
     if (box.renderer) {
-      // 0 = THREE.NoToneMapping: renderização 1:1 com fidelidade total de cor
       box.renderer.toneMapping = 0;
       if (box.renderer.shadowMap) {
-        box.renderer.shadowMap.enabled = true;
+        box.renderer.shadowMap.enabled = false;
       }
     }
-    // Luz ambiente proporcional (ilumina sem achatar o volume ou remover as sombras)
+    // Luz ambiente suave e limpa sem sombras
     if (box.light_amb) {
       box.light_amb.color.setHex(0xffffff);
-      if (box.light_amb.groundColor) box.light_amb.groundColor.setHex(0x444444);
-      box.light_amb.intensity = 0.55;
+      if (box.light_amb.groundColor) box.light_amb.groundColor.setHex(0xffffff);
+      box.light_amb.intensity = 0.9;
     }
-    // Luz direcional principal 100% branca pura (cria contraste de luz, sombra e volume 3D)
+    // Luz direcional branca pura sem projetar sombra no plano do chão
     if (box.light) {
       box.light.color.setHex(0xffffff);
-      box.light.intensity = 1.25;
-      box.light.castShadow = true;
+      box.light.intensity = 0.9;
+      box.light.castShadow = false;
       if (box.light.position) {
-        box.light.position.set(40, 120, 50);
+        box.light.position.set(30, 100, 45);
       }
     }
     if (box.spotlight) {
       box.spotlight.color.setHex(0xffffff);
-      box.spotlight.intensity = 0.8;
+      box.spotlight.intensity = 0.5;
+      box.spotlight.castShadow = false;
     }
     if (box.desk) {
-      box.desk.receiveShadow = true;
-    }
-    if (typeof box.enableShadows === 'function') {
-      box.enableShadows();
+      box.desk.receiveShadow = false;
     }
   }
 
@@ -1125,7 +1084,7 @@ import { isAndroidOrIOS } from './mobile.js';
       localStorage.setItem(STORAGE_KEY_COLOR, customColor);
       localStorage.setItem(STORAGE_KEY_TEXT_COLOR, customTextColor);
       localStorage.setItem(STORAGE_KEY_SCALE, String(customScale));
-    } catch (e) {}
+    } catch (_) {}
     applyCustomStyles();
     updateBoxAppearance();
   }
@@ -1138,7 +1097,6 @@ import { isAndroidOrIOS } from './mobile.js';
     if (desktopPanel) {
       desktopPanel.style.setProperty('--dice-active-color', effColor);
       
-      // Dado preview & inputs
       if (desktopActivePreview) {
         desktopActivePreview.style.background = effColor;
         desktopActivePreview.style.boxShadow = `0 0 10px ${effColor}`;
@@ -1150,7 +1108,6 @@ import { isAndroidOrIOS } from './mobile.js';
         desktopHexInput.value = effColor.replace(/^#/, '').toUpperCase();
       }
 
-      // Números preview & inputs
       if (desktopTextActivePreview) {
         desktopTextActivePreview.style.background = effTextColor;
         desktopTextActivePreview.style.boxShadow = `0 0 10px ${effTextColor}`;
@@ -1162,11 +1119,9 @@ import { isAndroidOrIOS } from './mobile.js';
         desktopTextHexInput.value = (customTextColor === 'auto' ? 'AUTO' : effTextColor.replace(/^#/, '').toUpperCase());
       }
 
-      // Escala
       if (desktopScaleInput) desktopScaleInput.value = String(customScale);
       if (desktopScaleVal) desktopScaleVal.textContent = Math.round((customScale / 6) * 100) + '%';
 
-      // Grid de presets de cor do dado
       if (desktopColorGrid) {
         desktopColorGrid.innerHTML = '';
         COLOR_PALETTE.forEach(p => {
@@ -1184,7 +1139,6 @@ import { isAndroidOrIOS } from './mobile.js';
         });
       }
 
-      // Grid de presets de cor dos números
       if (desktopTextColorGrid) {
         desktopTextColorGrid.innerHTML = '';
         TEXT_COLOR_PALETTE.forEach(p => {
@@ -1215,7 +1169,8 @@ import { isAndroidOrIOS } from './mobile.js';
 
     // 2. Mobile Popover
     if (isMobileOS) {
-      if (typeof mobileWrap !== 'undefined' && mobileWrap) {
+      const mobileWrap = document.getElementById('playerDiceMobileWrap');
+      if (mobileWrap) {
         mobileWrap.style.setProperty('--dice-active-color', effColor);
       }
       if (mPreview) {
@@ -1311,8 +1266,8 @@ import { isAndroidOrIOS } from './mobile.js';
           Box = new DiceBox("#dice-box-canvas", {
             assetPath: "https://cdn.jsdelivr.net/npm/@drdreo/dice-box-threejs@1.1.0/dist",
             sounds: false,
-            shadows: true,
-            theme_surface: "green-felt",
+            shadows: false,
+            theme_surface: "custom",
             sound_dieMaterial: "plastic",
             theme_material: "plastic",
             color_spotlight: 0xffffff,
@@ -1376,16 +1331,9 @@ import { isAndroidOrIOS } from './mobile.js';
     }
   }
 
-  // Efeito de brilho suave quando o dado para/assenta
-  function onSettle(color) {
+  function onSettle() {
     isRolling = false;
     hasSettledDice = true;
-    if (boxCanvas) {
-      boxCanvas.style.setProperty('--dice-settle-color', color || getEffectiveDiceColor());
-      boxCanvas.classList.remove('settled');
-      void boxCanvas.offsetWidth;
-      boxCanvas.classList.add('settled');
-    }
   }
 
   // ---- Gera o resultado determinístico e arma a notação 3D ----
@@ -1441,7 +1389,6 @@ import { isAndroidOrIOS } from './mobile.js';
       expr = diceCount === 1 ? `1d${faces} → [${rolls[0]}]` : `${diceCount}d${faces} → [${rolls.join(' + ')}] = ${sum}`;
     }
 
-    // Arma o DiceBox para que os dados caiam exatamente nas faces sorteadas
     const notation = get3dTargetNotation(faces, diceCount, rolls);
 
     return {
@@ -1467,7 +1414,6 @@ import { isAndroidOrIOS } from './mobile.js';
     const textColor = getEffectiveTextColor();
     const senderName = getLocalCharacterName();
 
-    // 1. Transmite imediatamente para o Mestre e demais jogadores na mesa
     if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
       window.RPG.sendDiceRoll({
         faces: rollData.faces,
@@ -1485,17 +1431,15 @@ import { isAndroidOrIOS } from './mobile.js';
       });
     }
 
-    // 2. Anima fisicamente o dado na tela local
     try {
       await initBox();
       await updateBoxAppearance(color, textColor, customScale);
       applyScaleToBox(customScale);
-      if (boxCanvas) boxCanvas.classList.remove('settled');
       await Box.roll(rollData.notation);
-      onSettle(color);
+      onSettle();
     } catch (err) {
       console.warn("Fallback visual rolagem jogador:", err);
-      onSettle(color);
+      onSettle();
     } finally {
       isRolling = false;
     }
@@ -1510,9 +1454,7 @@ import { isAndroidOrIOS } from './mobile.js';
     const rollData = executeRoll(faces, count, mod, mode);
     const color = getEffectiveDiceColor();
     const textColor = getEffectiveTextColor();
-    const senderName = isSecretRoll ? 'Mestre (Oculto)' : 'Mestre';
 
-    // 1. Se não for oculto, transmite para todas as telas dos jogadores conectados
     if (!isSecretRoll && window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
       window.RPG.sendDiceRoll({
         faces: rollData.faces,
@@ -1530,17 +1472,15 @@ import { isAndroidOrIOS } from './mobile.js';
       });
     }
 
-    // 2. Anima fisicamente o dado na tela do Mestre
     try {
       await initBox();
       await updateBoxAppearance(color, textColor, customScale);
       applyScaleToBox(customScale);
-      if (boxCanvas) boxCanvas.classList.remove('settled');
       await Box.roll(rollData.notation);
-      onSettle(color);
+      onSettle();
     } catch (err) {
       console.warn("Fallback visual rolagem mestre:", err);
-      onSettle(color);
+      onSettle();
     } finally {
       isRolling = false;
     }
@@ -1561,19 +1501,18 @@ import { isAndroidOrIOS } from './mobile.js';
       await initBox();
       await updateBoxAppearance(color, textColor, scale);
       applyScaleToBox(scale);
-      if (boxCanvas) boxCanvas.classList.remove('settled');
       await Box.roll(notation);
-      onSettle(color);
+      onSettle();
     } catch (err) {
       console.warn("Fallback visual rolagem remota:", err);
-      onSettle(color);
+      onSettle();
     }
   };
 
   applyCustomStyles();
   initBox();
 
-  // API pública: rollDice (uso via console/macros)
+  // API pública
   // @ts-ignore
   window.RPG.rollDice = (faces, count = 1, mod = 0) => {
     if (checkIsGM()) {
