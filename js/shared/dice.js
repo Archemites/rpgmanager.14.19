@@ -1034,12 +1034,12 @@ import { isAndroidOrIOS } from './mobile.js';
       return def;
     };
 
-    // Material neutro puro para manter 100% da saturação e fidelidade da cor selecionada
+    // Material com brilho polido e sombreamento geométrico nítido em cada face
     factory.material_options = {
-      specular: 0x111111,
+      specular: 0x444444, // Brilho especular nítido nas quinas e arestas
       color: 0xffffff,
-      shininess: 6,
-      flatShading: false
+      shininess: 38,      // Acabamento de resina polida de RPG
+      flatShading: true   // Facetas geométricas destacadas e nítidas
     };
   }
 
@@ -1048,27 +1048,30 @@ import { isAndroidOrIOS } from './mobile.js';
     if (box.renderer) {
       // 0 = THREE.NoToneMapping: renderização 1:1 sem compressão de brilho ou desvio de matiz
       box.renderer.toneMapping = 0;
+      if (box.renderer.shadowMap) {
+        box.renderer.shadowMap.enabled = true;
+      }
     }
+    // Luz ambiente suave neutra (preenchimento de sombra sem clarear/lavar o contraste 3D)
     if (box.light_amb) {
       box.light_amb.color.setHex(0xffffff);
-      if (box.light_amb.groundColor) box.light_amb.groundColor.setHex(0xffffff);
-      box.light_amb.intensity = 1.35;
+      if (box.light_amb.groundColor) box.light_amb.groundColor.setHex(0x888888);
+      box.light_amb.intensity = 0.75;
     }
+    // Luz principal direcional angular (Key light) criando volume, brilho especular e sombras nítidas
     if (box.light) {
       box.light.color.setHex(0xffffff);
-      box.light.intensity = 1.05;
+      box.light.intensity = 1.8;
+      box.light.castShadow = true;
+      if (box.light.position) {
+        box.light.position.set(30, 100, 45);
+      }
     }
-    if (box.scene) {
-      box.scene.traverse((obj) => {
-        if (obj.isLight) {
-          if (obj.color && typeof obj.color.setHex === 'function') {
-            obj.color.setHex(0xffffff); // Luz branca neutra pura (sem tons quentes/amarelados)
-          }
-          if (obj.groundColor && typeof obj.groundColor.setHex === 'function') {
-            obj.groundColor.setHex(0xffffff);
-          }
-        }
-      });
+    if (box.desk) {
+      box.desk.receiveShadow = true;
+    }
+    if (typeof box.enableShadows === 'function') {
+      box.enableShadows();
     }
   }
 
