@@ -1049,6 +1049,15 @@ import { isAndroidOrIOS } from './mobile.js';
       // 0 = THREE.NoToneMapping: renderização 1:1 sem compressão de brilho ou desvio de matiz
       box.renderer.toneMapping = 0;
     }
+    if (box.light_amb) {
+      box.light_amb.color.setHex(0xffffff);
+      if (box.light_amb.groundColor) box.light_amb.groundColor.setHex(0xffffff);
+      box.light_amb.intensity = 1.35;
+    }
+    if (box.light) {
+      box.light.color.setHex(0xffffff);
+      box.light.intensity = 1.05;
+    }
     if (box.scene) {
       box.scene.traverse((obj) => {
         if (obj.isLight) {
@@ -1058,16 +1067,6 @@ import { isAndroidOrIOS } from './mobile.js';
           if (obj.groundColor && typeof obj.groundColor.setHex === 'function') {
             obj.groundColor.setHex(0xffffff);
           }
-          if (obj.isAmbientLight) {
-            obj.intensity = 1.35; // Alta iluminação ambiente uniforme preserva saturação em todas as faces
-          } else if (obj.isDirectionalLight) {
-            obj.intensity = 1.05;
-          } else if (obj.isHemisphereLight) {
-            obj.intensity = 1.2;
-          }
-        }
-        if (obj.isMesh && (obj.name === 'desk' || obj.name === 'surface' || obj.name === 'ground' || obj.name === 'floor')) {
-          if (obj.material) obj.material.visible = false;
         }
       });
     }
@@ -1276,12 +1275,13 @@ import { isAndroidOrIOS } from './mobile.js';
           Box = new DiceBox("#dice-box-canvas", {
             assetPath: "https://cdn.jsdelivr.net/npm/@drdreo/dice-box-threejs@1.1.0/dist",
             sounds: false,
-            shadows: false,
-            theme_surface: "none",
-            sound_dieMaterial: "none",
-            theme_material: "none",
+            shadows: true,
+            theme_surface: "green-felt",
+            sound_dieMaterial: "plastic",
+            theme_material: "plastic",
+            color_spotlight: 0xffffff,
             theme_customColorset: createBoxColorset(effColor, effTextColor),
-            light_intensity: 2.0,
+            light_intensity: 1.5,
             baseScale: baseScaleVal,
             gravity_multiplier: 400
           });
