@@ -50,7 +50,7 @@ import { isAndroidOrIOS } from './mobile.js';
     { label: 'Ciano Etéreo', value: '#06b6d4' },
     { label: 'Laranja Fogo', value: '#ff7b00' },
     { label: 'Rosa Neon', value: '#f43f5e' },
-    { label: 'Branco Prata', value: '#e2e8f0' },
+    { label: 'Branco Puro', value: '#ffffff' },
     { label: 'Preto Ônix', value: '#222222' }
   ];
 
@@ -1034,13 +1034,43 @@ import { isAndroidOrIOS } from './mobile.js';
       return def;
     };
 
-    // Fundo neutro branco para manter as cores das texturas 100% fiéis
+    // Material neutro puro para manter 100% da saturação e fidelidade da cor selecionada
     factory.material_options = {
-      specular: 0x333333,
+      specular: 0x111111,
       color: 0xffffff,
-      shininess: 25,
-      flatShading: true
+      shininess: 6,
+      flatShading: false
     };
+  }
+
+  function calibrateSceneLighting(box) {
+    if (!box) return;
+    if (box.renderer) {
+      // 0 = THREE.NoToneMapping: renderização 1:1 sem compressão de brilho ou desvio de matiz
+      box.renderer.toneMapping = 0;
+    }
+    if (box.scene) {
+      box.scene.traverse((obj) => {
+        if (obj.isLight) {
+          if (obj.color && typeof obj.color.setHex === 'function') {
+            obj.color.setHex(0xffffff); // Luz branca neutra pura (sem tons quentes/amarelados)
+          }
+          if (obj.groundColor && typeof obj.groundColor.setHex === 'function') {
+            obj.groundColor.setHex(0xffffff);
+          }
+          if (obj.isAmbientLight) {
+            obj.intensity = 1.35; // Alta iluminação ambiente uniforme preserva saturação em todas as faces
+          } else if (obj.isDirectionalLight) {
+            obj.intensity = 1.05;
+          } else if (obj.isHemisphereLight) {
+            obj.intensity = 1.2;
+          }
+        }
+        if (obj.isMesh && (obj.name === 'desk' || obj.name === 'surface' || obj.name === 'ground' || obj.name === 'floor')) {
+          if (obj.material) obj.material.visible = false;
+        }
+      });
+    }
   }
 
   function applyScaleToBox(scaleVal) {
@@ -1246,18 +1276,19 @@ import { isAndroidOrIOS } from './mobile.js';
           Box = new DiceBox("#dice-box-canvas", {
             assetPath: "https://cdn.jsdelivr.net/npm/@drdreo/dice-box-threejs@1.1.0/dist",
             sounds: false,
-            shadows: true,
-            theme_surface: "green-felt",
-            sound_dieMaterial: "plastic",
-            theme_material: "plastic",
+            shadows: false,
+            theme_surface: "none",
+            sound_dieMaterial: "none",
+            theme_material: "none",
             theme_customColorset: createBoxColorset(effColor, effTextColor),
-            light_intensity: 1.8,
+            light_intensity: 2.0,
             baseScale: baseScaleVal,
             gravity_multiplier: 400
           });
 
           await Box.initialize();
           isBoxReady = true;
+          calibrateSceneLighting(Box);
           if (Box.DiceFactory) patchDiceFactory(Box.DiceFactory);
           await updateBoxAppearance(effColor, effTextColor, customScale);
           return Box;
@@ -1283,6 +1314,7 @@ import { isAndroidOrIOS } from './mobile.js';
     if (!Box || !isBoxReady) return;
 
     try {
+      calibrateSceneLighting(Box);
       const colorSet = createBoxColorset(effColor, effTextColor);
       Box.theme_customColorset = colorSet;
       Box.colorData = colorSet;

@@ -1167,7 +1167,7 @@
 #dice-box-canvas canvas {
   width: 100% !important;
   height: 100% !important;
-  filter: brightness(1.15) contrast(1.06) saturate(1.1);
+  filter: none;
   transition: filter 0.45s ease;
 }
 
