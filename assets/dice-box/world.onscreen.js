@@ -12965,7 +12965,29 @@ class da {
       aspect: C(this, fe).width / C(this, fe).height,
       lights: C(this, ce),
       scene: C(this, K)
-    })), ie(this, Ke, new aa({ scene: C(this, K) })), this.onInitComplete();
+    })),    ie(this, Ke, new aa({ scene: C(this, K) }));
+    window.__diceBoxWorld = this;
+    window.__diceBoxScene = C(this, K);
+    this.getDiceScreenPositions = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const aspect = width / height;
+      const halfExtentZ = 9.5;
+      const halfExtentX = 9.5 * aspect;
+      const positions = [];
+      const diceMap = C(this, Z);
+      if (!diceMap) return positions;
+      for (const key in diceMap) {
+        const die = diceMap[key];
+        if (die && die.mesh && die.mesh.position) {
+          const px = (die.mesh.position.x / halfExtentX * 0.5 + 0.5) * width;
+          const py = (die.mesh.position.z / halfExtentZ * 0.5 + 0.5) * height;
+          positions.push({ id: die.id, x: px, y: py, z: die.mesh.position.y });
+        }
+      }
+      return positions;
+    };
+    this.onInitComplete();
   }
   connect(e) {
     ie(this, ne, e), C(this, ne).postMessage({
@@ -13011,6 +13033,9 @@ class da {
     });
   }
   renderLoop() {
+    if (window.__checkDiceOverlap) {
+      try { window.__checkDiceOverlap(); } catch (_) {}
+    }
     C(this, me) && C(this, me) === Object.keys(C(this, Z)).length ? (C(this, oe).stopRenderLoop(), C(this, ne).postMessage({
       action: "stopSimulation"
     }), this.onRollComplete()) : C(this, K).render();
@@ -13033,6 +13058,9 @@ class da {
     this.onThemeLoaded({ id: t });
   }
   clear() {
+    if (window.__clearDiceOverlap) {
+      try { window.__clearDiceOverlap(); } catch (_) {}
+    }
     !Object.keys(C(this, Z)).length && !C(this, me) || (this.diceBufferView.byteLength && this.diceBufferView.fill(0), C(this, Ve).forEach((e) => clearTimeout(e)), C(this, oe).stopRenderLoop(), Object.values(C(this, Z)).forEach((e) => {
       e.mesh && e.mesh.dispose();
     }), ie(this, Z, {}), ie(this, Be, 0), ie(this, me, 0), C(this, K).render());
@@ -13093,7 +13121,87 @@ class da {
   // handle the position updates from the physics worker. It's a simple flat array of numbers for quick and easy transfer
   async handleAsleep(e) {
     var t, i;
-    if (e.asleep = !0, await Oe.getRollResult(e, C(this, K)), e.d10Instance || e.dieParent) {
+    e.asleep = !0;
+
+    // Se o dado foi armado com valor alvo (ex: rolagem sincronizada), ajusta orientação física da malha
+    const targetVal = e.config?.targetValue !== undefined ? e.config.targetValue : e.targetValue;
+    if (targetVal !== undefined && e.mesh) {
+      try {
+        const scene = C(this, K);
+        const meshName = e.config.parentMesh || e.config.meshName;
+        const faceMap = scene?.themeData?.[meshName]?.colliderFaceMap?.[e.dieType];
+        const isD4 = e.dieType === 'd4';
+        const d4Down = scene?.themeData?.[meshName]?.d4FaceDown;
+        const targetUp = isD4 && d4Down ? [0, -1, 0] : [0, 1, 0];
+        const collider = scene.getMeshByName(`${meshName}_${e.dieType}_collider`);
+
+        if (faceMap && collider) {
+          const faceIdStr = Object.keys(faceMap).find(k => Number(faceMap[k]) === Number(targetVal));
+          if (faceIdStr !== undefined) {
+            const faceId = parseInt(faceIdStr, 10);
+            const indices = collider.getIndices ? collider.getIndices() : (collider._geometry?._indices || []);
+            const positions = collider.getVerticesData ? collider.getVerticesData("position") : (collider._geometry?._positions || []);
+
+            if (indices && positions && indices.length > faceId * 3 + 2) {
+              const i0 = indices[faceId * 3];
+              const i1 = indices[faceId * 3 + 1];
+              const i2 = indices[faceId * 3 + 2];
+
+              const p0 = [positions[i0*3], positions[i0*3+1], positions[i0*3+2]];
+              const p1 = [positions[i1*3], positions[i1*3+1], positions[i1*3+2]];
+              const p2 = [positions[i2*3], positions[i2*3+1], positions[i2*3+2]];
+
+              const v0 = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
+              const v1 = [p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]];
+
+              const nx = v0[1]*v1[2] - v0[2]*v1[1];
+              const ny = v0[2]*v1[0] - v0[0]*v1[2];
+              const nz = v0[0]*v1[1] - v0[1]*v1[0];
+              const len = Math.sqrt(nx*nx + ny*ny + nz*nz);
+              const norm = len > 0 ? [nx/len, ny/len, nz/len] : [0, 1, 0];
+
+              const dot = norm[0]*targetUp[0] + norm[1]*targetUp[1] + norm[2]*targetUp[2];
+              let baseQ;
+              if (dot > 0.999999) {
+                baseQ = [0, 0, 0, 1];
+              } else if (dot < -0.999999) {
+                baseQ = [1, 0, 0, 0];
+              } else {
+                const cx = norm[1] * targetUp[2] - norm[2] * targetUp[1];
+                const cy = norm[2] * targetUp[0] - norm[0] * targetUp[2];
+                const cz = norm[0] * targetUp[1] - norm[1] * targetUp[0];
+                const cw = 1 + dot;
+                const qlen = Math.sqrt(cx*cx + cy*cy + cz*cz + cw*cw);
+                baseQ = [cx/qlen, cy/qlen, cz/qlen, cw/qlen];
+              }
+
+              if (baseQ && e.mesh.rotationQuaternion) {
+                let curYaw = Math.random() * Math.PI * 2;
+                const curQ = e.mesh.rotationQuaternion;
+                curYaw = Math.atan2(2 * (curQ.w * curQ.y + curQ.x * curQ.z), 1 - 2 * (curQ.y * curQ.y + curQ.z * curQ.z));
+                const sYaw = Math.sin(curYaw / 2), cYaw = Math.cos(curYaw / 2);
+                const q_yaw = [0, sYaw, 0, cYaw];
+
+                const qx = q_yaw[3]*baseQ[0] + q_yaw[0]*baseQ[3] + q_yaw[1]*baseQ[2] - q_yaw[2]*baseQ[1];
+                const qy = q_yaw[3]*baseQ[1] - q_yaw[0]*baseQ[2] + q_yaw[1]*baseQ[3] + q_yaw[2]*baseQ[0];
+                const qz = q_yaw[3]*baseQ[2] + q_yaw[0]*baseQ[1] - q_yaw[1]*baseQ[0] + q_yaw[2]*baseQ[3];
+                const qw = q_yaw[3]*baseQ[3] - q_yaw[0]*baseQ[0] - q_yaw[1]*baseQ[1] - q_yaw[2]*baseQ[2];
+
+                e.mesh.rotationQuaternion.set(qx, qy, qz, qw);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao ajustar face alvo do dado:', err);
+      }
+    }
+
+    await Oe.getRollResult(e, C(this, K));
+    if (targetVal !== undefined) {
+      e.value = Number(targetVal);
+    }
+    if (e.d10Instance || e.dieParent) {
       if ((t = e == null ? void 0 : e.d10Instance) != null && t.asleep || (i = e == null ? void 0 : e.dieParent) != null && i.asleep) {
         const r = e.config.sides === 100 ? e : e.dieParent, s = e.config.sides === 10 ? e : e.d10Instance;
         r.rawValue && (r.value = r.rawValue), r.rawValue = r.value, r.value = r.value + s.value, this.onRollResult({

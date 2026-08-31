@@ -283,7 +283,7 @@ class vl {
     return l ? (delete this.canvas.dataset.hideClass, this.canvas.classList.remove(l)) : this.canvas.style.display = "block", this.isVisible = !0, this.resizeWorld(), this;
   }
   // TODO: pass data with roll - such as roll name. Passed back at the end in the results
-  roll(l, { theme: b = this.config.theme, themeColor: d = this.config.themeColor, geometry: G_geom = this.config.geometry, newStartPoint: X = !0 } = {}) {
+  roll(l, { theme: b = this.config.theme, themeColor: d = this.config.themeColor, geometry: G_geom = this.config.geometry, targetValues: T_vals, targetValue: T_val, newStartPoint: X = !0 } = {}) {
     if (G_geom && G_geom !== this.config.geometry) {
       this.config.geometry = G_geom;
       this.themesLoadedData = {};
@@ -296,12 +296,13 @@ class vl {
       theme: b,
       themeColor: d,
       geometry: G_geom,
+      targetValues: T_vals || (T_val !== undefined ? [T_val] : void 0),
       newStartPoint: X
     });
     const m = this.createNotationArray(l, this.themesLoadedData[b] ? this.themesLoadedData[b].diceAvailable : void 0);
     return v(this, Q, D).call(this, m, Z), this.rollCollectionData[Z].promise;
   }
-  add(l, { theme: b = this.config.theme, themeColor: d = this.config.themeColor, geometry: G_geom = this.config.geometry, newStartPoint: X = !0 } = {}) {
+  add(l, { theme: b = this.config.theme, themeColor: d = this.config.themeColor, geometry: G_geom = this.config.geometry, targetValues: T_vals, targetValue: T_val, newStartPoint: X = !0 } = {}) {
     if (G_geom && G_geom !== this.config.geometry) {
       this.config.geometry = G_geom;
       this.themesLoadedData = {};
@@ -313,6 +314,7 @@ class vl {
       theme: b,
       themeColor: d,
       geometry: G_geom,
+      targetValues: T_vals || (T_val !== undefined ? [T_val] : void 0),
       newStartPoint: X
     });
     const m = this.createNotationArray(l, this.themesLoadedData[b] ? this.themesLoadedData[b].diceAvailable : void 0);
@@ -470,6 +472,14 @@ f = new WeakMap(), x = new WeakMap(), C = new WeakMap(), B = new WeakMap(), u = 
       R = J ? Z.groupId : W(this, x);
       const H = Number.isInteger(Z.sides) ? `d${Z.sides}` : Z.sides;
       /^d[1-9]{1}[0-9]{0,1}0?$/.test(Z.sides) && (Z.sides = parseInt(Z.sides.replace("d", "")));
+      let dieTarget = undefined;
+      if (Array.isArray(d.targetValues) && d.targetValues[A] !== undefined) {
+        dieTarget = d.targetValues[A];
+      } else if (d.targetValue !== undefined) {
+        dieTarget = d.targetValue;
+      } else if (Z.targetValue !== undefined) {
+        dieTarget = Z.targetValue;
+      }
       const a = {
         sides: Z.sides,
         data: Z.data,
@@ -480,17 +490,18 @@ f = new WeakMap(), x = new WeakMap(), C = new WeakMap(), B = new WeakMap(), u = 
         id: Rl,
         theme: m,
         themeColor: V,
-        meshName: L
+        meshName: L,
+        targetValue: dieTarget
       };
       if (G[e] = a, this.rollDiceData[e] = a, d.rolls.push(this.rollDiceData[e]), a.sides === "fate" && !s.includes(H) && !t.includes(H) || a.sides === "fate" && !W(this, y)) {
         console.warn(`fate die unavailable in '${m}' theme. Using fallback.`);
         const n = -1, z = 1;
-        a.value = Zl.range(n, z), W(this, u).addNonDie(a);
+        a.value = dieTarget !== undefined ? dieTarget : Zl.range(n, z), W(this, u).addNonDie(a);
       } else if (this.config.suspendSimulation || !s.includes(H) && !t.includes(H) || !W(this, y)) {
         const n = W(this, y) ? this.config.suspendSimulation ? "3D simulation suspended. Using fallback." : `${a.sides} die unavailable in '${m}' theme. Using fallback.` : "This browser does not support webGL. Using random number fallback.";
         console.warn(n);
         const z = Number.isInteger(a.sides) ? a.sides : parseInt(a.sides.replace(/\D/g, ""));
-        a.value = Zl.range(1, z), W(this, u).addNonDie(a);
+        a.value = dieTarget !== undefined ? dieTarget : Zl.range(1, z), W(this, u).addNonDie(a);
       } else {
         let n;
         if (t.includes(H)) {
@@ -502,7 +513,8 @@ f = new WeakMap(), x = new WeakMap(), C = new WeakMap(), B = new WeakMap(), u = 
           newStartPoint: X,
           theme: (n == null ? void 0 : n.systemName) || m,
           meshName: (n == null ? void 0 : n.meshName) || L,
-          colorSuffix: O
+          colorSuffix: O,
+          targetValue: dieTarget
         });
       }
       X = !1;

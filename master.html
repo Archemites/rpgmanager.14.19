@@ -55,10 +55,8 @@
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
   </div>
-  </div>
-
-  <div id="viewport">
-    <div id="topLeftTools">
+  <div id="topLeftTools">
+    <div class="top-tools-col">
       <button id="openInviteBtn" class="top-circle-btn" title="Convidar jogador" aria-label="Convidar jogador">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
       </button>
@@ -68,6 +66,8 @@
       <button id="openGlossaryBtn" class="top-circle-btn" title="Glossário de efeitos" aria-label="Glossário de efeitos">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
       </button>
+    </div>
+    <div class="top-tools-col">
       <button id="openDiceBtn" class="top-circle-btn" title="Rolar dados" aria-label="Rolar dados">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.15" />
@@ -84,7 +84,14 @@
         </svg>
       </button>
     </div>
+  </div>
+  <!-- Help button on bottom left (Anchored to Left Sidebar) -->
+  <button id="helpBtn" class="top-circle-btn" title="Ajuda" aria-label="Ajuda">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  </button>
+  </div>
 
+  <div id="viewport">
     <!-- Top info bar: auto-retracts up, reveals on hover -->
     <div id="topBar">
       <div class="top-bar-content">
@@ -95,7 +102,46 @@
       <div class="top-bar-handle"></div>
     </div>
 
-    <!-- Right toolbar stack: Import -> Settings -> Tools Toggle -> Tools Bar -->
+    <canvas id="canvas"></canvas>
+    <div id="effectTooltip"></div>
+    <div id="notePostit">
+      <div id="notePostitHeader">
+        <span>Anotação</span>
+        <button id="notePostitClose" title="Fechar" style="display:inline-flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <textarea id="notePostitText" placeholder="Escreva sua anotação..."></textarea>
+    </div>
+    <button id="startCombatBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" />
+        <line x1="13" y1="19" x2="19" y2="13" />
+        <line x1="16" y1="16" x2="20" y2="20" />
+        <line x1="19" y1="21" x2="21" y2="19" />
+        <polyline points="9.5 17.5 21 6 21 3 18 3 6.5 14.5" />
+        <line x1="11" y1="19" x2="5" y2="13" />
+        <line x1="8" y1="16" x2="4" y2="20" />
+        <line x1="5" y1="21" x2="3" y2="19" />
+      </svg>
+      <span>Iniciar combate</span>
+    </button>
+    <div id="combatControls">
+      <button id="nextTurnBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        <span>Próximo turno</span>
+      </button>
+    </div>
+    <div id="combatBar">
+      <button class="secondary" id="stopCombatBtn">Encerrar</button>
+      <div id="combatBar-track">
+        <div id="combatBar-tokens"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sceneSidebarWrap">
+    <!-- Right toolbar stack: Import -> Settings -> Tools Toggle -> Tools Bar (Anchored to Right Sidebar) -->
     <div id="rightToolsWrap">
       <button id="topImportBtn" class="top-circle-btn" title="Importar imagem do mapa" aria-label="Importar mapa">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
@@ -145,57 +191,14 @@
         </button>
       </div>
     </div>
-
-    <!-- Help button on bottom left -->
-    <button id="helpBtn" class="top-circle-btn" title="Ajuda" aria-label="Ajuda">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-    </button>
-    <canvas id="canvas"></canvas>
-    <div id="effectTooltip"></div>
-    <div id="notePostit">
-      <div id="notePostitHeader">
-        <span>Anotação</span>
-        <button id="notePostitClose" title="Fechar" style="display:inline-flex;align-items:center;justify-content:center;">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-      <textarea id="notePostitText" placeholder="Escreva sua anotação..."></textarea>
-    </div>
+    <!-- Zoom controls on bottom right (Anchored to Right Sidebar) -->
     <div id="zoomControls">
       <button id="zoomOut" title="Diminuir zoom">−</button>
       <button id="zoomReset" title="Resetar visão" style="display:inline-flex;align-items:center;justify-content:center;">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
       </button>
       <button id="zoomIn" title="Aumentar zoom">+</button>
     </div>
-    <button id="startCombatBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" />
-        <line x1="13" y1="19" x2="19" y2="13" />
-        <line x1="16" y1="16" x2="20" y2="20" />
-        <line x1="19" y1="21" x2="21" y2="19" />
-        <polyline points="9.5 17.5 21 6 21 3 18 3 6.5 14.5" />
-        <line x1="11" y1="19" x2="5" y2="13" />
-        <line x1="8" y1="16" x2="4" y2="20" />
-        <line x1="5" y1="21" x2="3" y2="19" />
-      </svg>
-      <span>Iniciar combate</span>
-    </button>
-    <div id="combatControls">
-      <button id="nextTurnBtn" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-        <span>Próximo turno</span>
-      </button>
-    </div>
-    <div id="combatBar">
-      <button class="secondary" id="stopCombatBtn">Encerrar</button>
-      <div id="combatBar-track">
-        <div id="combatBar-tokens"></div>
-      </div>
-    </div>
-  </div>
-
-  <div id="sceneSidebarWrap">
     <div id="sceneSidebarResizer">
       <button id="sceneSidebarToggle" title="Recolher/expandir cenas" style="display:inline-flex;align-items:center;justify-content:center;">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>

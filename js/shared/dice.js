@@ -78,7 +78,14 @@ import { isAndroidOrIOS } from './mobile.js';
 
   function showDiceResultPopup(data) {
     if (!data) return;
-    const { senderName, expr, sum, mode, rolls, faces, count, mod } = data;
+    const senderName = data.senderName || 'Jogador';
+    const faces = data.faces || 20;
+    const rolls = Array.isArray(data.rolls) ? data.rolls : (Array.isArray(data.targetValues) ? data.targetValues : [data.rolls || 1]);
+    const count = data.count || rolls.length || 1;
+    const mod = data.mod || 0;
+    const mode = data.mode || 'normal';
+    const sum = data.sum !== undefined ? data.sum : (rolls[0] + mod);
+    const expr = data.expr || (count === 1 ? `Dado: [${rolls[0]}]${mod ? (mod > 0 ? ` +${mod}` : ` ${mod}`) : ''}` : `Dados: [${rolls.join(' + ')}]${mod ? (mod > 0 ? ` +${mod}` : ` ${mod}`) : ''}`);
 
     const popup = document.createElement('div');
     popup.className = 'dice-result-popup';
@@ -99,28 +106,32 @@ import { isAndroidOrIOS } from './mobile.js';
       <div class="dice-popup-header">
         <span class="dice-popup-sender">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          ${senderName || 'Jogador'}
+          ${senderName}
         </span>
         <span class="dice-popup-formula-badge">${formulaLabel}</span>
       </div>
       ${critTag}
       <div class="dice-popup-main-val">${sum}</div>
-      <div class="dice-popup-details">${expr || ''}</div>
+      <div class="dice-popup-details">${expr}</div>
     `;
 
     // Fecha ao clicar no pop-up
     popup.addEventListener('click', () => {
       popup.classList.add('dismissing');
-      setTimeout(() => popup.remove(), 250);
+      setTimeout(() => {
+        if (popup.parentNode) popup.parentNode.removeChild(popup);
+      }, 250);
     });
 
-    // Auto-remove após 4.5 segundos
+    // Auto-remove após 5 segundos
     setTimeout(() => {
       if (popup.parentNode) {
         popup.classList.add('dismissing');
-        setTimeout(() => popup.remove(), 250);
+        setTimeout(() => {
+          if (popup.parentNode) popup.parentNode.removeChild(popup);
+        }, 250);
       }
-    }, 4500);
+    }, 5000);
 
     hudContainer.appendChild(popup);
   }
@@ -134,12 +145,55 @@ import { isAndroidOrIOS } from './mobile.js';
   let hasSettledDice = false;
   let boxInitPromise = null;
 
+  // ---- Detecção de Sobreposição para Deixar a Aba de Rolagem Translúcida ----
+  function checkDicePanelOverlap() {
+    const unifiedWrap = document.getElementById('unifiedDiceWrap');
+    const settingsPopout = document.getElementById('diceSettingsPopout');
+
+    if (!window.__diceBoxWorld || typeof window.__diceBoxWorld.getDiceScreenPositions !== 'function') {
+      if (unifiedWrap) unifiedWrap.classList.remove('dice-under-panel');
+      return;
+    }
+
+    const positions = window.__diceBoxWorld.getDiceScreenPositions();
+    if (!positions || positions.length === 0) {
+      if (unifiedWrap) unifiedWrap.classList.remove('dice-under-panel');
+      return;
+    }
+
+    const margin = 55; // Raio de influência do dado 3D em pixels
+
+    if (unifiedWrap && unifiedWrap.classList.contains('open')) {
+      const rect = unifiedWrap.getBoundingClientRect();
+      const isUnder = positions.some(pos => {
+        return (
+          pos.x >= rect.left - margin &&
+          pos.x <= rect.right + margin &&
+          pos.y >= rect.top - margin &&
+          pos.y <= rect.bottom + margin
+        );
+      });
+      unifiedWrap.classList.toggle('dice-under-panel', isUnder);
+    } else if (unifiedWrap) {
+      unifiedWrap.classList.remove('dice-under-panel');
+    }
+  }
+
+  function clearDiceOverlap() {
+    const unifiedWrap = document.getElementById('unifiedDiceWrap');
+    if (unifiedWrap) unifiedWrap.classList.remove('dice-under-panel');
+  }
+
+  window.__checkDiceOverlap = checkDicePanelOverlap;
+  window.__clearDiceOverlap = clearDiceOverlap;
+
   function clearSettledDice() {
     if (Box && isBoxReady) {
       try {
         Box.clear();
       } catch (_) {}
     }
+    clearDiceOverlap();
     hasSettledDice = false;
   }
 
@@ -149,13 +203,11 @@ import { isAndroidOrIOS } from './mobile.js';
     const target = /** @type {HTMLElement} */ (e.target);
     if (!target) return;
 
-    // Nota: desktopPanel e outros seletores de UI devem estar definidos em escopo global
-    // ou acessíveis conforme a implementação da sua interface desktop.
-    const isMobileWrap = document.getElementById('playerDiceMobileWrap')?.contains(target);
+    const isUnifiedWrap = document.getElementById('unifiedDiceWrap')?.contains(target);
     const isPcBtn = document.getElementById('playerDiceBtn')?.contains(target);
     const isGmBtn = document.getElementById('openDiceBtn')?.contains(target);
 
-    if (!isMobileWrap && !isPcBtn && !isGmBtn) {
+    if (!isUnifiedWrap && !isPcBtn && !isGmBtn) {
       clearSettledDice();
     }
   }, true);
@@ -220,32 +272,31 @@ import { isAndroidOrIOS } from './mobile.js';
       applyDiceTextColor(finalTextColor, storedTheme);
     }
 
-    // Atualiza controles Desktop
-    if (typeof desktopThemeSelect !== 'undefined' && desktopThemeSelect) desktopThemeSelect.value = storedTheme;
-    if (typeof desktopGeometrySelect !== 'undefined' && desktopGeometrySelect) desktopGeometrySelect.value = storedGeometry;
-    if (typeof desktopColorPicker !== 'undefined' && desktopColorPicker) desktopColorPicker.value = diceColor;
-    if (typeof desktopActivePreview !== 'undefined' && desktopActivePreview) desktopActivePreview.style.background = diceColor;
-    if (typeof desktopHexInput !== 'undefined' && desktopHexInput) desktopHexInput.value = diceColor.toUpperCase();
-    if (typeof desktopTextColorPicker !== 'undefined' && desktopTextColorPicker) desktopTextColorPicker.value = finalTextColor;
-    if (typeof desktopTextActivePreview !== 'undefined' && desktopTextActivePreview) desktopTextActivePreview.style.background = finalTextColor;
-    if (typeof desktopTextHexInput !== 'undefined' && desktopTextHexInput) desktopTextHexInput.value = finalTextColor.toUpperCase();
-    if (typeof desktopScaleInput !== 'undefined' && desktopScaleInput) desktopScaleInput.value = String(percent);
-    if (typeof desktopScaleVal !== 'undefined' && desktopScaleVal) desktopScaleVal.textContent = `${percent}%`;
+    // Atualiza controles Unificados
+    if (typeof unifiedThemeSelect !== 'undefined' && unifiedThemeSelect) unifiedThemeSelect.value = storedTheme;
+    if (typeof unifiedColorPicker !== 'undefined' && unifiedColorPicker) unifiedColorPicker.value = diceColor;
+    if (typeof unifiedActivePreview !== 'undefined' && unifiedActivePreview) unifiedActivePreview.style.background = diceColor;
+    if (typeof unifiedHexInput !== 'undefined' && unifiedHexInput) unifiedHexInput.value = diceColor.toUpperCase();
+    if (typeof unifiedTextColorPicker !== 'undefined' && unifiedTextColorPicker) unifiedTextColorPicker.value = finalTextColor;
+    if (typeof unifiedTextActivePreview !== 'undefined' && unifiedTextActivePreview) unifiedTextActivePreview.style.background = finalTextColor;
+    if (typeof unifiedTextHexInput !== 'undefined' && unifiedTextHexInput) unifiedTextHexInput.value = finalTextColor.toUpperCase();
+    if (typeof unifiedScaleInput !== 'undefined' && unifiedScaleInput) unifiedScaleInput.value = String(percent);
+    if (typeof unifiedScaleVal !== 'undefined' && unifiedScaleVal) unifiedScaleVal.textContent = `${percent}%`;
 
-    if (typeof desktopTextAutoBtn !== 'undefined' && desktopTextAutoBtn) {
-      desktopTextAutoBtn.classList.toggle('active', isAutoText);
-      desktopTextAutoBtn.textContent = isAutoText ? 'Auto: Ativo' : 'Auto: Desat.';
+    if (typeof unifiedTextAutoBtn !== 'undefined' && unifiedTextAutoBtn) {
+      unifiedTextAutoBtn.classList.toggle('active', isAutoText);
+      unifiedTextAutoBtn.textContent = isAutoText ? 'Auto: Ativo' : 'Auto: Desat.';
     }
 
-    if (typeof desktopColorGrid !== 'undefined' && desktopColorGrid) {
-      desktopColorGrid.querySelectorAll('.dice-color-swatch').forEach(swatch => {
+    if (typeof unifiedColorGrid !== 'undefined' && unifiedColorGrid) {
+      unifiedColorGrid.querySelectorAll('.dice-color-swatch').forEach(swatch => {
         const c = /** @type {HTMLElement} */ (swatch).dataset.color;
         swatch.classList.toggle('active', c?.toLowerCase() === diceColor.toLowerCase());
       });
     }
 
-    if (typeof desktopTextColorGrid !== 'undefined' && desktopTextColorGrid) {
-      desktopTextColorGrid.querySelectorAll('.dice-color-swatch').forEach(swatch => {
+    if (typeof unifiedTextColorGrid !== 'undefined' && unifiedTextColorGrid) {
+      unifiedTextColorGrid.querySelectorAll('.dice-color-swatch').forEach(swatch => {
         const c = /** @type {HTMLElement} */ (swatch).dataset.color;
         swatch.classList.toggle('active', !isAutoText && c?.toLowerCase() === finalTextColor.toLowerCase());
       });
@@ -402,268 +453,52 @@ import { isAndroidOrIOS } from './mobile.js';
     return boxInitPromise;
   }
 
-  const isMobileOS = isAndroidOrIOS() || (typeof window !== 'undefined' && (window.innerWidth <= 768 || document.body?.classList.contains('is-mobile') || document.documentElement?.classList.contains('is-mobile')));
   const isGM = checkIsGM();
 
   // ============================================================
-  // MODO 1: MOBILE (SPEED-DIAL FLUTUANTE)
+  // COMPONENTE UNIFICADO: MENU VERTICAL DE DADOS COM FLYOUT HORIZONTAL
   // ============================================================
-  if (isMobileOS) {
-    const mobileWrap = document.createElement('div');
-    mobileWrap.id = 'playerDiceMobileWrap';
-    mobileWrap.className = 'player-dice-mobile-wrap';
-    mobileWrap.innerHTML = `
-      <div class="player-dice-mobile-header">
-        <div id="mobileSideControls" class="player-dice-mobile-side collapsed">
-          ${isGM ? `
-            <button type="button" id="mobileGmSecretBtn" class="mobile-control-btn secret-btn ${isSecretRoll ? 'secret' : 'public'}" title="Alternar visibilidade para os jogadores">
-              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-              <span id="mobileSecretLabel">${isSecretRoll ? 'OCULTO' : 'PÚBLICO'}</span>
-            </button>
-          ` : ''}
+  let unifiedWrap = null;
+  let unifiedSideControls = null;
+  let unifiedVerticalColumn = null;
+  let unifiedSettingsPopout = null;
+  let unifiedSettingsToggleBtn = null;
 
-          <div class="mobile-mode-dropdown-wrap">
-            <button type="button" id="mobileModeBtn" class="mobile-control-btn mode-btn" title="Modo de Rolagem">
-              <span id="mobileModeLabel">NORMAL</span>
-              <svg class="mode-arrow" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </button>
-            <div id="mobileModeMenu" class="mobile-subdrop-menu hidden">
-              <button type="button" class="mobile-subdrop-item active" data-mode="normal">
-                <span class="mode-dot normal"></span>
-                <span>Normal</span>
-              </button>
-              <button type="button" class="mobile-subdrop-item" data-mode="adv">
-                <span class="mode-dot adv"></span>
-                <span>Vantagem (ADV)</span>
-              </button>
-              <button type="button" class="mobile-subdrop-item" data-mode="dis">
-                <span class="mode-dot dis"></span>
-                <span>Desvantagem (DIS)</span>
-              </button>
-            </div>
-          </div>
+  let unifiedThemeSelect = null;
+  let unifiedColorPicker = null;
+  let unifiedActivePreview = null;
+  let unifiedHexInput = null;
+  let unifiedTextColorPicker = null;
+  let unifiedTextActivePreview = null;
+  let unifiedTextHexInput = null;
+  let unifiedTextColorGrid = null;
+  let unifiedTextAutoBtn = null;
+  let unifiedScaleInput = null;
+  let unifiedScaleVal = null;
+  let unifiedColorGrid = null;
+  let unifiedResetBtn = null;
 
-          <div class="mobile-stepper-pill" title="Quantidade de dados">
-            <span class="pill-label">Qtd</span>
-            <button type="button" id="mobileCountDec" class="pill-btn">−</button>
-            <input type="number" id="mobileCountInput" min="1" max="20" value="1" title="Qtd">
-            <button type="button" id="mobileCountInc" class="pill-btn">+</button>
-          </div>
+  let unifiedCountInput = null;
+  let unifiedCountDec = null;
+  let unifiedCountInc = null;
+  let unifiedModInput = null;
+  let unifiedModDec = null;
+  let unifiedModInc = null;
+  let unifiedModeBtn = null;
+  let unifiedModeLabel = null;
+  let unifiedModeMenu = null;
+  let unifiedGmSecretBtn = null;
+  let unifiedSecretLabel = null;
 
-          <div class="mobile-stepper-pill" title="Modificador numérico">
-            <span class="pill-label">Mod</span>
-            <button type="button" id="mobileModDec" class="pill-btn">−</button>
-            <input type="number" id="mobileModInput" min="-99" max="99" value="0" title="Mod">
-            <button type="button" id="mobileModInc" class="pill-btn">+</button>
-          </div>
-        </div>
-
-        <button type="button" id="mobileDiceBtn" class="player-dice-circle-btn" title="Rolar dados" aria-label="Rolar dados">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.15" />
-            <polygon points="12,7.5 18,17 6,17" fill="currentColor" fill-opacity="0.25" />
-            <line x1="12" y1="2" x2="12" y2="7.5" />
-            <line x1="21" y1="7.5" x2="18" y2="17" />
-            <line x1="21" y1="16.5" x2="18" y2="17" />
-            <line x1="12" y1="22" x2="18" y2="17" />
-            <line x1="12" y1="22" x2="6" y2="17" />
-            <line x1="3" y1="16.5" x2="6" y2="17" />
-            <line x1="3" y1="7.5" x2="6" y2="17" />
-            <line x1="12" y1="7.5" x2="21" y2="7.5" />
-            <line x1="12" y1="7.5" x2="3" y2="7.5" />
-          </svg>
-        </button>
-      </div>
-
-      <div id="mobileDiceColumn" class="player-dice-mobile-column collapsed">
-        ${FACES.map(f => `
-          <button type="button" class="mobile-dice-col-btn" data-faces="${f}" title="Rolar d${f}">
-            <span class="dice-col-svg">${DICE_SVGS[f]}</span>
-            <span class="dice-col-label">d${f}</span>
-          </button>
-        `).join('')}
-      </div>
-    `;
-    document.body.appendChild(mobileWrap);
-
-    const mobileBtn = document.getElementById('mobileDiceBtn');
-    const mobileSide = document.getElementById('mobileSideControls');
-    const mobileCol = document.getElementById('mobileDiceColumn');
-
-    const mModeBtn = document.getElementById('mobileModeBtn');
-    const mModeLabel = document.getElementById('mobileModeLabel');
-    const mModeMenu = document.getElementById('mobileModeMenu');
-    const mModeItems = mobileWrap.querySelectorAll('.mobile-subdrop-item');
-
-    const mCountInput = /** @type {HTMLInputElement} */ (document.getElementById('mobileCountInput'));
-    const mCountDec = document.getElementById('mobileCountDec');
-    const mCountInc = document.getElementById('mobileCountInc');
-
-    const mModInput = /** @type {HTMLInputElement} */ (document.getElementById('mobileModInput'));
-    const mModDec = document.getElementById('mobileModDec');
-    const mModInc = document.getElementById('mobileModInc');
-
-    const mGmSecretBtn = document.getElementById('mobileGmSecretBtn');
-    const mSecretLabel = document.getElementById('mobileSecretLabel');
-
-    if (mGmSecretBtn) {
-      mGmSecretBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        isSecretRoll = !isSecretRoll;
-        try { localStorage.setItem(STORAGE_KEY_SECRET, String(isSecretRoll)); } catch (_) {}
-        mGmSecretBtn.className = `mobile-control-btn secret-btn ${isSecretRoll ? 'secret' : 'public'}`;
-        if (mSecretLabel) mSecretLabel.textContent = isSecretRoll ? 'OCULTO' : 'PÚBLICO';
-      });
-    }
-
-    let isExpanded = false;
-    function toggleMobileDrop(force) {
-      isExpanded = typeof force === 'boolean' ? force : !isExpanded;
-      mobileWrap.classList.toggle('open', isExpanded);
-      mobileBtn?.classList.toggle('active', isExpanded);
-      mobileSide?.classList.toggle('collapsed', !isExpanded);
-      mobileCol?.classList.toggle('collapsed', !isExpanded);
-
-      if (!isExpanded) {
-        mModeMenu?.classList.add('hidden');
-      }
-    }
-
-    mobileBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleMobileDrop();
-    });
-
-    mModeBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      mModeMenu?.classList.toggle('hidden');
-    });
-
-    function setMobileMode(mode) {
-      currentRollMode = mode;
-      mModeItems.forEach(item => {
-        item.classList.toggle('active', item.getAttribute('data-mode') === mode);
-      });
-
-      if (mode === 'adv') {
-        if (mModeLabel) mModeLabel.textContent = 'VANTAGEM';
-        if (mCountInput && parseInt(mCountInput.value, 10) === 1) mCountInput.value = '2';
-      } else if (mode === 'dis') {
-        if (mModeLabel) mModeLabel.textContent = 'DESVANTAGEM';
-        if (mCountInput && parseInt(mCountInput.value, 10) === 1) mCountInput.value = '2';
-      } else {
-        if (mModeLabel) mModeLabel.textContent = 'NORMAL';
-      }
-      mModeMenu?.classList.add('hidden');
-    }
-
-    mModeItems.forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.stopPropagation();
-        setMobileMode(item.getAttribute('data-mode') || 'normal');
-      });
-    });
-
-    mCountDec?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      let val = parseInt(mCountInput.value, 10) || 1;
-      if (val > 1) mCountInput.value = String(val - 1);
-    });
-
-    mCountInc?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      let val = parseInt(mCountInput.value, 10) || 1;
-      if (val < 20) mCountInput.value = String(val + 1);
-    });
-
-    mModDec?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      let val = parseInt(mModInput.value, 10) || 0;
-      if (val > -99) mModInput.value = String(val - 1);
-    });
-
-    mModInc?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      let val = parseInt(mModInput.value, 10) || 0;
-      if (val < 99) mModInput.value = String(val + 1);
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!mobileWrap.contains(/** @type {Node} */ (e.target))) {
-        toggleMobileDrop(false);
-      }
-    });
-
-    mobileWrap.querySelectorAll('.mobile-dice-col-btn[data-faces]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const faces = Number(/** @type {HTMLElement} */ (btn).dataset.faces);
-        const count = Math.min(20, Math.max(1, parseInt(mCountInput.value, 10) || 1));
-        const mod = parseInt(mModInput.value, 10) || 0;
-
-        if (checkIsGM()) {
-          gmRoll(faces, count, mod);
-        } else {
-          playerRoll(faces, count, mod);
-        }
-      });
-    });
-
-    const gmBtn = document.getElementById('openDiceBtn');
-    if (gmBtn) {
-      gmBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleMobileDrop();
-      });
-    } else {
-      document.addEventListener('rpg:connected', () => mobileWrap.classList.remove('hidden'));
-      setTimeout(() => {
-        const vp = document.getElementById('viewport');
-        if (vp && !vp.classList.contains('hidden')) mobileWrap.classList.remove('hidden');
-      }, 2500);
-    }
-  }
-
-  // ============================================================
-  // MODO 2: PC / DESKTOP (GAVETA INFERIOR)
-  // ============================================================
-  let desktopOverlay = null;
-  let desktopPanel = null;
-  let desktopSettingsDrawer = null;
-  let desktopSettingsBtn = null;
-  let desktopThemeSelect = null;
-  let desktopGeometrySelect = null;
-  let desktopColorPicker = null;
-  let desktopActivePreview = null;
-  let desktopHexInput = null;
-  let desktopTextColorPicker = null;
-  let desktopTextActivePreview = null;
-  let desktopTextHexInput = null;
-  let desktopTextColorGrid = null;
-  let desktopTextAutoBtn = null;
-  let desktopScaleInput = null;
-  let desktopScaleVal = null;
-  let desktopColorGrid = null;
-  let desktopResetBtn = null;
-
-  let desktopFaceButtons = null;
-  let desktopCountInput = null;
-  let desktopModeSelect = null;
-  let desktopModInput = null;
-  let desktopRollBtn = null;
-  let desktopGmSecretCheck = null;
-
-  if (!isMobileOS) {
-    const pcDiceBtn = document.createElement('button');
+  // Cria botão flutuante para o Jogador (caso não seja o GM com #openDiceBtn)
+  let pcDiceBtn = document.getElementById('playerDiceBtn');
+  if (!isGM && !pcDiceBtn) {
+    pcDiceBtn = document.createElement('button');
     pcDiceBtn.id = 'playerDiceBtn';
+    pcDiceBtn.className = 'player-dice-circle-btn';
     pcDiceBtn.title = 'Rolar dados';
     pcDiceBtn.innerHTML = `
-      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.15" />
         <polygon points="12,7.5 18,17 6,17" fill="currentColor" fill-opacity="0.25" />
         <line x1="12" y1="2" x2="12" y2="7.5" />
@@ -677,373 +512,437 @@ import { isAndroidOrIOS } from './mobile.js';
         <line x1="12" y1="7.5" x2="3" y2="7.5" />
       </svg>
     `;
-    pcDiceBtn.classList.add('hidden');
     document.body.appendChild(pcDiceBtn);
+    document.addEventListener('rpg:connected', () => pcDiceBtn?.classList.remove('hidden'));
+    setTimeout(() => {
+      const vp = document.getElementById('viewport');
+      if (vp && !vp.classList.contains('hidden')) pcDiceBtn?.classList.remove('hidden');
+    }, 2500);
+  }
 
-    desktopOverlay = document.createElement('div');
-    desktopOverlay.id = 'playerDiceOverlay';
-    desktopOverlay.innerHTML = `
-      <div id="playerDicePanel" class="player-dice-panel">
-        <div class="player-dice-top-bar">
-          <div class="player-dice-top-spacer"></div>
-          <div class="player-dice-handle-wrap" title="Clique para recolher">
-            <div class="player-dice-handle"></div>
-          </div>
-          <button type="button" id="playerDiceSettingsBtn" class="player-dice-settings-toggle" title="Personalizar Cores e Dados 3D">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
+  // Cria container principal do menu de dados
+  unifiedWrap = document.createElement('div');
+  unifiedWrap.id = 'unifiedDiceWrap';
+  unifiedWrap.className = 'unified-dice-wrap collapsed';
+  unifiedWrap.innerHTML = `
+    <!-- Controles Horizontais (Qtd, Mod, Modo, Oculto) saindo para a direita -->
+    <div id="diceSideControls" class="dice-side-controls collapsed">
+      ${isGM ? `
+        <button type="button" id="diceGmSecretBtn" class="dice-control-pill secret-btn ${isSecretRoll ? 'secret' : 'public'}" title="Alternar visibilidade para os jogadores">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          <span id="diceSecretLabel">${isSecretRoll ? 'OCULTO' : 'PÚBLICO'}</span>
+        </button>
+      ` : ''}
+
+      <div class="dice-mode-dropdown-wrap">
+        <button type="button" id="diceModeBtn" class="dice-control-pill mode-btn" title="Modo de Rolagem">
+          <span id="diceModeLabel">NORMAL</span>
+          <svg class="mode-arrow" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div id="diceModeMenu" class="dice-subdrop-menu hidden">
+          <button type="button" class="dice-subdrop-item active" data-mode="normal">
+            <span class="mode-dot normal"></span>
+            <span>Normal</span>
+          </button>
+          <button type="button" class="dice-subdrop-item" data-mode="adv">
+            <span class="mode-dot adv"></span>
+            <span>Vantagem (ADV)</span>
+          </button>
+          <button type="button" class="dice-subdrop-item" data-mode="dis">
+            <span class="mode-dot dis"></span>
+            <span>Desvantagem (DIS)</span>
           </button>
         </div>
+      </div>
 
-        <div class="player-dice-controls">
-          <div id="playerDiceFaces" class="player-dice-faces">
-            ${FACES.map(f => `
-              <button type="button" class="player-dice-face-btn ${f === 20 ? 'active' : ''}" data-faces="${f}" title="Selecionar d${f}">
-                <span class="player-dice-face-svg">${DICE_SVGS[f]}</span>
-                <span class="player-dice-face-text">d${f}</span>
-              </button>
-            `).join('')}
-          </div>
+      <div class="dice-stepper-pill" title="Quantidade de dados">
+        <span class="pill-label">Qtd</span>
+        <button type="button" id="diceCountDec" class="pill-btn">−</button>
+        <input type="number" id="diceCountInput" min="1" max="20" value="1" title="Quantidade de dados">
+        <button type="button" id="diceCountInc" class="pill-btn">+</button>
+      </div>
 
-          <div id="gmSecretDiceRow" class="player-dice-secret-row ${isGM ? '' : 'hidden'}">
-            <label class="player-dice-secret-toggle" title="Se marcado, a rolagem só aparece na tela do mestre">
-              <input type="checkbox" id="gmSecretDiceCheckbox" ${isSecretRoll ? 'checked' : ''}>
-              <span class="secret-toggle-switch"></span>
-              <span class="secret-toggle-text">Rolagem Secreta / Oculta (somente Mestre)</span>
-            </label>
+      <div class="dice-stepper-pill" title="Modificador numérico">
+        <span class="pill-label">Mod</span>
+        <button type="button" id="diceModDec" class="pill-btn">−</button>
+        <input type="number" id="diceModInput" min="-99" max="99" value="0" title="Modificador">
+        <button type="button" id="diceModInc" class="pill-btn">+</button>
+      </div>
+    </div>
+
+    <!-- Coluna Vertical de Dados + Botão de Configuração -->
+    <div id="diceVerticalColumn" class="dice-vertical-column collapsed">
+      ${FACES.map(f => `
+        <button type="button" class="dice-col-btn" data-faces="${f}" title="Rolar d${f}">
+          <span class="dice-col-svg">${DICE_SVGS[f]}</span>
+          <span class="dice-col-label">d${f}</span>
+        </button>
+      `).join('')}
+
+      <button type="button" id="diceSettingsToggleBtn" class="dice-col-btn settings-btn" title="Personalizar Dados 3D (Cores, Textura, Tamanho)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span class="dice-col-label">Config</span>
+      </button>
+    </div>
+
+    <!-- Popout de Configurações 3D -->
+    <div id="diceSettingsPopout" class="dice-settings-popout hidden">
+      <div class="dice-settings-popout-header">
+        <span class="dice-settings-popout-title">Configurações dos Dados 3D</span>
+        <button type="button" id="diceSettingsCloseBtn" class="dice-settings-close-btn" title="Fechar">✕</button>
+      </div>
+
+      <div class="dice-settings-grid">
+        <div class="dice-settings-row">
+          <span class="dice-settings-label">Material / Textura 3D</span>
+          <div class="dice-texture-picker-wrap">
+            <select id="diceThemeSelect" class="dice-theme-select" title="Selecione o material ou textura dos dados 3D">
+              <option value="default">Resina Clássica</option>
+              <option value="gemstoneMarble">Mármore Nobre</option>
+              <option value="blueGreenMetal">Metal Bronze / Aço</option>
+              <option value="rust">Ferro Oxidado / Rústico</option>
+              <option value="rock">Pedra Vulcânica / Rocha</option>
+              <option value="wooden">Madeira Entalhada</option>
+              <option value="smooth">Resina Lisa / Acrílico</option>
+              <option value="gemstone">Cristal / Gemstone</option>
+            </select>
           </div>
-          
-          <div class="player-dice-row">
-            <div class="player-dice-input-col left">
-              <select id="playerDiceMode" class="player-dice-select" title="Modo de rolagem">
-                <option value="normal">Normal</option>
-                <option value="adv">Vantagem</option>
-                <option value="dis">Desvantagem</option>
-              </select>
-              <div class="player-dice-input-group">
-                <label for="playerDiceCount">Qtd</label>
-                <input type="number" id="playerDiceCount" min="1" max="20" value="1">
-              </div>
+        </div>
+
+        <div class="dice-settings-row">
+          <span class="dice-settings-label">Cor do Dado (Material 3D)</span>
+          <div class="dice-color-picker-wrap">
+            <div class="circular-picker-container">
+              <div id="diceColorPreview" class="circular-picker-preview"></div>
+              <input type="color" id="diceColorPicker" class="circular-picker-input" value="#45ff78">
             </div>
-            
-            <button type="button" id="playerDiceRollBtn">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.25" />
-                <polygon points="12,7.5 18,17 6,17" />
-                <line x1="12" y1="2" x2="12" y2="7.5" />
-                <line x1="21" y1="7.5" x2="18" y2="17" />
-                <line x1="21" y1="16.5" x2="18" y2="17" />
-                <line x1="12" y1="22" x2="18" y2="17" />
-                <line x1="12" y1="22" x2="6" y2="17" />
-                <line x1="3" y1="16.5" x2="6" y2="17" />
-                <line x1="3" y1="7.5" x2="6" y2="17" />
-              </svg>
-              <span>Rolar</span>
-            </button>
-            
-            <div class="player-dice-input-group right">
-              <label for="playerDiceMod">Mod</label>
-              <input type="number" id="playerDiceMod" min="-99" max="99" value="0">
+            <input type="text" id="diceHexInput" class="dice-hex-input" value="#45FF78" maxlength="7">
+            <div id="diceColorGrid" class="dice-color-grid">
+              <span class="dice-color-swatch" data-color="#45ff78" style="background: #45ff78;" title="Neon Verde"></span>
+              <span class="dice-color-swatch" data-color="#00f0ff" style="background: #00f0ff;" title="Ciano"></span>
+              <span class="dice-color-swatch" data-color="#a855f7" style="background: #a855f7;" title="Roxo Arcano"></span>
+              <span class="dice-color-swatch" data-color="#f43f5e" style="background: #f43f5e;" title="Rubi"></span>
+              <span class="dice-color-swatch" data-color="#fbbf24" style="background: #fbbf24;" title="Ouro"></span>
+              <span class="dice-color-swatch" data-color="#ffffff" style="background: #ffffff;" title="Branco"></span>
+              <span class="dice-color-swatch" data-color="#111827" style="background: #111827;" title="Obsidiana"></span>
             </div>
           </div>
         </div>
 
-        <!-- Gaveta de Configurações 3D (Estilo Foundry VTT) -->
-        <div id="playerDiceSettingsDrawer" class="player-dice-settings-drawer">
-          <div class="dice-settings-grid">
-            <div class="dice-settings-row">
-              <span class="dice-settings-label">Material / Textura 3D</span>
-              <div class="dice-texture-picker-wrap">
-                <select id="desktopThemeSelect" class="dice-theme-select" title="Selecione o material ou textura dos dados 3D">
-                  <option value="default">Resina Clássica</option>
-                  <option value="gemstoneMarble">Mármore Nobre</option>
-                  <option value="blueGreenMetal">Metal Bronze / Aço</option>
-                  <option value="rust">Ferro Oxidado / Rústico</option>
-                  <option value="rock">Pedra Vulcânica / Rocha</option>
-                  <option value="wooden">Madeira Entalhada</option>
-                  <option value="smooth">Resina Lisa / Acrílico</option>
-                  <option value="gemstone">Cristal / Gemstone</option>
-                </select>
-              </div>
+        <div class="dice-settings-row">
+          <span class="dice-settings-label">Cor do Texto (Números)</span>
+          <div class="dice-color-picker-wrap">
+            <div class="circular-picker-container">
+              <div id="diceTextColorPreview" class="circular-picker-preview"></div>
+              <input type="color" id="diceTextColorPicker" class="circular-picker-input" value="#ffffff">
             </div>
-
-            <div class="dice-settings-row">
-              <span class="dice-settings-label">Formato / Geometria 3D</span>
-              <div class="dice-texture-picker-wrap">
-                <select id="desktopGeometrySelect" class="dice-theme-select" title="Selecione o formato geométrico dos dados">
-                  <option value="auto">Padrão do Material (Automático)</option>
-                  <option value="default">Padrão Tradicional (Icosaedro)</option>
-                  <option value="gemstone">D20 Alongado / Cristal (Spindle)</option>
-                  <option value="smooth">Arredondado (Bordas Suaves)</option>
-                </select>
-              </div>
+            <input type="text" id="diceTextHexInput" class="dice-hex-input" value="#FFFFFF" maxlength="7">
+            <button type="button" id="diceTextAutoBtn" class="dice-auto-btn active" title="Alternar entre cor de texto automática (alto contraste) ou manual">Auto: Ativo</button>
+            <div id="diceTextColorGrid" class="dice-color-grid">
+              <span class="dice-color-swatch" data-color="#ffffff" style="background: #ffffff;" title="Branco"></span>
+              <span class="dice-color-swatch" data-color="#000000" style="background: #000000;" title="Preto"></span>
+              <span class="dice-color-swatch" data-color="#fbbf24" style="background: #fbbf24;" title="Dourado"></span>
+              <span class="dice-color-swatch" data-color="#45ff78" style="background: #45ff78;" title="Verde"></span>
+              <span class="dice-color-swatch" data-color="#00f0ff" style="background: #00f0ff;" title="Ciano"></span>
+              <span class="dice-color-swatch" data-color="#ff4444" style="background: #ff4444;" title="Vermelho"></span>
             </div>
-
-            <div class="dice-settings-row">
-              <span class="dice-settings-label">Cor do Dado (Material 3D)</span>
-              <div class="dice-color-picker-wrap">
-                <div class="circular-picker-container">
-                  <div id="desktopColorPreview" class="circular-picker-preview"></div>
-                  <input type="color" id="desktopColorPicker" class="circular-picker-input" value="#45ff78">
-                </div>
-                <input type="text" id="desktopHexInput" class="dice-hex-input" value="#45FF78" maxlength="7">
-                <div id="desktopColorGrid" class="dice-color-grid">
-                  <span class="dice-color-swatch" data-color="#45ff78" style="background: #45ff78;" title="Neon Verde"></span>
-                  <span class="dice-color-swatch" data-color="#00f0ff" style="background: #00f0ff;" title="Ciano"></span>
-                  <span class="dice-color-swatch" data-color="#a855f7" style="background: #a855f7;" title="Roxo Arcano"></span>
-                  <span class="dice-color-swatch" data-color="#f43f5e" style="background: #f43f5e;" title="Rubi"></span>
-                  <span class="dice-color-swatch" data-color="#fbbf24" style="background: #fbbf24;" title="Ouro"></span>
-                  <span class="dice-color-swatch" data-color="#ffffff" style="background: #ffffff;" title="Branco"></span>
-                  <span class="dice-color-swatch" data-color="#111827" style="background: #111827;" title="Obsidiana"></span>
-                </div>
-              </div>
-            </div>
-
-            <div class="dice-settings-row">
-              <span class="dice-settings-label">Cor dos Números</span>
-              <div class="dice-color-picker-wrap">
-                <div class="circular-picker-container">
-                  <div id="desktopTextColorPreview" class="circular-picker-preview"></div>
-                  <input type="color" id="desktopTextColorPicker" class="circular-picker-input" value="#ffffff">
-                </div>
-                <input type="text" id="desktopTextHexInput" class="dice-hex-input" value="#FFFFFF" maxlength="7">
-                <button type="button" id="desktopTextAutoBtn" class="dice-auto-btn active" title="Alternar contraste automático">Auto: Ativo</button>
-                <div id="desktopTextColorGrid" class="dice-color-grid">
-                  <span class="dice-color-swatch" data-color="#ffffff" style="background: #ffffff;" title="Branco"></span>
-                  <span class="dice-color-swatch" data-color="#000000" style="background: #000000;" title="Preto"></span>
-                  <span class="dice-color-swatch" data-color="#fbbf24" style="background: #fbbf24;" title="Dourado"></span>
-                  <span class="dice-color-swatch" data-color="#45ff78" style="background: #45ff78;" title="Neon Verde"></span>
-                  <span class="dice-color-swatch" data-color="#00f0ff" style="background: #00f0ff;" title="Ciano"></span>
-                  <span class="dice-color-swatch" data-color="#f43f5e" style="background: #f43f5e;" title="Rubi"></span>
-                  <span class="dice-color-swatch" data-color="#a855f7" style="background: #a855f7;" title="Ametista"></span>
-                  <span class="dice-color-swatch" data-color="#ff7a00" style="background: #ff7a00;" title="Âmbar"></span>
-                </div>
-              </div>
-            </div>
-
-            <div class="dice-settings-row">
-              <div class="dice-scale-row">
-                <span class="dice-settings-label">Tamanho dos Dados 3D</span>
-                <input type="range" id="desktopScaleInput" class="dice-scale-slider" min="30" max="200" value="100" step="5">
-                <span id="desktopScaleVal" class="dice-scale-val">100%</span>
-              </div>
-            </div>
-
-            <button type="button" id="desktopResetBtn" class="dice-reset-btn">Restaurar Padrão do Tema</button>
           </div>
+        </div>
+
+        <div class="dice-settings-row">
+          <span class="dice-settings-label">Tamanho dos Dados 3D (<span id="diceScaleVal">100%</span>)</span>
+          <div class="dice-scale-wrap">
+            <input type="range" id="diceScaleInput" class="dice-scale-slider" min="30" max="200" step="5" value="100">
+          </div>
+        </div>
+
+        <div class="dice-settings-actions">
+          <button type="button" id="diceResetBtn" class="dice-reset-btn" title="Restaurar padrões de cores e escala">
+            Restaurar Padrão
+          </button>
         </div>
       </div>
-    `;
-    document.body.appendChild(desktopOverlay);
+    </div>
+  `;
 
-    desktopPanel = document.getElementById('playerDicePanel');
-    desktopFaceButtons = desktopOverlay.querySelectorAll('.player-dice-face-btn');
-    desktopCountInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceCount'));
-    desktopModeSelect = /** @type {HTMLSelectElement} */ (document.getElementById('playerDiceMode'));
-    desktopModInput = /** @type {HTMLInputElement} */ (document.getElementById('playerDiceMod'));
-    desktopRollBtn = document.getElementById('playerDiceRollBtn');
-    desktopGmSecretCheck = /** @type {HTMLInputElement} */ (document.getElementById('gmSecretDiceCheckbox'));
+  // Anexa ao DOM
+  const sidebarWrap = document.getElementById('sidebarWrap');
+  if (sidebarWrap) {
+    sidebarWrap.appendChild(unifiedWrap);
+  } else {
+    document.body.appendChild(unifiedWrap);
+  }
 
-    desktopSettingsDrawer = document.getElementById('playerDiceSettingsDrawer');
-    desktopSettingsBtn = document.getElementById('playerDiceSettingsBtn');
-    desktopThemeSelect = /** @type {HTMLSelectElement} */ (document.getElementById('desktopThemeSelect'));
-    desktopGeometrySelect = /** @type {HTMLSelectElement} */ (document.getElementById('desktopGeometrySelect'));
-    desktopColorPicker = /** @type {HTMLInputElement} */ (document.getElementById('desktopColorPicker'));
-    desktopActivePreview = document.getElementById('desktopColorPreview');
-    desktopHexInput = /** @type {HTMLInputElement} */ (document.getElementById('desktopHexInput'));
-    desktopTextColorPicker = /** @type {HTMLInputElement} */ (document.getElementById('desktopTextColorPicker'));
-    desktopTextActivePreview = document.getElementById('desktopTextColorPreview');
-    desktopTextHexInput = /** @type {HTMLInputElement} */ (document.getElementById('desktopTextHexInput'));
-    desktopTextColorGrid = document.getElementById('desktopTextColorGrid');
-    desktopTextAutoBtn = document.getElementById('desktopTextAutoBtn');
-    desktopScaleInput = /** @type {HTMLInputElement} */ (document.getElementById('desktopScaleInput'));
-    desktopScaleVal = document.getElementById('desktopScaleVal');
-    desktopColorGrid = document.getElementById('desktopColorGrid');
-    desktopResetBtn = document.getElementById('desktopResetBtn');
+  // Mapeamento dos elementos
+  unifiedSideControls = document.getElementById('diceSideControls');
+  unifiedVerticalColumn = document.getElementById('diceVerticalColumn');
+  unifiedSettingsPopout = document.getElementById('diceSettingsPopout');
+  unifiedSettingsToggleBtn = document.getElementById('diceSettingsToggleBtn');
 
-    desktopSettingsBtn?.addEventListener('click', (e) => {
+  unifiedCountInput = /** @type {HTMLInputElement} */ (document.getElementById('diceCountInput'));
+  unifiedCountDec = document.getElementById('diceCountDec');
+  unifiedCountInc = document.getElementById('diceCountInc');
+
+  unifiedModInput = /** @type {HTMLInputElement} */ (document.getElementById('diceModInput'));
+  unifiedModDec = document.getElementById('diceModDec');
+  unifiedModInc = document.getElementById('diceModInc');
+
+  unifiedModeBtn = document.getElementById('diceModeBtn');
+  unifiedModeLabel = document.getElementById('diceModeLabel');
+  unifiedModeMenu = document.getElementById('diceModeMenu');
+
+  unifiedGmSecretBtn = document.getElementById('diceGmSecretBtn');
+  unifiedSecretLabel = document.getElementById('diceSecretLabel');
+
+  unifiedThemeSelect = /** @type {HTMLSelectElement} */ (document.getElementById('diceThemeSelect'));
+  unifiedColorPicker = /** @type {HTMLInputElement} */ (document.getElementById('diceColorPicker'));
+  unifiedActivePreview = document.getElementById('diceColorPreview');
+  unifiedHexInput = /** @type {HTMLInputElement} */ (document.getElementById('diceHexInput'));
+  unifiedTextColorPicker = /** @type {HTMLInputElement} */ (document.getElementById('diceTextColorPicker'));
+  unifiedTextActivePreview = document.getElementById('diceTextColorPreview');
+  unifiedTextHexInput = /** @type {HTMLInputElement} */ (document.getElementById('diceTextHexInput'));
+  unifiedTextColorGrid = document.getElementById('diceTextColorGrid');
+  unifiedTextAutoBtn = document.getElementById('diceTextAutoBtn');
+  unifiedScaleInput = /** @type {HTMLInputElement} */ (document.getElementById('diceScaleInput'));
+  unifiedScaleVal = document.getElementById('diceScaleVal');
+  unifiedColorGrid = document.getElementById('diceColorGrid');
+  unifiedResetBtn = document.getElementById('diceResetBtn');
+
+  // Alternância de Oculto / Público (GM)
+  if (unifiedGmSecretBtn) {
+    unifiedGmSecretBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const isOpen = desktopSettingsDrawer?.classList.toggle('open');
-      desktopSettingsBtn?.classList.toggle('active', isOpen);
-    });
-
-    desktopThemeSelect?.addEventListener('change', async () => {
-      const val = desktopThemeSelect.value || 'default';
-      localStorage.setItem(STORAGE_KEY_THEME, val);
-      const storedGeom = localStorage.getItem(STORAGE_KEY_GEOMETRY) || 'auto';
-      if (Box && isBoxReady) {
-        try {
-          await Box.loadTheme(val);
-        } catch (_) {}
-      }
-      applyCustomStyles(null, null, null, val, storedGeom);
-    });
-
-    desktopGeometrySelect?.addEventListener('change', async () => {
-      const val = desktopGeometrySelect.value || 'auto';
-      localStorage.setItem(STORAGE_KEY_GEOMETRY, val);
-      const storedTheme = localStorage.getItem(STORAGE_KEY_THEME) || 'default';
-      if (Box && isBoxReady) {
-        try {
-          await Box.updateConfig({ geometry: val, theme: storedTheme });
-        } catch (_) {}
-      }
-      applyCustomStyles(null, null, null, storedTheme, val);
-    });
-
-    desktopColorPicker?.addEventListener('input', (e) => {
-      const hex = /** @type {HTMLInputElement} */ (e.target).value;
-      localStorage.setItem(STORAGE_KEY_DICE_COLOR, hex);
-      applyCustomStyles(hex, null, null);
-    });
-
-    desktopHexInput?.addEventListener('change', (e) => {
-      let val = /** @type {HTMLInputElement} */ (e.target).value.trim();
-      if (!val.startsWith('#')) val = '#' + val;
-      if (/^#[0-9a-fA-F]{6}$/.test(val)) {
-        localStorage.setItem(STORAGE_KEY_DICE_COLOR, val);
-        applyCustomStyles(val, null, null);
-      }
-    });
-
-    desktopColorGrid?.querySelectorAll('.dice-color-swatch').forEach(swatch => {
-      swatch.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const hex = /** @type {HTMLElement} */ (swatch).dataset.color;
-        if (hex) {
-          localStorage.setItem(STORAGE_KEY_DICE_COLOR, hex);
-          applyCustomStyles(hex, null, null);
-        }
-      });
-    });
-
-    desktopTextColorPicker?.addEventListener('input', (e) => {
-      const hex = /** @type {HTMLInputElement} */ (e.target).value;
-      localStorage.setItem(STORAGE_KEY_TEXT_COLOR, hex);
-      localStorage.setItem(STORAGE_KEY_TEXT_AUTO, 'false');
-      applyCustomStyles(null, hex, null);
-    });
-
-    desktopTextHexInput?.addEventListener('change', (e) => {
-      let val = /** @type {HTMLInputElement} */ (e.target).value.trim();
-      if (!val.startsWith('#')) val = '#' + val;
-      if (/^#[0-9a-fA-F]{6}$/.test(val)) {
-        localStorage.setItem(STORAGE_KEY_TEXT_COLOR, val);
-        localStorage.setItem(STORAGE_KEY_TEXT_AUTO, 'false');
-        applyCustomStyles(null, val, null);
-      }
-    });
-
-    desktopTextAutoBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const current = localStorage.getItem(STORAGE_KEY_TEXT_AUTO) !== 'false';
-      localStorage.setItem(STORAGE_KEY_TEXT_AUTO, current ? 'false' : 'true');
-      applyCustomStyles(null, null, null);
-    });
-
-    desktopTextColorGrid?.querySelectorAll('.dice-color-swatch').forEach(swatch => {
-      swatch.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const hex = /** @type {HTMLElement} */ (swatch).dataset.color;
-        if (hex) {
-          localStorage.setItem(STORAGE_KEY_TEXT_COLOR, hex);
-          localStorage.setItem(STORAGE_KEY_TEXT_AUTO, 'false');
-          applyCustomStyles(null, hex, null);
-        }
-      });
-    });
-
-    desktopScaleInput?.addEventListener('input', (e) => {
-      const val = /** @type {HTMLInputElement} */ (e.target).value;
-      localStorage.setItem(STORAGE_KEY_SCALE, val);
-      applyCustomStyles(null, null, val);
-    });
-
-    desktopResetBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const sysAccent = getSystemAccent();
-      localStorage.setItem(STORAGE_KEY_THEME, 'default');
-      localStorage.setItem(STORAGE_KEY_GEOMETRY, 'auto');
-      localStorage.setItem(STORAGE_KEY_DICE_COLOR, sysAccent);
-      localStorage.setItem(STORAGE_KEY_TEXT_AUTO, 'true');
-      localStorage.setItem(STORAGE_KEY_SCALE, String(DEFAULT_PERCENT));
-      applyCustomStyles(sysAccent, null, DEFAULT_PERCENT, 'default', 'auto');
-    });
-
-    desktopGmSecretCheck?.addEventListener('change', () => {
-      isSecretRoll = desktopGmSecretCheck.checked;
+      isSecretRoll = !isSecretRoll;
       try { localStorage.setItem(STORAGE_KEY_SECRET, String(isSecretRoll)); } catch (_) {}
+      unifiedGmSecretBtn.className = `dice-control-pill secret-btn ${isSecretRoll ? 'secret' : 'public'}`;
+      if (unifiedSecretLabel) unifiedSecretLabel.textContent = isSecretRoll ? 'OCULTO' : 'PÚBLICO';
     });
+  }
 
-    desktopModeSelect?.addEventListener('change', () => {
-      currentRollMode = desktopModeSelect.value || 'normal';
-      if ((currentRollMode === 'adv' || currentRollMode === 'dis') && parseInt(desktopCountInput.value, 10) === 1) {
-        desktopCountInput.value = '2';
-      }
-    });
+  let isDiceExpanded = false;
+  function toggleDiceTray(force) {
+    isDiceExpanded = typeof force === 'boolean' ? force : !isDiceExpanded;
+    unifiedWrap?.classList.toggle('open', isDiceExpanded);
+    unifiedWrap?.classList.toggle('collapsed', !isDiceExpanded);
+    
+    const triggerBtn = document.getElementById('openDiceBtn') || pcDiceBtn;
+    triggerBtn?.classList.toggle('active', isDiceExpanded);
+    unifiedSideControls?.classList.toggle('collapsed', !isDiceExpanded);
+    unifiedVerticalColumn?.classList.toggle('collapsed', !isDiceExpanded);
 
-    function selectFacesDesktop(faces) {
-      selectedFaces = faces;
-      desktopFaceButtons?.forEach(btn => {
-        btn.classList.toggle('active', Number(/** @type {HTMLElement} */ (btn).dataset.faces) === faces);
-      });
-    }
-
-    desktopFaceButtons?.forEach(btn => {
-      btn.addEventListener('click', () => selectFacesDesktop(Number(/** @type {HTMLElement} */ (btn).dataset.faces)));
-    });
-
-    desktopRollBtn?.addEventListener('click', () => {
-      const count = Math.min(20, Math.max(1, parseInt(desktopCountInput.value, 10) || 1));
-      const mod = parseInt(desktopModInput.value, 10) || 0;
-      currentRollMode = desktopModeSelect?.value || 'normal';
-
-      if (checkIsGM()) {
-        gmRoll(selectedFaces, count, mod);
-      } else {
-        playerRoll(selectedFaces, count, mod);
-      }
-    });
-
-    function openDesktopDice() {
-      const isGMActive = checkIsGM();
-      const secretRow = document.getElementById('gmSecretDiceRow');
-      if (secretRow) secretRow.classList.toggle('hidden', !isGMActive);
-      desktopOverlay?.classList.add('open');
+    if (!isDiceExpanded) {
+      unifiedModeMenu?.classList.add('hidden');
+      unifiedSettingsPopout?.classList.add('hidden');
+      unifiedSettingsToggleBtn?.classList.remove('active');
+    } else {
       initBox();
     }
-
-    function closeDesktopDice() {
-      desktopOverlay?.classList.remove('open');
-      desktopSettingsDrawer?.classList.remove('open');
-      desktopSettingsBtn?.classList.remove('active');
-      clearSettledDice();
-    }
-
-    pcDiceBtn?.addEventListener('click', openDesktopDice);
-    const handleEl = desktopOverlay?.querySelector('.player-dice-handle-wrap');
-    handleEl?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeDesktopDice();
-    });
-    desktopOverlay?.addEventListener('click', (e) => {
-      if (e.target === desktopOverlay) closeDesktopDice();
-    });
-
-    const gmBtn = document.getElementById('openDiceBtn');
-    if (gmBtn) {
-      gmBtn.addEventListener('click', openDesktopDice);
-      if (pcDiceBtn.parentNode) pcDiceBtn.parentNode.removeChild(pcDiceBtn);
-    } else {
-      document.addEventListener('rpg:connected', () => pcDiceBtn.classList.remove('hidden'));
-      setTimeout(() => {
-        const vp = document.getElementById('viewport');
-        if (vp && !vp.classList.contains('hidden')) pcDiceBtn.classList.remove('hidden');
-      }, 2500);
-    }
   }
+
+  // Eventos de abertura do botão principal (Mestre ou Jogador)
+  const masterDiceBtn = document.getElementById('openDiceBtn');
+  if (masterDiceBtn) {
+    masterDiceBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDiceTray();
+    });
+  }
+  if (pcDiceBtn) {
+    pcDiceBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDiceTray();
+    });
+  }
+
+  // Modo de Rolagem Dropdown
+  unifiedModeBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    unifiedModeMenu?.classList.toggle('hidden');
+  });
+
+  function setRollMode(mode) {
+    currentRollMode = mode;
+    unifiedWrap?.querySelectorAll('.dice-subdrop-item').forEach(item => {
+      item.classList.toggle('active', item.getAttribute('data-mode') === mode);
+    });
+
+    if (mode === 'adv') {
+      if (unifiedModeLabel) unifiedModeLabel.textContent = 'VANTAGEM';
+      if (unifiedCountInput && parseInt(unifiedCountInput.value, 10) === 1) unifiedCountInput.value = '2';
+    } else if (mode === 'dis') {
+      if (unifiedModeLabel) unifiedModeLabel.textContent = 'DESVANTAGEM';
+      if (unifiedCountInput && parseInt(unifiedCountInput.value, 10) === 1) unifiedCountInput.value = '2';
+    } else {
+      if (unifiedModeLabel) unifiedModeLabel.textContent = 'NORMAL';
+    }
+    unifiedModeMenu?.classList.add('hidden');
+  }
+
+  unifiedWrap?.querySelectorAll('.dice-subdrop-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setRollMode(item.getAttribute('data-mode') || 'normal');
+    });
+  });
+
+  // Stepper Qtd
+  unifiedCountDec?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    let val = parseInt(unifiedCountInput.value, 10) || 1;
+    if (val > 1) unifiedCountInput.value = String(val - 1);
+  });
+
+  unifiedCountInc?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    let val = parseInt(unifiedCountInput.value, 10) || 1;
+    if (val < 20) unifiedCountInput.value = String(val + 1);
+  });
+
+  // Stepper Mod
+  unifiedModDec?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    let val = parseInt(unifiedModInput.value, 10) || 0;
+    if (val > -99) unifiedModInput.value = String(val - 1);
+  });
+
+  unifiedModInc?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    let val = parseInt(unifiedModInput.value, 10) || 0;
+    if (val < 99) unifiedModInput.value = String(val + 1);
+  });
+
+  // Fechar ao clicar fora
+  document.addEventListener('click', (e) => {
+    const target = /** @type {Node} */ (e.target);
+    const triggerBtn = document.getElementById('openDiceBtn') || pcDiceBtn;
+    if (!unifiedWrap?.contains(target) && !triggerBtn?.contains(target)) {
+      toggleDiceTray(false);
+    }
+  });
+
+  // Botões de Dados Verticais (d4, d6, d8, d10, d12, d20, d100)
+  unifiedWrap?.querySelectorAll('.dice-col-btn[data-faces]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const faces = Number(/** @type {HTMLElement} */ (btn).dataset.faces);
+      const count = Math.min(20, Math.max(1, parseInt(unifiedCountInput.value, 10) || 1));
+      const mod = parseInt(unifiedModInput.value, 10) || 0;
+
+      if (checkIsGM()) {
+        gmRoll(faces, count, mod);
+      } else {
+        playerRoll(faces, count, mod);
+      }
+    });
+  });
+
+  // Botão de Configuração de Dados 3D
+  unifiedSettingsToggleBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isHidden = unifiedSettingsPopout?.classList.toggle('hidden');
+    unifiedSettingsToggleBtn?.classList.toggle('active', !isHidden);
+  });
+
+  document.getElementById('diceSettingsCloseBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    unifiedSettingsPopout?.classList.add('hidden');
+    unifiedSettingsToggleBtn?.classList.remove('active');
+  });
+
+  // Eventos de Personalização 3D
+  unifiedThemeSelect?.addEventListener('change', () => {
+    const val = unifiedThemeSelect.value || 'default';
+    localStorage.setItem(STORAGE_KEY_THEME, val);
+    applyCustomStyles(null, null, null, val);
+  });
+
+  unifiedColorPicker?.addEventListener('input', (e) => {
+    const val = /** @type {HTMLInputElement} */ (e.target).value;
+    localStorage.setItem(STORAGE_KEY_DICE_COLOR, val);
+    applyCustomStyles(val, null, null);
+  });
+
+  unifiedHexInput?.addEventListener('change', (e) => {
+    let val = /** @type {HTMLInputElement} */ (e.target).value.trim();
+    if (!val.startsWith('#')) val = '#' + val;
+    if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+      localStorage.setItem(STORAGE_KEY_DICE_COLOR, val);
+      applyCustomStyles(val, null, null);
+    }
+  });
+
+  unifiedColorGrid?.querySelectorAll('.dice-color-swatch').forEach(swatch => {
+    swatch.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const hex = /** @type {HTMLElement} */ (swatch).dataset.color;
+      if (hex) {
+        localStorage.setItem(STORAGE_KEY_DICE_COLOR, hex);
+        applyCustomStyles(hex, null, null);
+      }
+    });
+  });
+
+  unifiedTextColorPicker?.addEventListener('input', (e) => {
+    const val = /** @type {HTMLInputElement} */ (e.target).value;
+    localStorage.setItem(STORAGE_KEY_TEXT_COLOR, val);
+    localStorage.setItem(STORAGE_KEY_TEXT_AUTO, 'false');
+    applyCustomStyles(null, val, null);
+  });
+
+  unifiedTextHexInput?.addEventListener('change', (e) => {
+    let val = /** @type {HTMLInputElement} */ (e.target).value.trim();
+    if (!val.startsWith('#')) val = '#' + val;
+    if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+      localStorage.setItem(STORAGE_KEY_TEXT_COLOR, val);
+      localStorage.setItem(STORAGE_KEY_TEXT_AUTO, 'false');
+      applyCustomStyles(null, val, null);
+    }
+  });
+
+  unifiedTextAutoBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isAuto = localStorage.getItem(STORAGE_KEY_TEXT_AUTO) !== 'false';
+    const nextAuto = !isAuto;
+    localStorage.setItem(STORAGE_KEY_TEXT_AUTO, String(nextAuto));
+    applyCustomStyles(null, null, null);
+  });
+
+  unifiedTextColorGrid?.querySelectorAll('.dice-color-swatch').forEach(swatch => {
+    swatch.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const hex = /** @type {HTMLElement} */ (swatch).dataset.color;
+      if (hex) {
+        localStorage.setItem(STORAGE_KEY_TEXT_COLOR, hex);
+        localStorage.setItem(STORAGE_KEY_TEXT_AUTO, 'false');
+        applyCustomStyles(null, hex, null);
+      }
+    });
+  });
+
+  unifiedScaleInput?.addEventListener('input', (e) => {
+    const val = /** @type {HTMLInputElement} */ (e.target).value;
+    localStorage.setItem(STORAGE_KEY_SCALE, val);
+    applyCustomStyles(null, null, val);
+  });
+
+  unifiedResetBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const sysAccent = getSystemAccent();
+    localStorage.setItem(STORAGE_KEY_THEME, 'default');
+    localStorage.setItem(STORAGE_KEY_GEOMETRY, 'auto');
+    localStorage.setItem(STORAGE_KEY_DICE_COLOR, sysAccent);
+    localStorage.setItem(STORAGE_KEY_TEXT_AUTO, 'true');
+    localStorage.setItem(STORAGE_KEY_SCALE, String(DEFAULT_PERCENT));
+    applyCustomStyles(sysAccent, null, DEFAULT_PERCENT, 'default', 'auto');
+  });
 
   // ============================================================
   // CÁLCULO FÍSICO REAL E DETERMINAÇÃO DA FACE SUPERIOR (MÉTODO 1)
@@ -1152,20 +1051,10 @@ import { isAndroidOrIOS } from './mobile.js';
       ? getContrastColor(diceColor)
       : (localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff');
 
-    let physicalRolls = [];
-    try {
-      await initBox();
-      applyCustomStyles(diceColor, labelColor, null, storedTheme, storedGeometry);
-      // Roda a simulação física 3D real no canvas com o tema e geometria selecionados
-      const rollResult = await Box.roll(naturalNotation, { theme: storedTheme, geometry: storedGeometry, themeColor: diceColor });
-      // Extrai os valores exatos das faces que ficaram voltadas para cima
-      physicalRolls = extractSettledValues(rollResult, diceCount, faces);
-      hasSettledDice = true;
-    } catch (err) {
-      console.warn("Fallback rolagem 3D física:", err);
-      for (let i = 0; i < diceCount; i++) physicalRolls.push(getRandomFace(faces));
-    } finally {
-      isRolling = false;
+    // 1. Gera os valores dos dados internos aleatoriamente
+    const physicalRolls = [];
+    for (let i = 0; i < diceCount; i++) {
+      physicalRolls.push(getRandomFace(faces));
     }
 
     const rollData = formatRollSummary(physicalRolls, faces, diceCount, mod, mode);
@@ -1176,14 +1065,33 @@ import { isAndroidOrIOS } from './mobile.js';
       theme: storedTheme,
       geometry: storedGeometry,
       diceColor,
-      labelColor
+      labelColor,
+      targetValues: physicalRolls
     };
 
+    // 2. Transmite imediatamente para todos os conectados na mesa iniciarem a rolagem simultaneamente
     if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
       window.RPG.sendDiceRoll(payload);
     }
 
-    showDiceResultPopup(payload);
+    // 3. Roda a física 3D real no canvas armada para cair exatamente nos números sorteados
+    try {
+      await initBox();
+      applyCustomStyles(diceColor, labelColor, null, storedTheme, storedGeometry);
+      await Box.roll(naturalNotation, {
+        theme: storedTheme,
+        geometry: storedGeometry,
+        themeColor: diceColor,
+        targetValues: physicalRolls
+      });
+      hasSettledDice = true;
+    } catch (err) {
+      console.warn("Fallback rolagem 3D física:", err);
+    } finally {
+      isRolling = false;
+      showDiceResultPopup(payload);
+      setTimeout(checkDicePanelOverlap, 50);
+    }
   }
 
   // ---- Rolagem do MESTRE ----
@@ -1201,18 +1109,10 @@ import { isAndroidOrIOS } from './mobile.js';
       ? getContrastColor(diceColor)
       : (localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff');
 
-    let physicalRolls = [];
-    try {
-      await initBox();
-      applyCustomStyles(diceColor, labelColor, null, storedTheme, storedGeometry);
-      const rollResult = await Box.roll(naturalNotation, { theme: storedTheme, geometry: storedGeometry, themeColor: diceColor });
-      physicalRolls = extractSettledValues(rollResult, diceCount, faces);
-      hasSettledDice = true;
-    } catch (err) {
-      console.warn("Fallback rolagem 3D mestre física:", err);
-      for (let i = 0; i < diceCount; i++) physicalRolls.push(getRandomFace(faces));
-    } finally {
-      isRolling = false;
+    // 1. Gera os valores dos dados internos aleatoriamente
+    const physicalRolls = [];
+    for (let i = 0; i < diceCount; i++) {
+      physicalRolls.push(getRandomFace(faces));
     }
 
     const rollData = formatRollSummary(physicalRolls, faces, diceCount, mod, mode);
@@ -1223,29 +1123,43 @@ import { isAndroidOrIOS } from './mobile.js';
       theme: storedTheme,
       geometry: storedGeometry,
       diceColor,
-      labelColor
+      labelColor,
+      targetValues: physicalRolls
     };
 
+    // 2. Transmite imediatamente para todos os conectados na mesa se não for rolagem secreta
     if (!isSecretRoll && window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
       window.RPG.sendDiceRoll(payload);
     }
 
-    showDiceResultPopup(payload);
+    // 3. Roda a física 3D real no canvas armada para cair exatamente nos números sorteados
+    try {
+      await initBox();
+      applyCustomStyles(diceColor, labelColor, null, storedTheme, storedGeometry);
+      await Box.roll(naturalNotation, {
+        theme: storedTheme,
+        geometry: storedGeometry,
+        themeColor: diceColor,
+        targetValues: physicalRolls
+      });
+      hasSettledDice = true;
+    } catch (err) {
+      console.warn("Fallback rolagem 3D mestre física:", err);
+    } finally {
+      isRolling = false;
+      showDiceResultPopup(payload);
+      setTimeout(checkDicePanelOverlap, 50);
+    }
   }
 
-  // ---- Recepção de rolagem remota ----
-  // Esta biblioteca não suporta "target notation" (forçar a face de
-  // queda). Por isso, quem RECEBE a rolagem via WebRTC roda sua PRÓPRIA
-  // simulação física independente — visualmente diferente da tela de
-  // quem rolou — apenas como espetáculo decorativo. O número que
-  // importa (data.rolls / data.sum) já veio pronto de quem realmente
-  // rolou e é o que aparece no popup do HUD, idêntico em todas as telas.
+  // ---- Recepção de rolagem remota sincronizada ----
   window.RPG = window.RPG || {};
   window.RPG.onRemoteDiceRoll = async (data) => {
     if (!data) return;
     clearSettledDice();
     const faces = data.faces || 20;
-    const count = data.count || (Array.isArray(data.rolls) ? data.rolls.length : 1);
+    const rolls = Array.isArray(data.targetValues) ? data.targetValues : (Array.isArray(data.rolls) ? data.rolls : [data.rolls || 1]);
+    const count = data.count || rolls.length || 1;
     const notation = `${count}d${faces}`;
     const remoteTheme = data.theme || 'default';
     const remoteGeometry = data.geometry || 'auto';
@@ -1255,13 +1169,19 @@ import { isAndroidOrIOS } from './mobile.js';
       if (data.diceColor || data.labelColor || data.theme || data.geometry) {
         applyCustomStyles(data.diceColor, data.labelColor, null, remoteTheme, remoteGeometry);
       }
-      // Roda a física de verdade na tela de quem recebeu com a mesma textura e geometria
-      await Box.roll(notation, { theme: remoteTheme, geometry: remoteGeometry, themeColor: data.diceColor });
+      // Roda a física 3D simultaneamente armada para assentar nas mesmas faces sorteadas
+      await Box.roll(notation, {
+        theme: remoteTheme,
+        geometry: remoteGeometry,
+        themeColor: data.diceColor,
+        targetValues: rolls
+      });
       hasSettledDice = true;
     } catch (err) {
       console.warn("Fallback rolagem remota 3D:", err);
     } finally {
       showDiceResultPopup(data);
+      setTimeout(checkDicePanelOverlap, 50);
     }
   };
 

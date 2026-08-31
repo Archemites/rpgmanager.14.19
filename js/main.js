@@ -1687,6 +1687,13 @@
     combatBarTokens.innerHTML = '';
     const TOKEN_SIZE = 48;
     const TOKEN_SPACING = 10;  // gap between tokens
+    const TOKEN_PADDING_LEFT = 12;
+
+    const count = state.combat.order.length;
+    const neededWidth = count > 0 ? (count * (TOKEN_SIZE + TOKEN_SPACING) + TOKEN_PADDING_LEFT + 6) : 60;
+    if (combatBarTrack) {
+      combatBarTrack.style.width = neededWidth + 'px';
+    }
 
     state.combat.order.forEach((id, idx) => {
       const t = state.tokens.find(t => t.id === id);
@@ -1696,7 +1703,7 @@
       item.className = 'combat-token' + (idx === 0 ? ' current' : '');
       item.dataset.id = id;
       // Compact layout: left-aligned with 10px gap
-      const left = idx * (TOKEN_SIZE + TOKEN_SPACING) + 12;  // 12px left padding
+      const left = idx * (TOKEN_SIZE + TOKEN_SPACING) + TOKEN_PADDING_LEFT;
       item.style.left = left + 'px';
       item.style.marginLeft = '0';
 

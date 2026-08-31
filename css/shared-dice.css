@@ -1,418 +1,452 @@
 /* ============================================================
    Player & GM dice roller — Foundry VTT / Dice So Nice! Style
-   - Gaveta inferior clean, simétrica e harmonizada com os temas
-   - Customização de Cor do Dado, Cor dos Números, Material e Escala
-   - Seletores de cor 100% circulares
-   - Pop-up flutuante animado pós-rolagem com o resultado
-   - Suporte a Desktop e Mobile
+   - Menu Vertical de Dados (d4..d100 + Configuração ⚙️)
+   - Controles Horizontais saindo para a direita (Qtd, Mod, Modo, Oculto)
+   - Painel Popout de Customização de Dados 3D (Cores, Textura, Escala)
+   - Pop-up HUD flutuante pós-rolagem com valor final e detalhamento
+   - Totalmente compatível com Mestre, Jogador, Desktop e Mobile
    - Sincronização WebRTC em tempo real
    ============================================================ */
 
-/* ── Botão flutuante do Jogador (Desktop) ──────────────────────── */
+/* ── Botão flutuante do Jogador (quando não for Mestre) ────────── */
 #playerDiceBtn {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-  width: 52px;
-  height: 52px;
+  top: 12px;
+  left: 12px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: var(--input-panel, rgba(0, 0, 0, 0.5));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--float-bg, rgba(0, 0, 0, 0.55));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: var(--border-width, 1px) var(--border-style, solid) var(--panel-border, #1e5c32);
   color: var(--accent, #45ff78);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), var(--border-glow, none);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5), var(--border-glow, none);
   z-index: 10004;
-  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
               border-color 0.2s ease,
-              background 0.2s ease,
-              box-shadow 0.24s ease;
+              box-shadow 0.2s ease;
 }
 
 #playerDiceBtn svg {
   color: var(--accent, #45ff78);
   filter: drop-shadow(0 0 4px rgba(var(--accent-rgb, 69, 255, 120), 0.5));
-  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 #playerDiceBtn:hover {
-  transform: translateY(-3px) scale(1.06);
+  transform: scale(1.08);
   border-color: var(--accent, #45ff78);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), var(--glow-strong, 0 0 16px rgba(69, 255, 120, 0.4));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), var(--glow-strong, 0 0 14px rgba(69, 255, 120, 0.4));
 }
 
-#playerDiceBtn:hover svg {
-  transform: rotate(18deg) scale(1.08);
+#playerDiceBtn.active {
+  border-color: var(--accent, #45ff78);
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.2);
+  box-shadow: 0 0 16px rgba(var(--accent-rgb, 69, 255, 120), 0.6);
 }
 
 #playerDiceBtn.hidden {
   display: none !important;
 }
 
-/* ── Gaveta Desktop (PC) ────────────────────────────────────────── */
-#playerDiceOverlay {
-  position: fixed;
-  inset: 0;
+/* ── Container Unificado do Menu de Dados ────────────────────────── */
+#unifiedDiceWrap {
+  position: absolute;
+  left: 100%;
+  margin-left: 12px;
+  top: 12px;
+  z-index: 9700;
   pointer-events: none;
-  z-index: 10005;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
+  font-family: var(--font-body, inherit);
+  transition: opacity 0.25s ease, backdrop-filter 0.25s ease;
 }
 
-#playerDicePanel {
-  width: min(620px, calc(100vw - 28px));
-  background: var(--panel, #041008);
-  background: color-mix(in srgb, var(--panel, #041008) 94%, #000000);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: var(--border-width, 1px) var(--border-style, solid) var(--panel-border, #1e5c32);
-  border-bottom: none;
-  border-radius: max(var(--radius, 0px), 20px) max(var(--radius, 0px), 20px) 0 0;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25), var(--border-glow, none);
-  padding: 12px 22px 18px 22px;
-  transform: translateY(calc(100% + 24px));
-  transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.38s ease,
-              border-color 0.2s ease;
+/* Se for inserido direto no body (ex: Player View) */
+body > #unifiedDiceWrap {
+  position: fixed;
+  left: 12px;
+  top: 12px;
+  margin-left: 0;
+}
+
+#unifiedDiceWrap.open {
   pointer-events: auto;
-  position: relative;
-  z-index: 9700;
-  font-family: var(--font-body, inherit);
+}
+
+/* Efeito translúcido quando dado 3D rolar por trás/perto */
+#unifiedDiceWrap.dice-under-panel {
+  opacity: 0.2 !important;
+}
+
+#unifiedDiceWrap.dice-under-panel:hover {
+  opacity: 0.96 !important;
+}
+
+/* ── Controles Horizontais (Saindo para a direita do botão de dados) ─ */
+.dice-side-controls {
+  position: absolute;
+  left: 88px;
+  top: 0px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: var(--panel, #041008);
+  background: color-mix(in srgb, var(--panel, #041008) 95%, #000000);
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: 30px;
+  padding: 3px 10px;
+  height: 36px;
+  box-sizing: border-box;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6), var(--border-glow, none);
+  white-space: nowrap;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+  z-index: 9702;
+}
+
+body > #unifiedDiceWrap .dice-side-controls {
+  top: 0px;
+  left: 44px;
+}
+
+.dice-side-controls.collapsed {
+  opacity: 0;
+  transform: translateX(-16px) scale(0.92);
+  pointer-events: none;
+}
+
+/* Stepper Pills (Qtd e Mod) */
+.dice-stepper-pill {
+  display: flex;
+  align-items: center;
+  background: var(--input-panel, rgba(0, 0, 0, 0.45));
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: 20px;
+  padding: 2px 6px;
+  height: 28px;
   box-sizing: border-box;
 }
 
-#playerDiceOverlay.open #playerDicePanel {
-  transform: translateY(0);
-}
-
-/* Barra superior da gaveta (3 colunas simétricas) */
-.player-dice-top-bar {
-  display: grid;
-  grid-template-columns: 36px 1fr 36px;
-  align-items: center;
-  height: 24px;
-  margin-bottom: 12px;
-  position: relative;
-}
-
-.player-dice-top-spacer {
-  width: 36px;
-  height: 100%;
-}
-
-.player-dice-handle-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  cursor: pointer;
-}
-
-.player-dice-handle {
-  width: 52px;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--panel-border, #1e5c32);
-  opacity: 0.85;
-  transition: background 0.2s ease, width 0.24s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
-}
-
-.player-dice-handle-wrap:hover .player-dice-handle {
-  background: var(--accent, #45ff78);
-  width: 72px;
-  box-shadow: 0 0 10px var(--accent, #45ff78);
-}
-
-.player-dice-settings-toggle {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--input-panel, rgba(0, 0, 0, 0.4));
-  border: 1px solid var(--panel-border, #1e5c32);
-  color: var(--text-dim, #2a9c4e);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  justify-self: end;
-  transition: all 0.2s ease;
-}
-
-.player-dice-settings-toggle:hover,
-.player-dice-settings-toggle.active {
-  color: var(--accent, #45ff78);
-  border-color: var(--accent, #45ff78);
-  transform: rotate(45deg);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--accent, #45ff78) 40%, transparent);
-}
-
-/* ── Botões Poliédricos de Dados (d4 a d100) ──────────────────── */
-.player-dice-faces {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.player-dice-face-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  background: var(--input-panel, rgba(0, 0, 0, 0.4));
-  border: 1px solid var(--panel-border, #1e5c32);
-  border-radius: max(var(--radius, 0px), 10px);
-  color: var(--text-dim, #2a9c4e);
-  padding: 10px 4px;
-  cursor: pointer;
+.dice-stepper-pill .pill-label {
   font-family: var(--font-head, inherit);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.player-dice-face-btn svg {
-  color: inherit;
-  transition: transform 0.2s ease;
-}
-
-.player-dice-face-btn:hover {
-  color: var(--accent, #45ff78);
-  border-color: var(--accent, #45ff78);
-  background: color-mix(in srgb, var(--accent, #45ff78) 12%, var(--input-panel, #000));
-  transform: translateY(-3px) scale(1.04);
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent, #45ff78) 30%, transparent);
-}
-
-.player-dice-face-btn:hover svg {
-  transform: rotate(8deg);
-}
-
-.player-dice-face-btn.active {
-  color: var(--accent, #45ff78);
-  border-color: var(--accent, #45ff78);
-  background: color-mix(in srgb, var(--accent, #45ff78) 20%, var(--input-panel, #000));
-  box-shadow: 0 0 16px color-mix(in srgb, var(--accent, #45ff78) 50%, transparent),
-              inset 0 0 10px color-mix(in srgb, var(--accent, #45ff78) 25%, transparent);
-  text-shadow: var(--glow, none);
-}
-
-/* ── Linha de Rolagem Secreta (Mestre) ────────────────────────── */
-.player-dice-secret-row {
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px dashed var(--panel-border, #1e5c32);
-  border-radius: max(var(--radius, 0px), 8px);
-}
-
-.player-dice-secret-row.hidden {
-  display: none !important;
-}
-
-.player-dice-secret-toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  font-family: var(--font-body, inherit);
-  font-size: 12px;
+  font-size: 10px;
   color: var(--text-dim, #2a9c4e);
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-right: 4px;
   user-select: none;
 }
 
-.player-dice-secret-toggle input {
-  display: none;
-}
-
-.secret-toggle-switch {
-  width: 34px;
-  height: 18px;
-  background: var(--panel-border, #1e5c32);
-  border-radius: 9px;
-  position: relative;
-  transition: background 0.24s ease;
-  flex-shrink: 0;
-}
-
-.secret-toggle-switch::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
+.dice-stepper-pill .pill-btn {
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.12);
+  border: 1px solid transparent;
+  color: var(--text, #ffffff);
+  font-size: 14px;
+  font-weight: 700;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: #ffffff;
-  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-}
-
-.player-dice-secret-toggle input:checked + .secret-toggle-switch {
-  background: #a855f7;
-  box-shadow: 0 0 10px rgba(168, 85, 247, 0.55);
-}
-
-.player-dice-secret-toggle input:checked + .secret-toggle-switch::after {
-  transform: translateX(16px);
-}
-
-/* ── Linha de Ação Inferior (Modo, Qtd, Rolar, Mod) ───────────── */
-.player-dice-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.player-dice-input-col {
-  display: flex;
-  gap: 8px;
-}
-
-.player-dice-select {
-  background: var(--input-bg, #000000);
-  border: 1px solid var(--panel-border, #1e5c32);
-  border-radius: max(var(--radius, 0px), 8px);
-  color: var(--text, #45ff78);
-  font-family: var(--font-head, inherit);
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  padding: 0 10px;
-  height: 42px;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease;
-}
-
-.player-dice-select:focus {
-  border-color: var(--accent, #45ff78);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--accent, #45ff78) 40%, transparent);
-}
-
-.player-dice-input-group {
-  display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--input-bg, #000000);
-  border: 1px solid var(--panel-border, #1e5c32);
-  border-radius: max(var(--radius, 0px), 8px);
-  padding: 2px 8px;
-  height: 42px;
-  box-sizing: border-box;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.player-dice-input-group:focus-within {
+.dice-stepper-pill .pill-btn:hover {
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.28);
   border-color: var(--accent, #45ff78);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--accent, #45ff78) 40%, transparent);
+  color: var(--accent, #45ff78);
 }
 
-.player-dice-input-group label {
-  font-family: var(--font-head, inherit);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-dim, #2a9c4e);
-  font-weight: 700;
-  line-height: 1;
-}
-
-.player-dice-input-group input {
+.dice-stepper-pill input {
   background: transparent;
   border: none;
   color: var(--text, #ffffff);
   font-family: var(--font-body, monospace);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  width: 38px;
+  width: 28px;
   text-align: center;
   outline: none;
   -moz-appearance: textfield;
   appearance: textfield;
 }
 
-.player-dice-input-group input::-webkit-inner-spin-button,
-.player-dice-input-group input::-webkit-outer-spin-button {
+.dice-stepper-pill input::-webkit-inner-spin-button,
+.dice-stepper-pill input::-webkit-outer-spin-button {
   -webkit-appearance: none;
   appearance: none;
   margin: 0;
 }
 
-#playerDiceRollBtn {
-  flex: 1;
-  height: 42px;
-  border: 1px solid var(--accent, #45ff78);
-  border-radius: max(var(--radius, 0px), 8px);
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--accent, #45ff78) 35%, var(--input-panel, #000)) 0%,
-    color-mix(in srgb, var(--accent, #45ff78) 18%, var(--input-panel, #000)) 100%
-  );
-  color: #ffffff;
+/* Control Pills (Modo e Secret) */
+.dice-control-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--input-panel, rgba(0, 0, 0, 0.45));
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: 20px;
+  padding: 3px 10px;
+  height: 28px;
   font-family: var(--font-head, inherit);
-  font-size: 15px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: var(--head-letter-spacing, 0.1em);
-  text-transform: var(--head-transform, uppercase);
+  letter-spacing: 0.06em;
+  color: var(--text, #ffffff);
   cursor: pointer;
+  user-select: none;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dice-control-pill:hover {
+  border-color: var(--accent, #45ff78);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb, 69, 255, 120), 0.35);
+}
+
+.dice-control-pill.secret-btn.secret {
+  background: rgba(var(--danger-rgb, 244, 63, 94), 0.18);
+  border-color: var(--danger, #f43f5e);
+  color: var(--danger, #f43f5e);
+}
+
+.dice-control-pill.secret-btn.public {
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.12);
+  border-color: var(--accent, #45ff78);
+  color: var(--accent, #45ff78);
+}
+
+/* Modo Dropdown */
+.dice-mode-dropdown-wrap {
+  position: relative;
+}
+
+.dice-subdrop-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: var(--panel, #041008);
+  background: color-mix(in srgb, var(--panel, #041008) 96%, #000000);
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: 12px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), var(--border-glow, none);
+  z-index: 9705;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.dice-subdrop-menu.hidden {
+  display: none !important;
+}
+
+.dice-subdrop-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--text, #ffffff);
+  font-family: var(--font-body, inherit);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dice-subdrop-item:hover {
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.15);
+  color: var(--accent, #45ff78);
+}
+
+.dice-subdrop-item.active {
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.22);
+  color: var(--accent, #45ff78);
+  font-weight: 700;
+}
+
+.mode-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.mode-dot.normal { background: var(--accent, #45ff78); }
+.mode-dot.adv { background: #38bdf8; }
+.mode-dot.dis { background: #f43f5e; }
+
+/* ── Coluna Vertical de Dados (Diretamente abaixo do botão de dados) ── */
+.dice-vertical-column {
+  position: absolute;
+  left: 44px;
+  top: 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+  z-index: 9701;
+}
+
+body > #unifiedDiceWrap .dice-vertical-column {
+  left: 0px;
+  top: 44px;
+}
+
+.dice-vertical-column.collapsed {
+  opacity: 0;
+  transform: translateY(-16px) scale(0.92);
+  pointer-events: none;
+}
+
+.dice-col-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--float-bg, rgba(0, 0, 0, 0.55));
+  background: color-mix(in srgb, var(--panel, #041008) 92%, #000000);
+  border: 1px solid var(--panel-border, #1e5c32);
+  color: var(--text, #45ff78);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), var(--border-glow);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.18s ease,
+              box-shadow 0.18s ease,
+              background 0.18s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.dice-col-btn:hover {
+  transform: translateY(-2px) scale(1.08);
+  border-color: var(--accent, #45ff78);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 14px rgba(var(--accent-rgb, 69, 255, 120), 0.5);
+}
+
+.dice-col-svg {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  box-shadow: 0 2px 16px color-mix(in srgb, var(--accent, #45ff78) 35%, transparent), var(--border-glow, none);
-  text-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  line-height: 1;
 }
 
-#playerDiceRollBtn svg {
-  color: inherit;
-  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+.dice-col-svg svg {
+  color: var(--accent, #45ff78);
+  filter: drop-shadow(0 0 3px rgba(var(--accent-rgb, 69, 255, 120), 0.4));
 }
 
-#playerDiceRollBtn:hover {
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--accent, #45ff78) 48%, var(--input-panel, #000)) 0%,
-    color-mix(in srgb, var(--accent, #45ff78) 26%, var(--input-panel, #000)) 100%
-  );
-  transform: translateY(-2px);
-  box-shadow: 0 6px 24px color-mix(in srgb, var(--accent, #45ff78) 55%, transparent);
+.dice-col-label {
+  font-family: var(--font-head, inherit);
+  font-size: 7.5px;
+  font-weight: 700;
+  color: var(--text-dim, #2a9c4e);
+  margin-top: -2px;
 }
 
-#playerDiceRollBtn:hover svg {
-  transform: rotate(25deg) scale(1.15);
+.dice-col-btn.settings-btn {
+  border-color: rgba(var(--accent-rgb, 69, 255, 120), 0.35);
 }
 
-#playerDiceRollBtn:active {
-  transform: scale(0.97);
+.dice-col-btn.settings-btn svg {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ── Gaveta de Customização / Configurações (Estilo Foundry VTT) ─ */
-.player-dice-settings-drawer {
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  margin-top: 0;
-  border-top: 1px solid transparent;
-  transition: max-height 0.38s cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 0.28s ease,
-              margin-top 0.38s ease,
-              border-color 0.28s ease;
+.dice-col-btn.settings-btn:hover svg,
+.dice-col-btn.settings-btn.active svg {
+  transform: rotate(60deg);
 }
 
-.player-dice-settings-drawer.open {
-  max-height: 380px;
-  opacity: 1;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top-color: var(--panel-border, #1e5c32);
+.dice-col-btn.settings-btn.active {
+  border-color: var(--accent, #45ff78);
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.2);
+  box-shadow: 0 0 16px rgba(var(--accent-rgb, 69, 255, 120), 0.6);
+}
+
+/* ── Popout de Configurações 3D ──────────────────────────────────── */
+.dice-settings-popout {
+  position: absolute;
+  left: 88px;
+  top: 44px;
+  width: min(340px, calc(100vw - 110px));
+  background: var(--panel, #041008);
+  background: color-mix(in srgb, var(--panel, #041008) 96%, #000000);
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: max(var(--radius, 0px), 16px);
+  padding: 14px 18px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75), var(--border-glow, none);
+  z-index: 9710;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: diceSettingsPopEnter 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+body > #unifiedDiceWrap .dice-settings-popout {
+  left: 44px;
+  top: 44px;
+}
+
+.dice-settings-popout.hidden {
+  display: none !important;
+}
+
+@keyframes diceSettingsPopEnter {
+  0% { opacity: 0; transform: scale(0.92) translateX(-10px); }
+  100% { opacity: 1; transform: scale(1) translateX(0); }
+}
+
+.dice-settings-popout-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--panel-border, #1e5c32);
+  padding-bottom: 8px;
+}
+
+.dice-settings-popout-title {
+  font-family: var(--font-head, inherit);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent, #45ff78);
+}
+
+.dice-settings-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim, #2a9c4e);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.dice-settings-close-btn:hover {
+  color: var(--danger, #f43f5e);
+  background: rgba(var(--danger-rgb, 244, 63, 94), 0.15);
 }
 
 .dice-settings-grid {
@@ -424,432 +458,159 @@
 .dice-settings-row {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .dice-settings-label {
   font-family: var(--font-head, inherit);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-dim, #2a9c4e);
-}
-
-.dice-texture-picker-wrap {
-  display: flex;
-  align-items: center;
-  width: 100%;
+  letter-spacing: 0.06em;
 }
 
 .dice-theme-select {
   width: 100%;
-  background: var(--input-bg, #000000);
+  background: var(--input-panel, rgba(0, 0, 0, 0.45));
   border: 1px solid var(--panel-border, #1e5c32);
-  border-radius: max(var(--radius, 0px), 8px);
+  border-radius: 8px;
+  padding: 6px 8px;
   color: var(--text, #ffffff);
-  font-family: var(--font-head, inherit);
-  font-size: 12px;
-  font-weight: 700;
-  padding: 8px 12px;
-  outline: none;
-  cursor: pointer;
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.4);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.dice-theme-select:hover,
-.dice-theme-select:focus {
-  border-color: var(--accent, #45ff78);
-  box-shadow: 0 0 12px rgba(var(--accent-rgb, 69, 255, 120), 0.35);
-}
-
-.dice-theme-select option {
-  background: #111827;
-  color: #ffffff;
   font-family: var(--font-body, inherit);
-  padding: 8px;
-}
-
-/* Seletores Circulares de Cor */
-.dice-color-picker-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.circular-picker-container {
-  position: relative;
-  width: 36px;
-  height: 36px;
-  border-radius: 50% !important;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-  flex-shrink: 0;
-}
-
-.circular-picker-preview {
-  width: 100%;
-  height: 100%;
-  border-radius: 50% !important;
-  border: 2px solid var(--panel-border, #1e5c32);
-  box-sizing: border-box;
-  background: var(--accent, #45ff78);
-  transition: transform 0.2s ease, border-color 0.2s ease;
-}
-
-.circular-picker-input {
-  position: absolute;
-  inset: -10px;
-  width: 60px;
-  height: 60px;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.dice-hex-input {
-  background: var(--input-bg, #000000);
-  border: 1px solid var(--panel-border, #1e5c32);
-  border-radius: max(var(--radius, 0px), 8px);
-  color: var(--text, #ffffff);
-  font-family: var(--font-body, monospace);
-  font-size: 13px;
-  font-weight: 700;
-  padding: 6px 10px;
-  width: 80px;
-  text-transform: uppercase;
+  font-size: 12px;
   outline: none;
 }
 
-.dice-hex-input:focus {
-  border-color: var(--accent, #45ff78);
-}
-
-/* Paleta de Presets Circulares */
-.dice-color-grid {
+.dice-color-picker-wrap {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.dice-color-swatch {
-  width: 24px;
-  height: 24px;
-  border-radius: 50% !important;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+.circular-picker-container {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--panel-border, #1e5c32);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
   cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.circular-picker-preview {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.circular-picker-input {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 48px;
+  height: 48px;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dice-hex-input {
+  width: 70px;
+  background: var(--input-panel, rgba(0, 0, 0, 0.45));
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--text, #ffffff);
+  font-family: var(--font-body, monospace);
+  font-size: 11px;
+  text-align: center;
+  outline: none;
+}
+
+.dice-auto-btn {
+  background: var(--input-panel, rgba(0, 0, 0, 0.45));
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: var(--text, #ffffff);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dice-auto-btn.active {
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.2);
+  border-color: var(--accent, #45ff78);
+  color: var(--accent, #45ff78);
+}
+
+.dice-color-grid {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.dice-color-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease;
 }
 
 .dice-color-swatch:hover {
-  transform: scale(1.22);
-  border-color: #ffffff;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  transform: scale(1.2);
 }
 
 .dice-color-swatch.active {
   border-color: #ffffff;
-  transform: scale(1.15);
-  box-shadow: 0 0 12px currentColor;
+  box-shadow: 0 0 6px #ffffff;
 }
 
-.dice-auto-btn {
-  background: var(--input-bg, #000000);
-  border: 1px solid var(--panel-border, #1e5c32);
-  border-radius: 12px;
-  color: var(--text-dim, #2a9c4e);
-  font-family: var(--font-head, inherit);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.dice-auto-btn:hover,
-.dice-auto-btn.active {
-  color: var(--accent, #45ff78);
-  border-color: var(--accent, #45ff78);
-}
-
-.dice-scale-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.dice-scale-wrap {
+  width: 100%;
 }
 
 .dice-scale-slider {
-  flex: 1;
+  width: 100%;
   accent-color: var(--accent, #45ff78);
-  cursor: pointer;
 }
 
-.dice-scale-val {
-  font-family: var(--font-body, monospace);
-  font-size: 12px;
-  color: var(--text, #ffffff);
-  width: 44px;
-  text-align: right;
+.dice-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
 }
 
 .dice-reset-btn {
-  align-self: flex-end;
   background: transparent;
   border: 1px solid var(--panel-border, #1e5c32);
-  border-radius: 8px;
+  border-radius: 6px;
+  padding: 5px 12px;
   color: var(--text-dim, #2a9c4e);
-  font-family: var(--font-head, inherit);
   font-size: 11px;
-  padding: 4px 10px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.16s ease;
+  transition: all 0.15s ease;
 }
 
 .dice-reset-btn:hover {
-  color: #f43f5e;
-  border-color: #f43f5e;
-}
-
-/* ── Mobile Speed-Dial (Android & iOS) ────────────────────────── */
-.player-dice-mobile-wrap {
-  position: fixed;
-  top: max(16px, env(safe-area-inset-top, 16px));
-  right: max(16px, env(safe-area-inset-right, 16px));
-  bottom: auto;
-  left: auto;
-  z-index: 10004;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  font-family: var(--font-body, inherit);
-}
-
-.player-dice-mobile-wrap.hidden {
-  display: none !important;
-}
-
-.player-dice-mobile-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.player-dice-circle-btn {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: var(--panel, #041008);
-  border: 1px solid var(--panel-border, #1e5c32);
-  color: var(--accent, #45ff78);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), var(--border-glow, none);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.2s ease,
-              background 0.2s ease;
-}
-
-.player-dice-circle-btn.active {
-  transform: rotate(45deg);
   border-color: var(--accent, #45ff78);
-  background: color-mix(in srgb, var(--accent, #45ff78) 20%, var(--panel, #000));
-}
-
-.player-dice-mobile-side {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: color-mix(in srgb, var(--panel, #041008) 94%, #000);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid var(--panel-border, #1e5c32);
-  border-radius: 26px;
-  padding: 4px 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-  transition: opacity 0.24s ease, transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.player-dice-mobile-side.collapsed {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(16px);
-}
-
-.mobile-control-btn {
-  background: var(--input-bg, #000000);
-  border: 1px solid var(--panel-border, #1e5c32);
-  border-radius: 12px;
-  color: var(--text, #45ff78);
-  font-family: var(--font-head, inherit);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 8px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.mobile-control-btn.secret-btn.secret {
-  color: #a855f7;
-  border-color: #a855f7;
-}
-
-.mobile-mode-dropdown-wrap {
-  position: relative;
-}
-
-.mobile-subdrop-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  background: color-mix(in srgb, var(--panel, #041008) 96%, #000);
-  border: 1px solid var(--panel-border, #1e5c32);
-  border-radius: 8px;
-  padding: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 140px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7);
-  z-index: 9000;
-}
-
-.mobile-subdrop-menu.hidden {
-  display: none !important;
-}
-
-.mobile-subdrop-item {
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: var(--text, #ffffff);
-  font-family: var(--font-body, inherit);
-  font-size: 12px;
-  padding: 6px 8px;
-  text-align: left;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.mobile-subdrop-item.active {
-  background: color-mix(in srgb, var(--accent, #45ff78) 20%, transparent);
   color: var(--accent, #45ff78);
-}
-
-.mode-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-.mode-dot.normal { background: var(--text-dim, #2a9c4e); }
-.mode-dot.adv { background: #45ff78; }
-.mode-dot.dis { background: #f43f5e; }
-
-.mobile-stepper-pill {
-  display: flex;
-  align-items: center;
-  background: var(--input-bg, #000000);
-  border: 1px solid var(--panel-border, #1e5c32);
-  border-radius: 12px;
-  padding: 2px 4px;
-  gap: 2px;
-}
-
-.pill-label {
-  font-family: var(--font-head, inherit);
-  font-size: 10px;
-  color: var(--text-dim, #2a9c4e);
-  font-weight: 700;
-  text-transform: uppercase;
-  margin-right: 2px;
-}
-
-.pill-btn {
-  background: transparent;
-  border: none;
-  color: var(--text, #ffffff);
-  font-size: 13px;
-  font-weight: 700;
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-}
-
-.mobile-stepper-pill input {
-  background: transparent;
-  border: none;
-  color: var(--text, #ffffff);
-  font-family: var(--font-body, monospace);
-  font-size: 12px;
-  font-weight: 700;
-  width: 24px;
-  text-align: center;
-  outline: none;
-  -moz-appearance: textfield;
-  appearance: textfield;
-}
-
-.mobile-stepper-pill input::-webkit-inner-spin-button,
-.mobile-stepper-pill input::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  appearance: none;
-  margin: 0;
-}
-
-.player-dice-mobile-column {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  transition: opacity 0.24s ease, transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.player-dice-mobile-column.collapsed {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-16px);
-}
-
-.mobile-dice-col-btn {
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--panel, #041008) 94%, #000);
-  border: 1px solid var(--panel-border, #1e5c32);
-  color: var(--text, #45ff78);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
-  transition: transform 0.16s ease, border-color 0.16s ease;
-}
-
-.mobile-dice-col-btn:hover {
-  transform: scale(1.08);
-  border-color: var(--accent, #45ff78);
-}
-
-.dice-col-label {
-  font-family: var(--font-head, inherit);
-  font-size: 9px;
-  font-weight: 700;
-  color: var(--text-dim, #2a9c4e);
 }
 
 /* ============================================================
    POP-UP HUD DE RESULTADO DA ROLAGEM
    ============================================================ */
-#diceResultHudContainer {
+#dice-results-hud-container,
+#diceResultHudContainer,
+.dice-hud-container {
   position: fixed;
-  top: 60px;
+  top: 50px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10002;
@@ -857,7 +618,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   max-width: 90vw;
 }
 
@@ -868,12 +629,12 @@
   max-width: 420px;
   background: var(--panel, #041008);
   background: color-mix(in srgb, var(--panel, #041008) 95%, #000000);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   border: var(--border-width, 1px) var(--border-style, solid) var(--panel-border, #1e5c32);
-  border-radius: max(var(--radius, 0px), 16px);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), var(--border-glow, none);
-  padding: 14px 20px;
+  border-radius: max(var(--radius, 0px), 18px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75), var(--border-glow, none);
+  padding: 14px 22px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -888,25 +649,13 @@
 }
 
 @keyframes dicePopupEnter {
-  0% {
-    opacity: 0;
-    transform: translateY(-24px) scale(0.85);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  0% { opacity: 0; transform: translateY(-24px) scale(0.85); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes dicePopupExit {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-16px) scale(0.9);
-  }
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-16px) scale(0.9); }
 }
 
 .dice-popup-header {

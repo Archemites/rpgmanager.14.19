@@ -769,6 +769,12 @@
     const TOKEN_SPACING = 10;
     const TOKEN_PADDING_LEFT = 12;
 
+    const count = state.combat.order.length;
+    const neededWidth = count > 0 ? (count * (TOKEN_SIZE + TOKEN_SPACING) + TOKEN_PADDING_LEFT + 6) : 60;
+    if (combatBarTrack) {
+      combatBarTrack.style.width = neededWidth + 'px';
+    }
+
     state.combat.order.forEach((id, idx) => {
       const t = state.tokens.find(t => t.id === id);
       if (!t) return;
