@@ -1,5 +1,5 @@
 // @ts-ignore
-import DiceBox from 'https://unpkg.com/@3d-dice/dice-box@1.1.4/dist/dice-box.es.min.js';
+import DiceBox from '../../assets/dice-box/dice-box.es.js';
 import { isAndroidOrIOS } from './mobile.js';
 
 /* ============================================================
@@ -214,6 +214,7 @@ import { isAndroidOrIOS } from './mobile.js';
       } catch (err) {
         console.warn('Falha ao atualizar tema do DiceBox:', err);
       }
+      applyDiceTextColor(finalTextColor);
     }
 
     // Atualiza controles Desktop
@@ -243,6 +244,98 @@ import { isAndroidOrIOS } from './mobile.js';
         const c = /** @type {HTMLElement} */ (swatch).dataset.color;
         swatch.classList.toggle('active', !isAutoText && c?.toLowerCase() === finalTextColor.toLowerCase());
       });
+    }
+  }
+
+  // ---- Sistema Dinâmico de Tintura dos Números 3D ----
+  let baseNumberImg = null;
+  let isBaseNumberImgLoading = false;
+
+  function loadBaseNumberImg() {
+    if (baseNumberImg) return Promise.resolve(baseNumberImg);
+    return new Promise((resolve) => {
+      if (isBaseNumberImgLoading) {
+        const check = setInterval(() => {
+          if (baseNumberImg && baseNumberImg.complete) {
+            clearInterval(check);
+            resolve(baseNumberImg);
+          }
+        }, 50);
+        return;
+      }
+      isBaseNumberImgLoading = true;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        baseNumberImg = img;
+        isBaseNumberImgLoading = false;
+        resolve(img);
+      };
+      img.onerror = () => {
+        isBaseNumberImgLoading = false;
+        resolve(null);
+      };
+      img.src = resolveAssetPath() + 'themes/default/diffuse-light.png';
+    });
+  }
+
+  async function applyDiceTextColor(textColor) {
+    if (!textColor) return;
+    try {
+      const img = await loadBaseNumberImg();
+      if (!img) return;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || 1024;
+      canvas.height = img.naturalHeight || 1024;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.drawImage(img, 0, 0);
+      ctx.globalCompositeOperation = 'source-in';
+      ctx.fillStyle = textColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const dataUrl = canvas.toDataURL('image/png');
+
+      // 1. Atualiza diretamente nos materiais expostos pelo Babylon World
+      if (window.__diceBoxMaterials) {
+        Object.values(window.__diceBoxMaterials).forEach(mat => {
+          if (mat && mat.diffuseTexture && typeof mat.diffuseTexture.updateURL === 'function') {
+            mat.diffuseTexture.updateURL(dataUrl);
+          }
+        });
+      }
+
+      // 2. Atualiza via cena do BabylonJS se acessível
+      if (window.__diceBoxScene && window.__diceBoxScene.materials) {
+        window.__diceBoxScene.materials.forEach(mat => {
+          if (mat && mat.name && (mat.name.includes('_light') || mat.name.includes('_dark'))) {
+            if (mat.diffuseTexture && typeof mat.diffuseTexture.updateURL === 'function') {
+              mat.diffuseTexture.updateURL(dataUrl);
+            }
+          }
+        });
+      }
+
+      // 3. Fallback para instâncias globais do Babylon se presentes
+      // @ts-ignore
+      const engines = window.BABYLON?.Engine?.Instances || [];
+      for (const engine of engines) {
+        if (!engine.scenes) continue;
+        for (const scene of engine.scenes) {
+          const mats = scene.materials || [];
+          for (const mat of mats) {
+            if (mat && mat.name && (mat.name.includes('_light') || mat.name.includes('_dark'))) {
+              if (mat.diffuseTexture && typeof mat.diffuseTexture.updateURL === 'function') {
+                mat.diffuseTexture.updateURL(dataUrl);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Falha ao aplicar cor customizada do texto nos dados 3D:', err);
     }
   }
 
@@ -282,6 +375,7 @@ import { isAndroidOrIOS } from './mobile.js';
             theme: 'default',       // mesh poliédrico clássico e simétrico de RPG (d20 icosaedro regular, d6 cubo, etc.)
             themeColor: storedColor,
             scale: baseScale3d,
+            offscreen: false,       // renderiza no canvas principal para permitir tintura em tempo real dos números
 
             // Iluminação e sombra reais (config oficial, não hooks inventados)
             lightIntensity: 1.0,        // máximo suportado — brilho especular bem visível
@@ -697,7 +791,11 @@ import { isAndroidOrIOS } from './mobile.js';
                   <span class="dice-color-swatch" data-color="#ffffff" style="background: #ffffff;" title="Branco"></span>
                   <span class="dice-color-swatch" data-color="#000000" style="background: #000000;" title="Preto"></span>
                   <span class="dice-color-swatch" data-color="#fbbf24" style="background: #fbbf24;" title="Dourado"></span>
-                  <span class="dice-color-swatch" data-color="#45ff78" style="background: #45ff78;" title="Neon"></span>
+                  <span class="dice-color-swatch" data-color="#45ff78" style="background: #45ff78;" title="Neon Verde"></span>
+                  <span class="dice-color-swatch" data-color="#00f0ff" style="background: #00f0ff;" title="Ciano"></span>
+                  <span class="dice-color-swatch" data-color="#f43f5e" style="background: #f43f5e;" title="Rubi"></span>
+                  <span class="dice-color-swatch" data-color="#a855f7" style="background: #a855f7;" title="Ametista"></span>
+                  <span class="dice-color-swatch" data-color="#ff7a00" style="background: #ff7a00;" title="Âmbar"></span>
                 </div>
               </div>
             </div>
