@@ -14,6 +14,7 @@ import '../shared/webrtc.js';
 import '../shared/camera.js';
 import '../shared/photo-cache.js';
 import '../shared/object-cache.js';
+import '../shared/dice.js';
 import '../shared/bars.js';
 import '../shared/scene-render.js';
 import '../shared/fx-trail.js';

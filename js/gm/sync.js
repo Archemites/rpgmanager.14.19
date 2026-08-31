@@ -382,6 +382,13 @@
         return;
       }
       if (!peer.admitted) return; // ignore everything else until the PIN checks out
+      if (msg.type === 'rpg-dice-roll') {
+        if (window.RPG && typeof window.RPG.onRemoteDiceRoll === 'function') {
+          window.RPG.onRemoteDiceRoll(msg);
+        }
+        broadcast(msg, peer.id);
+        return;
+      }
 
       if (msg.type === 'rpg-token-move' && typeof msg.x === 'number' && typeof msg.y === 'number') {
         if (!peer.tokenId) return;
@@ -481,11 +488,16 @@
     if (e.target === inviteOverlay) inviteOverlay.classList.remove('open');
   });
 
+  function sendDiceRoll(rollData) {
+    broadcast({ type: 'rpg-dice-roll', ...rollData });
+  }
+
   // ---------- Expose to window.RPG ----------
   window.RPG.sendState = sendState;
   window.RPG.sendStateForced = sendStateForced;
   window.RPG.sendFx = sendFx;
   window.RPG.sendTheme = sendTheme;
+  window.RPG.sendDiceRoll = sendDiceRoll;
   window.RPG.setSceneSyncPending = (v) => { sceneSyncPending = v; };
   window.RPG.getSceneSyncPending = () => sceneSyncPending;
 })();
