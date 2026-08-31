@@ -36,6 +36,8 @@ import { isAndroidOrIOS } from './mobile.js';
 
   // ---- Chaves de LocalStorage ----
   const STORAGE_KEY_SECRET = 'rpg-gm-secret-dice';
+  const STORAGE_KEY_THEME = 'rpg-dice-theme';
+  const STORAGE_KEY_GEOMETRY = 'rpg-dice-geometry';
   const STORAGE_KEY_DICE_COLOR = 'rpg-dice-color';
   const STORAGE_KEY_TEXT_COLOR = 'rpg-dice-text-color';
   const STORAGE_KEY_TEXT_AUTO = 'rpg-dice-text-auto';
@@ -58,18 +60,19 @@ import { isAndroidOrIOS } from './mobile.js';
   };
 
   // ---- Injeta Canvas 3D de Tela Cheia ----
-  let boxCanvas = document.getElementById('dice-box-canvas');
-  if (!boxCanvas) {
-    boxCanvas = document.createElement('div');
-    boxCanvas.id = 'dice-box-canvas';
-    document.body.appendChild(boxCanvas);
+  let diceCanvasContainer = document.getElementById('dice-box-canvas');
+  if (!diceCanvasContainer) {
+    diceCanvasContainer = document.createElement('div');
+    diceCanvasContainer.id = 'dice-box-canvas';
+    document.body.appendChild(diceCanvasContainer);
   }
 
   // ---- Container HUD de Pop-ups ----
-  let hudContainer = document.getElementById('diceResultHudContainer');
+  let hudContainer = document.getElementById('dice-results-hud-container');
   if (!hudContainer) {
     hudContainer = document.createElement('div');
-    hudContainer.id = 'diceResultHudContainer';
+    hudContainer.id = 'dice-results-hud-container';
+    hudContainer.className = 'dice-hud-container';
     document.body.appendChild(hudContainer);
   }
 
@@ -146,13 +149,13 @@ import { isAndroidOrIOS } from './mobile.js';
     const target = /** @type {HTMLElement} */ (e.target);
     if (!target) return;
 
-    const isDesktopPanel = desktopPanel && desktopPanel.contains(target);
-    const mobilePanel = document.getElementById('playerDiceMobileWrap');
-    const isMobileWrap = mobilePanel && mobilePanel.contains(target);
+    // Nota: desktopPanel e outros seletores de UI devem estar definidos em escopo global
+    // ou acessíveis conforme a implementação da sua interface desktop.
+    const isMobileWrap = document.getElementById('playerDiceMobileWrap')?.contains(target);
     const isPcBtn = document.getElementById('playerDiceBtn')?.contains(target);
     const isGmBtn = document.getElementById('openDiceBtn')?.contains(target);
 
-    if (!isDesktopPanel && !isMobileWrap && !isPcBtn && !isGmBtn) {
+    if (!isMobileWrap && !isPcBtn && !isGmBtn) {
       clearSettledDice();
     }
   }, true);
@@ -172,11 +175,11 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   function getSystemAccent() {
-    const rootStyle = getComputedStyle(document.documentElement);
-    let accent = rootStyle.getPropertyValue('--accent').trim();
-    if (!accent || !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(accent)) {
-      accent = '#45ff78';
-    }
+    let accent = '#45ff78';
+    try {
+      const v = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+      if (v) accent = v;
+    } catch (_) {}
     return accent;
   }
 
@@ -190,11 +193,9 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   // Aplica cor/escala usando SOMENTE a API pública real de updateConfig().
-  // Luz e sombra (lightIntensity / enableShadows / shadowTransparency)
-  // já são fixadas uma vez em initBox() com valores altos — aqui só
-  // trocamos cor do tema e escala, que são as únicas coisas que fazem
-  // sentido reconfigurar em tempo real por jogador.
-  function applyCustomStyles(themeColor, textColor, scaleVal) {
+  function applyCustomStyles(themeColor, textColor, scaleVal, themeName, geometryName) {
+    const storedTheme = themeName || localStorage.getItem(STORAGE_KEY_THEME) || 'default';
+    const storedGeometry = geometryName || localStorage.getItem(STORAGE_KEY_GEOMETRY) || 'auto';
     const diceColor = themeColor || localStorage.getItem(STORAGE_KEY_DICE_COLOR) || getSystemAccent();
     const isAutoText = localStorage.getItem(STORAGE_KEY_TEXT_AUTO) !== 'false';
     const finalTextColor = isAutoText ? getContrastColor(diceColor) : (textColor || localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff');
@@ -206,40 +207,44 @@ import { isAndroidOrIOS } from './mobile.js';
 
     if (Box && isBoxReady) {
       try {
+        Box.loadTheme(storedTheme);
         Box.updateConfig({
-          theme: 'default',
+          theme: storedTheme,
+          geometry: storedGeometry,
           themeColor: diceColor,
           scale: baseScale3d
         });
       } catch (err) {
         console.warn('Falha ao atualizar tema do DiceBox:', err);
       }
-      applyDiceTextColor(finalTextColor);
+      applyDiceTextColor(finalTextColor, storedTheme);
     }
 
     // Atualiza controles Desktop
-    if (desktopColorPicker) desktopColorPicker.value = diceColor;
-    if (desktopActivePreview) desktopActivePreview.style.background = diceColor;
-    if (desktopHexInput) desktopHexInput.value = diceColor.toUpperCase();
-    if (desktopTextColorPicker) desktopTextColorPicker.value = finalTextColor;
-    if (desktopTextActivePreview) desktopTextActivePreview.style.background = finalTextColor;
-    if (desktopTextHexInput) desktopTextHexInput.value = finalTextColor.toUpperCase();
-    if (desktopScaleInput) desktopScaleInput.value = String(percent);
-    if (desktopScaleVal) desktopScaleVal.textContent = `${percent}%`;
+    if (typeof desktopThemeSelect !== 'undefined' && desktopThemeSelect) desktopThemeSelect.value = storedTheme;
+    if (typeof desktopGeometrySelect !== 'undefined' && desktopGeometrySelect) desktopGeometrySelect.value = storedGeometry;
+    if (typeof desktopColorPicker !== 'undefined' && desktopColorPicker) desktopColorPicker.value = diceColor;
+    if (typeof desktopActivePreview !== 'undefined' && desktopActivePreview) desktopActivePreview.style.background = diceColor;
+    if (typeof desktopHexInput !== 'undefined' && desktopHexInput) desktopHexInput.value = diceColor.toUpperCase();
+    if (typeof desktopTextColorPicker !== 'undefined' && desktopTextColorPicker) desktopTextColorPicker.value = finalTextColor;
+    if (typeof desktopTextActivePreview !== 'undefined' && desktopTextActivePreview) desktopTextActivePreview.style.background = finalTextColor;
+    if (typeof desktopTextHexInput !== 'undefined' && desktopTextHexInput) desktopTextHexInput.value = finalTextColor.toUpperCase();
+    if (typeof desktopScaleInput !== 'undefined' && desktopScaleInput) desktopScaleInput.value = String(percent);
+    if (typeof desktopScaleVal !== 'undefined' && desktopScaleVal) desktopScaleVal.textContent = `${percent}%`;
 
-    if (desktopTextAutoBtn) {
+    if (typeof desktopTextAutoBtn !== 'undefined' && desktopTextAutoBtn) {
       desktopTextAutoBtn.classList.toggle('active', isAutoText);
       desktopTextAutoBtn.textContent = isAutoText ? 'Auto: Ativo' : 'Auto: Desat.';
     }
 
-    if (desktopColorGrid) {
+    if (typeof desktopColorGrid !== 'undefined' && desktopColorGrid) {
       desktopColorGrid.querySelectorAll('.dice-color-swatch').forEach(swatch => {
         const c = /** @type {HTMLElement} */ (swatch).dataset.color;
         swatch.classList.toggle('active', c?.toLowerCase() === diceColor.toLowerCase());
       });
     }
 
-    if (desktopTextColorGrid) {
+    if (typeof desktopTextColorGrid !== 'undefined' && desktopTextColorGrid) {
       desktopTextColorGrid.querySelectorAll('.dice-color-swatch').forEach(swatch => {
         const c = /** @type {HTMLElement} */ (swatch).dataset.color;
         swatch.classList.toggle('active', !isAutoText && c?.toLowerCase() === finalTextColor.toLowerCase());
@@ -248,41 +253,34 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   // ---- Sistema Dinâmico de Tintura dos Números 3D ----
-  let baseNumberImg = null;
-  let isBaseNumberImgLoading = false;
+  const themeNumberImgs = {};
 
-  function loadBaseNumberImg() {
-    if (baseNumberImg) return Promise.resolve(baseNumberImg);
+  function loadBaseNumberImg(themeName = 'default') {
+    if (themeNumberImgs[themeName]) return Promise.resolve(themeNumberImgs[themeName]);
     return new Promise((resolve) => {
-      if (isBaseNumberImgLoading) {
-        const check = setInterval(() => {
-          if (baseNumberImg && baseNumberImg.complete) {
-            clearInterval(check);
-            resolve(baseNumberImg);
-          }
-        }, 50);
-        return;
-      }
-      isBaseNumberImgLoading = true;
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        baseNumberImg = img;
-        isBaseNumberImgLoading = false;
+        themeNumberImgs[themeName] = img;
         resolve(img);
       };
       img.onerror = () => {
-        isBaseNumberImgLoading = false;
-        resolve(null);
+        if (themeName !== 'default') {
+          loadBaseNumberImg('default').then(resolve);
+        } else {
+          resolve(null);
+        }
       };
-      img.src = resolveAssetPath() + 'themes/default/diffuse-light.png';
+      let filename = 'diffuse-light.png';
+      if (themeName === 'gemstone') filename = 'gemstone-light.png';
+      img.src = `${resolveAssetPath()}themes/${themeName}/${filename}`;
     });
   }
 
-  async function applyDiceTextColor(textColor) {
+  async function applyDiceTextColor(textColor, themeName = 'default') {
     if (!textColor) return;
     try {
-      const img = await loadBaseNumberImg();
+      const img = await loadBaseNumberImg(themeName);
       if (!img) return;
 
       const canvas = document.createElement('canvas');
@@ -298,16 +296,7 @@ import { isAndroidOrIOS } from './mobile.js';
 
       const dataUrl = canvas.toDataURL('image/png');
 
-      // 1. Atualiza diretamente nos materiais expostos pelo Babylon World
-      if (window.__diceBoxMaterials) {
-        Object.values(window.__diceBoxMaterials).forEach(mat => {
-          if (mat && mat.diffuseTexture && typeof mat.diffuseTexture.updateURL === 'function') {
-            mat.diffuseTexture.updateURL(dataUrl);
-          }
-        });
-      }
-
-      // 2. Atualiza via cena do BabylonJS se acessível
+      // 1. Atualiza via cena do BabylonJS se acessível
       if (window.__diceBoxScene && window.__diceBoxScene.materials) {
         window.__diceBoxScene.materials.forEach(mat => {
           if (mat && mat.name && (mat.name.includes('_light') || mat.name.includes('_dark'))) {
@@ -318,7 +307,7 @@ import { isAndroidOrIOS } from './mobile.js';
         });
       }
 
-      // 3. Fallback para instâncias globais do Babylon se presentes
+      // 2. Fallback para instâncias globais do Babylon se presentes
       // @ts-ignore
       const engines = window.BABYLON?.Engine?.Instances || [];
       for (const engine of engines) {
@@ -358,6 +347,8 @@ import { isAndroidOrIOS } from './mobile.js';
     if (!boxInitPromise) {
       boxInitPromise = (async () => {
         try {
+          const storedTheme = localStorage.getItem(STORAGE_KEY_THEME) || 'default';
+          const storedGeometry = localStorage.getItem(STORAGE_KEY_GEOMETRY) || 'auto';
           const storedColor = localStorage.getItem(STORAGE_KEY_DICE_COLOR) || getSystemAccent();
           const isAutoText = localStorage.getItem(STORAGE_KEY_TEXT_AUTO) !== 'false';
           const storedText = isAutoText ? getContrastColor(storedColor) : (localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff');
@@ -372,7 +363,8 @@ import { isAndroidOrIOS } from './mobile.js';
           Box = new DiceBox({
             container: '#dice-box-canvas',
             assetPath: resolveAssetPath(),
-            theme: 'default',       // mesh poliédrico clássico e simétrico de RPG (d20 icosaedro regular, d6 cubo, etc.)
+            theme: storedTheme,
+            geometry: storedGeometry,
             themeColor: storedColor,
             scale: baseScale3d,
             offscreen: false,       // renderiza no canvas principal para permitir tintura em tempo real dos números
@@ -396,7 +388,8 @@ import { isAndroidOrIOS } from './mobile.js';
 
           await Box.init();
           isBoxReady = true;
-          applyCustomStyles(storedColor, storedText, storedPercent);
+          await Box.loadTheme(storedTheme);
+          applyCustomStyles(storedColor, storedText, storedPercent, storedTheme, storedGeometry);
           return Box;
         } catch (err) {
           console.error("Erro inicializando dados 3D (Dice-Box):", err);
@@ -643,6 +636,8 @@ import { isAndroidOrIOS } from './mobile.js';
   let desktopPanel = null;
   let desktopSettingsDrawer = null;
   let desktopSettingsBtn = null;
+  let desktopThemeSelect = null;
+  let desktopGeometrySelect = null;
   let desktopColorPicker = null;
   let desktopActivePreview = null;
   let desktopHexInput = null;
@@ -759,6 +754,34 @@ import { isAndroidOrIOS } from './mobile.js';
         <div id="playerDiceSettingsDrawer" class="player-dice-settings-drawer">
           <div class="dice-settings-grid">
             <div class="dice-settings-row">
+              <span class="dice-settings-label">Material / Textura 3D</span>
+              <div class="dice-texture-picker-wrap">
+                <select id="desktopThemeSelect" class="dice-theme-select" title="Selecione o material ou textura dos dados 3D">
+                  <option value="default">Resina Clássica</option>
+                  <option value="gemstoneMarble">Mármore Nobre</option>
+                  <option value="blueGreenMetal">Metal Bronze / Aço</option>
+                  <option value="rust">Ferro Oxidado / Rústico</option>
+                  <option value="rock">Pedra Vulcânica / Rocha</option>
+                  <option value="wooden">Madeira Entalhada</option>
+                  <option value="smooth">Resina Lisa / Acrílico</option>
+                  <option value="gemstone">Cristal / Gemstone</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="dice-settings-row">
+              <span class="dice-settings-label">Formato / Geometria 3D</span>
+              <div class="dice-texture-picker-wrap">
+                <select id="desktopGeometrySelect" class="dice-theme-select" title="Selecione o formato geométrico dos dados">
+                  <option value="auto">Padrão do Material (Automático)</option>
+                  <option value="default">Padrão Tradicional (Icosaedro)</option>
+                  <option value="gemstone">D20 Alongado / Cristal (Spindle)</option>
+                  <option value="smooth">Arredondado (Bordas Suaves)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="dice-settings-row">
               <span class="dice-settings-label">Cor do Dado (Material 3D)</span>
               <div class="dice-color-picker-wrap">
                 <div class="circular-picker-container">
@@ -825,6 +848,8 @@ import { isAndroidOrIOS } from './mobile.js';
 
     desktopSettingsDrawer = document.getElementById('playerDiceSettingsDrawer');
     desktopSettingsBtn = document.getElementById('playerDiceSettingsBtn');
+    desktopThemeSelect = /** @type {HTMLSelectElement} */ (document.getElementById('desktopThemeSelect'));
+    desktopGeometrySelect = /** @type {HTMLSelectElement} */ (document.getElementById('desktopGeometrySelect'));
     desktopColorPicker = /** @type {HTMLInputElement} */ (document.getElementById('desktopColorPicker'));
     desktopActivePreview = document.getElementById('desktopColorPreview');
     desktopHexInput = /** @type {HTMLInputElement} */ (document.getElementById('desktopHexInput'));
@@ -842,6 +867,30 @@ import { isAndroidOrIOS } from './mobile.js';
       e.stopPropagation();
       const isOpen = desktopSettingsDrawer?.classList.toggle('open');
       desktopSettingsBtn?.classList.toggle('active', isOpen);
+    });
+
+    desktopThemeSelect?.addEventListener('change', async () => {
+      const val = desktopThemeSelect.value || 'default';
+      localStorage.setItem(STORAGE_KEY_THEME, val);
+      const storedGeom = localStorage.getItem(STORAGE_KEY_GEOMETRY) || 'auto';
+      if (Box && isBoxReady) {
+        try {
+          await Box.loadTheme(val);
+        } catch (_) {}
+      }
+      applyCustomStyles(null, null, null, val, storedGeom);
+    });
+
+    desktopGeometrySelect?.addEventListener('change', async () => {
+      const val = desktopGeometrySelect.value || 'auto';
+      localStorage.setItem(STORAGE_KEY_GEOMETRY, val);
+      const storedTheme = localStorage.getItem(STORAGE_KEY_THEME) || 'default';
+      if (Box && isBoxReady) {
+        try {
+          await Box.updateConfig({ geometry: val, theme: storedTheme });
+        } catch (_) {}
+      }
+      applyCustomStyles(null, null, null, storedTheme, val);
     });
 
     desktopColorPicker?.addEventListener('input', (e) => {
@@ -915,10 +964,12 @@ import { isAndroidOrIOS } from './mobile.js';
     desktopResetBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       const sysAccent = getSystemAccent();
+      localStorage.setItem(STORAGE_KEY_THEME, 'default');
+      localStorage.setItem(STORAGE_KEY_GEOMETRY, 'auto');
       localStorage.setItem(STORAGE_KEY_DICE_COLOR, sysAccent);
       localStorage.setItem(STORAGE_KEY_TEXT_AUTO, 'true');
       localStorage.setItem(STORAGE_KEY_SCALE, String(DEFAULT_PERCENT));
-      applyCustomStyles(sysAccent, null, DEFAULT_PERCENT);
+      applyCustomStyles(sysAccent, null, DEFAULT_PERCENT, 'default', 'auto');
     });
 
     desktopGmSecretCheck?.addEventListener('change', () => {
@@ -1094,6 +1145,8 @@ import { isAndroidOrIOS } from './mobile.js';
     const diceCount = (mode === 'adv' || mode === 'dis') ? Math.max(2, count) : count;
     const naturalNotation = `${diceCount}d${faces}`;
     const senderName = getLocalCharacterName();
+    const storedTheme = localStorage.getItem(STORAGE_KEY_THEME) || 'default';
+    const storedGeometry = localStorage.getItem(STORAGE_KEY_GEOMETRY) || 'auto';
     const diceColor = localStorage.getItem(STORAGE_KEY_DICE_COLOR) || getSystemAccent();
     const labelColor = localStorage.getItem(STORAGE_KEY_TEXT_AUTO) !== 'false'
       ? getContrastColor(diceColor)
@@ -1102,9 +1155,9 @@ import { isAndroidOrIOS } from './mobile.js';
     let physicalRolls = [];
     try {
       await initBox();
-      applyCustomStyles(diceColor, labelColor, null);
-      // Roda a simulação física 3D real no canvas
-      const rollResult = await Box.roll(naturalNotation);
+      applyCustomStyles(diceColor, labelColor, null, storedTheme, storedGeometry);
+      // Roda a simulação física 3D real no canvas com o tema e geometria selecionados
+      const rollResult = await Box.roll(naturalNotation, { theme: storedTheme, geometry: storedGeometry, themeColor: diceColor });
       // Extrai os valores exatos das faces que ficaram voltadas para cima
       physicalRolls = extractSettledValues(rollResult, diceCount, faces);
       hasSettledDice = true;
@@ -1120,6 +1173,8 @@ import { isAndroidOrIOS } from './mobile.js';
     const payload = {
       ...rollData,
       senderName,
+      theme: storedTheme,
+      geometry: storedGeometry,
       diceColor,
       labelColor
     };
@@ -1139,6 +1194,8 @@ import { isAndroidOrIOS } from './mobile.js';
     const mode = currentRollMode || 'normal';
     const diceCount = (mode === 'adv' || mode === 'dis') ? Math.max(2, count) : count;
     const naturalNotation = `${diceCount}d${faces}`;
+    const storedTheme = localStorage.getItem(STORAGE_KEY_THEME) || 'default';
+    const storedGeometry = localStorage.getItem(STORAGE_KEY_GEOMETRY) || 'auto';
     const diceColor = localStorage.getItem(STORAGE_KEY_DICE_COLOR) || getSystemAccent();
     const labelColor = localStorage.getItem(STORAGE_KEY_TEXT_AUTO) !== 'false'
       ? getContrastColor(diceColor)
@@ -1147,8 +1204,8 @@ import { isAndroidOrIOS } from './mobile.js';
     let physicalRolls = [];
     try {
       await initBox();
-      applyCustomStyles(diceColor, labelColor, null);
-      const rollResult = await Box.roll(naturalNotation);
+      applyCustomStyles(diceColor, labelColor, null, storedTheme, storedGeometry);
+      const rollResult = await Box.roll(naturalNotation, { theme: storedTheme, geometry: storedGeometry, themeColor: diceColor });
       physicalRolls = extractSettledValues(rollResult, diceCount, faces);
       hasSettledDice = true;
     } catch (err) {
@@ -1163,6 +1220,8 @@ import { isAndroidOrIOS } from './mobile.js';
     const payload = {
       ...rollData,
       senderName: 'Mestre',
+      theme: storedTheme,
+      geometry: storedGeometry,
       diceColor,
       labelColor
     };
@@ -1188,15 +1247,16 @@ import { isAndroidOrIOS } from './mobile.js';
     const faces = data.faces || 20;
     const count = data.count || (Array.isArray(data.rolls) ? data.rolls.length : 1);
     const notation = `${count}d${faces}`;
+    const remoteTheme = data.theme || 'default';
+    const remoteGeometry = data.geometry || 'auto';
 
     try {
       await initBox();
-      if (data.diceColor || data.labelColor) {
-        applyCustomStyles(data.diceColor, data.labelColor, null);
+      if (data.diceColor || data.labelColor || data.theme || data.geometry) {
+        applyCustomStyles(data.diceColor, data.labelColor, null, remoteTheme, remoteGeometry);
       }
-      // Roda a física de verdade na tela de quem recebeu — só não é
-      // usada para determinar o resultado (o resultado já veio no payload).
-      await Box.roll(notation);
+      // Roda a física de verdade na tela de quem recebeu com a mesma textura e geometria
+      await Box.roll(notation, { theme: remoteTheme, geometry: remoteGeometry, themeColor: data.diceColor });
       hasSettledDice = true;
     } catch (err) {
       console.warn("Fallback rolagem remota 3D:", err);

@@ -212,7 +212,22 @@ class vl {
     if (!d)
       throw new Error("No theme config data to work with.");
     let X = "default", Z = `${this.config.origin}${this.config.assetPath}themes/default/default.json`;
-    if (d.hasOwnProperty("meshFile") && (X = d.meshFile.replace(/(.*)\..{2,4}$/, "$1"), Z = `${b}/${d.meshFile}`), !d.hasOwnProperty("diceAvailable"))
+    if (this.config.geometry && this.config.geometry !== 'auto') {
+      if (this.config.geometry === 'smooth') {
+        X = "smoothDice";
+        Z = `${this.config.origin}${this.config.assetPath}themes/smooth/smoothDice.json`;
+      } else if (this.config.geometry === 'gemstone') {
+        X = "gemstone";
+        Z = `${this.config.origin}${this.config.assetPath}themes/gemstone/gemstone.json`;
+      } else if (this.config.geometry === 'default') {
+        X = "default";
+        Z = `${this.config.origin}${this.config.assetPath}themes/default/default.json`;
+      }
+    } else if (d.hasOwnProperty("meshFile")) {
+      X = d.meshFile.replace(/(.*)\..{2,4}$/, "$1");
+      Z = `${b}/${d.meshFile}`;
+    }
+    if (!d.hasOwnProperty("diceAvailable"))
       throw new Error('A theme must indicate which dice are available by defining "diceAvailable".');
     if (d.hasOwnProperty("extends")) {
       const m = await this.loadTheme(d.extends).catch((G) => console.error(G));
@@ -243,10 +258,13 @@ class vl {
   // TODO: use getter and setter
   // change config options
   async updateConfig(l) {
+    if (l && l.geometry && l.geometry !== this.config.geometry) {
+      this.themesLoadedData = {};
+    }
     const b = { ...this.config, ...l };
     if (this.config = b, b.theme) {
       const X = (await this.loadThemeQueue.push(() => this.loadTheme(b.theme))).at(-1);
-      X.hasOwnProperty("extends") && (this.config.theme = X.extends);
+      X && X.hasOwnProperty("extends") && (this.config.theme = X.extends);
     }
     return W(this, u).updateConfig(b), W(this, p) && W(this, p).postMessage({
       action: "updateConfig",
@@ -265,7 +283,11 @@ class vl {
     return l ? (delete this.canvas.dataset.hideClass, this.canvas.classList.remove(l)) : this.canvas.style.display = "block", this.isVisible = !0, this.resizeWorld(), this;
   }
   // TODO: pass data with roll - such as roll name. Passed back at the end in the results
-  roll(l, { theme: b = this.config.theme, themeColor: d = this.config.themeColor, newStartPoint: X = !0 } = {}) {
+  roll(l, { theme: b = this.config.theme, themeColor: d = this.config.themeColor, geometry: G_geom = this.config.geometry, newStartPoint: X = !0 } = {}) {
+    if (G_geom && G_geom !== this.config.geometry) {
+      this.config.geometry = G_geom;
+      this.themesLoadedData = {};
+    }
     this.clear();
     const Z = o(this, f)._++;
     this.rollCollectionData[Z] = new M({
@@ -273,21 +295,27 @@ class vl {
       notation: l,
       theme: b,
       themeColor: d,
+      geometry: G_geom,
       newStartPoint: X
     });
-    const m = this.createNotationArray(l, this.themesLoadedData[b].diceAvailable);
+    const m = this.createNotationArray(l, this.themesLoadedData[b] ? this.themesLoadedData[b].diceAvailable : void 0);
     return v(this, Q, D).call(this, m, Z), this.rollCollectionData[Z].promise;
   }
-  add(l, { theme: b = this.config.theme, themeColor: d = this.config.themeColor, newStartPoint: X = !0 } = {}) {
+  add(l, { theme: b = this.config.theme, themeColor: d = this.config.themeColor, geometry: G_geom = this.config.geometry, newStartPoint: X = !0 } = {}) {
+    if (G_geom && G_geom !== this.config.geometry) {
+      this.config.geometry = G_geom;
+      this.themesLoadedData = {};
+    }
     const Z = o(this, f)._++;
     this.rollCollectionData[Z] = new M({
       id: Z,
       notation: l,
       theme: b,
       themeColor: d,
+      geometry: G_geom,
       newStartPoint: X
     });
-    const m = this.createNotationArray(l, this.themesLoadedData[b].diceAvailable);
+    const m = this.createNotationArray(l, this.themesLoadedData[b] ? this.themesLoadedData[b].diceAvailable : void 0);
     return v(this, Q, D).call(this, m, Z), this.rollCollectionData[Z].promise;
   }
   reroll(l, { remove: b = !1, hide: d = !1, newStartPoint: X = !0 } = {}) {
