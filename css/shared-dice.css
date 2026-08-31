@@ -579,8 +579,10 @@
 /* ── Mobile Speed-Dial (Android & iOS) ────────────────────────── */
 .player-dice-mobile-wrap {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  top: max(16px, env(safe-area-inset-top, 16px));
+  right: max(16px, env(safe-area-inset-right, 16px));
+  bottom: auto;
+  left: auto;
   z-index: 10004;
   display: flex;
   flex-direction: column;
@@ -667,7 +669,7 @@
 
 .mobile-subdrop-menu {
   position: absolute;
-  bottom: calc(100% + 8px);
+  top: calc(100% + 8px);
   right: 0;
   background: color-mix(in srgb, var(--panel, #041008) 96%, #000);
   border: 1px solid var(--panel-border, #1e5c32);
@@ -776,7 +778,7 @@
 .player-dice-mobile-column.collapsed {
   opacity: 0;
   pointer-events: none;
-  transform: translateY(16px);
+  transform: translateY(-16px);
 }
 
 .mobile-dice-col-btn {

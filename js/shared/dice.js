@@ -409,7 +409,7 @@ import { isAndroidOrIOS } from './mobile.js';
     return boxInitPromise;
   }
 
-  const isMobileOS = isAndroidOrIOS();
+  const isMobileOS = isAndroidOrIOS() || (typeof window !== 'undefined' && (window.innerWidth <= 768 || document.body?.classList.contains('is-mobile') || document.documentElement?.classList.contains('is-mobile')));
   const isGM = checkIsGM();
 
   // ============================================================
@@ -1085,7 +1085,7 @@ import { isAndroidOrIOS } from './mobile.js';
     };
   }
 
-  // ---- Rolagem do JOGADOR (Método 1: Física Real Cannon-es) ----
+  // ---- Rolagem do JOGADOR ----
   async function playerRoll(faces, count = 1, mod = 0) {
     if (isRolling) return;
     clearSettledDice();
@@ -1099,24 +1099,13 @@ import { isAndroidOrIOS } from './mobile.js';
       ? getContrastColor(diceColor)
       : (localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff');
 
-    let physicalRolls = [];
-    try {
-      await initBox();
-      applyCustomStyles(diceColor, labelColor, null);
-      // Lançamento com física real (gravidade, colisão, atrito e torque
-      // simulados pela lib) — o valor final É o resultado oficial,
-      // não um sorteio à parte "encenado" pela animação.
-      const rollResult = await Box.roll(naturalNotation);
-      physicalRolls = extractSettledValues(rollResult, diceCount, faces);
-      hasSettledDice = true;
-    } catch (err) {
-      console.warn("Fallback rolagem 3D física:", err);
-      for (let i = 0; i < diceCount; i++) physicalRolls.push(getRandomFace(faces));
-    } finally {
-      isRolling = false;
+    // 1. Sorteio lógico prévio dos valores oficiais ("dado falso" / RNG confiável)
+    const rolledValues = [];
+    for (let i = 0; i < diceCount; i++) {
+      rolledValues.push(getRandomFace(faces));
     }
 
-    const rollData = formatRollSummary(physicalRolls, faces, diceCount, mod, mode);
+    const rollData = formatRollSummary(rolledValues, faces, diceCount, mod, mode);
 
     const payload = {
       ...rollData,
@@ -1125,14 +1114,28 @@ import { isAndroidOrIOS } from './mobile.js';
       labelColor
     };
 
+    // 2. Transmite imediatamente via WebRTC para que todas as telas iniciem a rolagem 3D juntas
     if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
       window.RPG.sendDiceRoll(payload);
     }
 
+    // 3. Roda a física dos dados 3D na tela local
+    try {
+      await initBox();
+      applyCustomStyles(diceColor, labelColor, null);
+      await Box.roll(naturalNotation);
+      hasSettledDice = true;
+    } catch (err) {
+      console.warn("Fallback rolagem 3D física:", err);
+    } finally {
+      isRolling = false;
+    }
+
+    // 4. Exibe o resultado oficial
     showDiceResultPopup(payload);
   }
 
-  // ---- Rolagem do MESTRE (física real via @3d-dice/dice-box) ----
+  // ---- Rolagem do MESTRE ----
   async function gmRoll(faces, count = 1, mod = 0) {
     if (isRolling) return;
     clearSettledDice();
@@ -1145,21 +1148,13 @@ import { isAndroidOrIOS } from './mobile.js';
       ? getContrastColor(diceColor)
       : (localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff');
 
-    let physicalRolls = [];
-    try {
-      await initBox();
-      applyCustomStyles(diceColor, labelColor, null);
-      const rollResult = await Box.roll(naturalNotation);
-      physicalRolls = extractSettledValues(rollResult, diceCount, faces);
-      hasSettledDice = true;
-    } catch (err) {
-      console.warn("Fallback rolagem 3D mestre física:", err);
-      for (let i = 0; i < diceCount; i++) physicalRolls.push(getRandomFace(faces));
-    } finally {
-      isRolling = false;
+    // 1. Sorteio lógico prévio dos valores oficiais ("dado falso" / RNG confiável)
+    const rolledValues = [];
+    for (let i = 0; i < diceCount; i++) {
+      rolledValues.push(getRandomFace(faces));
     }
 
-    const rollData = formatRollSummary(physicalRolls, faces, diceCount, mod, mode);
+    const rollData = formatRollSummary(rolledValues, faces, diceCount, mod, mode);
 
     const payload = {
       ...rollData,
@@ -1168,10 +1163,24 @@ import { isAndroidOrIOS } from './mobile.js';
       labelColor
     };
 
+    // 2. Transmite imediatamente via WebRTC (exceto se for segredo do Mestre)
     if (!isSecretRoll && window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
       window.RPG.sendDiceRoll(payload);
     }
 
+    // 3. Roda a física dos dados 3D na tela do mestre
+    try {
+      await initBox();
+      applyCustomStyles(diceColor, labelColor, null);
+      await Box.roll(naturalNotation);
+      hasSettledDice = true;
+    } catch (err) {
+      console.warn("Fallback rolagem 3D mestre física:", err);
+    } finally {
+      isRolling = false;
+    }
+
+    // 4. Exibe o resultado oficial
     showDiceResultPopup(payload);
   }
 
