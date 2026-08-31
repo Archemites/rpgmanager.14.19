@@ -74,7 +74,7 @@
   border: var(--border-width, 1px) var(--border-style, solid) var(--panel-border, #1e5c32);
   border-bottom: none;
   border-radius: max(var(--radius, 0px), 20px) max(var(--radius, 0px), 20px) 0 0;
-  box-shadow: 0 -14px 44px rgba(0, 0, 0, 0.7), var(--border-glow, none);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25), var(--border-glow, none);
   padding: 12px 22px 18px 22px;
   transform: translateY(calc(100% + 24px));
   transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1),
@@ -957,7 +957,7 @@
   word-break: break-word;
 }
 
-/* ── Canvas 3D de Tela Cheia (Three.js / Cannon-es) ──────────── */
+/* ── Canvas 3D de Tela Cheia (@3d-dice/dice-box) ──────────── */
 #dice-box-canvas {
   position: fixed;
   inset: 0;
