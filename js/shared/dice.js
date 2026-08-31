@@ -1099,13 +1099,23 @@ import { isAndroidOrIOS } from './mobile.js';
       ? getContrastColor(diceColor)
       : (localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff');
 
-    // 1. Sorteio lógico prévio dos valores oficiais ("dado falso" / RNG confiável)
-    const rolledValues = [];
-    for (let i = 0; i < diceCount; i++) {
-      rolledValues.push(getRandomFace(faces));
+    let physicalRolls = [];
+    try {
+      await initBox();
+      applyCustomStyles(diceColor, labelColor, null);
+      // Roda a simulação física 3D real no canvas
+      const rollResult = await Box.roll(naturalNotation);
+      // Extrai os valores exatos das faces que ficaram voltadas para cima
+      physicalRolls = extractSettledValues(rollResult, diceCount, faces);
+      hasSettledDice = true;
+    } catch (err) {
+      console.warn("Fallback rolagem 3D física:", err);
+      for (let i = 0; i < diceCount; i++) physicalRolls.push(getRandomFace(faces));
+    } finally {
+      isRolling = false;
     }
 
-    const rollData = formatRollSummary(rolledValues, faces, diceCount, mod, mode);
+    const rollData = formatRollSummary(physicalRolls, faces, diceCount, mod, mode);
 
     const payload = {
       ...rollData,
@@ -1114,24 +1124,10 @@ import { isAndroidOrIOS } from './mobile.js';
       labelColor
     };
 
-    // 2. Transmite imediatamente via WebRTC para que todas as telas iniciem a rolagem 3D juntas
     if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
       window.RPG.sendDiceRoll(payload);
     }
 
-    // 3. Roda a física dos dados 3D na tela local
-    try {
-      await initBox();
-      applyCustomStyles(diceColor, labelColor, null);
-      await Box.roll(naturalNotation);
-      hasSettledDice = true;
-    } catch (err) {
-      console.warn("Fallback rolagem 3D física:", err);
-    } finally {
-      isRolling = false;
-    }
-
-    // 4. Exibe o resultado oficial
     showDiceResultPopup(payload);
   }
 
@@ -1148,13 +1144,21 @@ import { isAndroidOrIOS } from './mobile.js';
       ? getContrastColor(diceColor)
       : (localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff');
 
-    // 1. Sorteio lógico prévio dos valores oficiais ("dado falso" / RNG confiável)
-    const rolledValues = [];
-    for (let i = 0; i < diceCount; i++) {
-      rolledValues.push(getRandomFace(faces));
+    let physicalRolls = [];
+    try {
+      await initBox();
+      applyCustomStyles(diceColor, labelColor, null);
+      const rollResult = await Box.roll(naturalNotation);
+      physicalRolls = extractSettledValues(rollResult, diceCount, faces);
+      hasSettledDice = true;
+    } catch (err) {
+      console.warn("Fallback rolagem 3D mestre física:", err);
+      for (let i = 0; i < diceCount; i++) physicalRolls.push(getRandomFace(faces));
+    } finally {
+      isRolling = false;
     }
 
-    const rollData = formatRollSummary(rolledValues, faces, diceCount, mod, mode);
+    const rollData = formatRollSummary(physicalRolls, faces, diceCount, mod, mode);
 
     const payload = {
       ...rollData,
@@ -1163,24 +1167,10 @@ import { isAndroidOrIOS } from './mobile.js';
       labelColor
     };
 
-    // 2. Transmite imediatamente via WebRTC (exceto se for segredo do Mestre)
     if (!isSecretRoll && window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
       window.RPG.sendDiceRoll(payload);
     }
 
-    // 3. Roda a física dos dados 3D na tela do mestre
-    try {
-      await initBox();
-      applyCustomStyles(diceColor, labelColor, null);
-      await Box.roll(naturalNotation);
-      hasSettledDice = true;
-    } catch (err) {
-      console.warn("Fallback rolagem 3D mestre física:", err);
-    } finally {
-      isRolling = false;
-    }
-
-    // 4. Exibe o resultado oficial
     showDiceResultPopup(payload);
   }
 
