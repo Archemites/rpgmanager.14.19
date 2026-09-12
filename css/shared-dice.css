@@ -579,7 +579,7 @@
 /* ── Mobile Speed-Dial (Android & iOS) ────────────────────────── */
 .player-dice-mobile-wrap {
   position: fixed;
-  bottom: 20px;
+  top: 20px;
   right: 20px;
   z-index: 10004;
   display: flex;

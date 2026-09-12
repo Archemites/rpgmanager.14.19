@@ -132,6 +132,7 @@
     if (!sidebarResizing) return;
     const w = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, e.clientX));
     sidebar.style.width = w + 'px';
+    document.documentElement.style.setProperty('--sidebar-width', w + 'px');
   });
 
   window.addEventListener('mouseup', () => {

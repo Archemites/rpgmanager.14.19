@@ -68,52 +68,7 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   function showDiceResultPopup(data) {
-    if (!data) return;
-    const { senderName, expr, sum, mode, rolls, faces, count, mod } = data;
-
-    const popup = document.createElement('div');
-    popup.className = 'dice-result-popup';
-
-    // Highlight para Crítico no d20
-    let critTag = '';
-    if (faces === 20 && count === 1) {
-      if (rolls[0] === 20) {
-        critTag = `<div class="dice-popup-crit-tag crit-success">✦ Sucesso Crítico (Nat 20)! ✦</div>`;
-      } else if (rolls[0] === 1) {
-        critTag = `<div class="dice-popup-crit-tag crit-fail">✖ Falha Crítica (Nat 1)! ✖</div>`;
-      }
-    }
-
-    const formulaLabel = mode === 'adv' ? `${count}d${faces} [ADV]` : (mode === 'dis' ? `${count}d${faces} [DIS]` : `${count}d${faces}${mod ? (mod > 0 ? `+${mod}` : `${mod}`) : ''}`);
-
-    popup.innerHTML = `
-      <div class="dice-popup-header">
-        <span class="dice-popup-sender">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          ${senderName || 'Jogador'}
-        </span>
-        <span class="dice-popup-formula-badge">${formulaLabel}</span>
-      </div>
-      ${critTag}
-      <div class="dice-popup-main-val">${sum}</div>
-      <div class="dice-popup-details">${expr || ''}</div>
-    `;
-
-    // Fecha ao clicar no pop-up
-    popup.addEventListener('click', () => {
-      popup.classList.add('dismissing');
-      setTimeout(() => popup.remove(), 250);
-    });
-
-    // Auto-remove após 4.5 segundos
-    setTimeout(() => {
-      if (popup.parentNode) {
-        popup.classList.add('dismissing');
-        setTimeout(() => popup.remove(), 250);
-      }
-    }, 4500);
-
-    hudContainer.appendChild(popup);
+    // Popup removed by request.
   }
 
   // ============================================================
@@ -477,52 +432,18 @@ import { isAndroidOrIOS } from './mobile.js';
     mobileWrap.innerHTML = `
       <div class="player-dice-mobile-header">
         <div id="mobileSideControls" class="player-dice-mobile-side collapsed">
-          ${isGM ? `
-            <button type="button" id="mobileGmSecretBtn" class="mobile-control-btn secret-btn ${isSecretRoll ? 'secret' : 'public'}" title="Alternar visibilidade para os jogadores">
-              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-              <span id="mobileSecretLabel">${isSecretRoll ? 'OCULTO' : 'PÚBLICO'}</span>
-            </button>
-          ` : ''}
-
-          <div class="mobile-mode-dropdown-wrap">
-            <button type="button" id="mobileModeBtn" class="mobile-control-btn mode-btn" title="Modo de Rolagem">
-              <span id="mobileModeLabel">NORMAL</span>
-              <svg class="mode-arrow" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </button>
-            <div id="mobileModeMenu" class="mobile-subdrop-menu hidden">
-              <button type="button" class="mobile-subdrop-item active" data-mode="normal">
-                <span class="mode-dot normal"></span>
-                <span>Normal</span>
-              </button>
-              <button type="button" class="mobile-subdrop-item" data-mode="adv">
-                <span class="mode-dot adv"></span>
-                <span>Vantagem (ADV)</span>
-              </button>
-              <button type="button" class="mobile-subdrop-item" data-mode="dis">
-                <span class="mode-dot dis"></span>
-                <span>Desvantagem (DIS)</span>
-              </button>
-            </div>
-          </div>
-
           <div class="mobile-stepper-pill" title="Quantidade de dados">
             <span class="pill-label">Qtd</span>
             <button type="button" id="mobileCountDec" class="pill-btn">−</button>
             <input type="number" id="mobileCountInput" min="1" max="20" value="1" title="Qtd">
             <button type="button" id="mobileCountInc" class="pill-btn">+</button>
           </div>
-
-          <div class="mobile-stepper-pill" title="Modificador numérico">
-            <span class="pill-label">Mod</span>
-            <button type="button" id="mobileModDec" class="pill-btn">−</button>
-            <input type="number" id="mobileModInput" min="-99" max="99" value="0" title="Mod">
-            <button type="button" id="mobileModInc" class="pill-btn">+</button>
-          </div>
+          <button type="button" id="mobileSettingsBtn" class="mobile-control-btn" title="Configurações">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
         </div>
 
         <button type="button" id="mobileDiceBtn" class="player-dice-circle-btn" title="Rolar dados" aria-label="Rolar dados">
@@ -606,6 +527,15 @@ import { isAndroidOrIOS } from './mobile.js';
       mModeMenu?.classList.toggle('hidden');
     });
 
+    const mSettingsBtn = document.getElementById('mobileSettingsBtn');
+    mSettingsBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMobileDrop(false);
+      // We assume openDesktopDice is available or we can just call it via pcDiceBtn
+      const pcBtn = document.getElementById('playerDiceBtn');
+      if (pcBtn) pcBtn.click();
+    });
+
     function setMobileMode(mode) {
       currentRollMode = mode;
       mModeItems.forEach(item => {
@@ -666,7 +596,7 @@ import { isAndroidOrIOS } from './mobile.js';
         e.stopPropagation();
         const faces = Number(/** @type {HTMLElement} */ (btn).dataset.faces);
         const count = Math.min(20, Math.max(1, parseInt(mCountInput.value, 10) || 1));
-        const mod = parseInt(mModInput.value, 10) || 0;
+        const mod = 0; // mod removed from mobile UI
 
         if (checkIsGM()) {
           gmRoll(faces, count, mod);
@@ -1140,9 +1070,10 @@ import { isAndroidOrIOS } from './mobile.js';
       labelColor: localStorage.getItem(STORAGE_KEY_TEXT_AUTO) !== 'false' ? getContrastColor(localStorage.getItem(STORAGE_KEY_DICE_COLOR) || getSystemAccent()) : (localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff')
     };
 
-    if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
-      window.RPG.sendDiceRoll(payload);
-    }
+    // Compartilhamento removido
+    // if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
+    //   window.RPG.sendDiceRoll(payload);
+    // }
 
     try {
       await initBox();
@@ -1153,7 +1084,7 @@ import { isAndroidOrIOS } from './mobile.js';
       console.warn("Fallback rolagem 3D:", err);
     } finally {
       isRolling = false;
-      showDiceResultPopup(payload);
+      // showDiceResultPopup removido
     }
   }
 
@@ -1172,9 +1103,10 @@ import { isAndroidOrIOS } from './mobile.js';
       labelColor: localStorage.getItem(STORAGE_KEY_TEXT_AUTO) !== 'false' ? getContrastColor(localStorage.getItem(STORAGE_KEY_DICE_COLOR) || getSystemAccent()) : (localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff')
     };
 
-    if (!isSecretRoll && window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
-      window.RPG.sendDiceRoll(payload);
-    }
+    // Compartilhamento removido
+    // if (!isSecretRoll && window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
+    //   window.RPG.sendDiceRoll(payload);
+    // }
 
     try {
       await initBox();
@@ -1185,7 +1117,7 @@ import { isAndroidOrIOS } from './mobile.js';
       console.warn("Fallback rolagem 3D mestre:", err);
     } finally {
       isRolling = false;
-      showDiceResultPopup(payload);
+      // showDiceResultPopup removido
     }
   }
 
@@ -1206,7 +1138,7 @@ import { isAndroidOrIOS } from './mobile.js';
     } catch (err) {
       console.warn("Fallback rolagem remota 3D:", err);
     } finally {
-      showDiceResultPopup(data);
+      // showDiceResultPopup removido
     }
   };
 
