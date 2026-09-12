@@ -1,20 +1,26 @@
 // @ts-ignore
-import DiceBox from 'https://cdn.jsdelivr.net/npm/@drdreo/dice-box-threejs@1.1.0/dist/dice-box-threejs.es.js';
+import DiceBox from '../../assets/dice-box/dice-box.es.js';
 import { isAndroidOrIOS } from './mobile.js';
 
 /* ============================================================
-   Player & GM dice roller — Foundry VTT / Dice So Nice! Style
-   - Three.js + Cannon-es 100% Client-Side no GitHub Pages
-   - Customização de Cores (Dado, Números), Escala e Iluminação sRGB
-   - Sorteio determinístico no algoritmo + simulação 3D armada
-   - Pop-up HUD moderno pós-assentamento dos dados
-   - Sincronização WebRTC em tempo real
+   Player & GM dice roller ÔÇö Foundry VTT / Dice So Nice! Style
+   - Motor: @3d-dice/dice-box 1.1.4 (BabylonJS + AmmoJS por baixo)
+   - Tema "gemstone": mesh poli├®drico facetado com material transl├║cido
+     tingido por themeColor ÔÇö o efeito visual mais pr├│ximo de resina
+     colorida que a biblioteca oferece nativamente
+   - Luz e sombra reais via config nativa (lightIntensity, enableShadows,
+     shadowTransparency) ÔÇö nada de hooks inventados em cima da lib
+   - Cada tela roda sua pr├│pria simula├º├úo f├¡sica (queda visualmente
+     diferente em cada cliente) mas o VALOR do resultado ├® sempre o
+     valor real que a f├¡sica decidiu em quem rolou; esse valor ├®
+     sincronizado via WebRTC e exibido igual em todas as telas
+   - Pop-up HUD moderno p├│s-assentamento dos dados
    ============================================================ */
 
 (() => {
   'use strict';
 
-  // ---- Identificação Mestre vs Jogador ----
+  // ---- Identifica├º├úo Mestre vs Jogador ----
   function checkIsGM() {
     return Boolean(
       (window.RPG && window.RPG.isGM) ||
@@ -23,7 +29,7 @@ import { isAndroidOrIOS } from './mobile.js';
     );
   }
 
-  // ---- Configuração de dados ----
+  // ---- Configura├º├úo de dados ----
   const FACES = [4, 6, 8, 10, 12, 20, 100];
   let selectedFaces = 20;
   let currentRollMode = 'normal'; // 'normal' | 'adv' | 'dis'
@@ -40,7 +46,7 @@ import { isAndroidOrIOS } from './mobile.js';
     isSecretRoll = localStorage.getItem(STORAGE_KEY_SECRET) === 'true';
   } catch (_) {}
 
-  // ---- SVGs Poliédricos para os Dados ----
+  // ---- SVGs Poli├®dricos para os Dados ----
   const DICE_SVGS = {
     4: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><polygon points="12,3 2,20 22,20" fill="currentColor" fill-opacity="0.15"/><line x1="12" y1="3" x2="12" y2="14"/><line x1="2" y1="20" x2="12" y2="14"/><line x1="22" y1="20" x2="12" y2="14"/></svg>`,
     6: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><polygon points="12,2 21,7 12,12 3,7" fill="currentColor" fill-opacity="0.25"/><polygon points="3,7 12,12 12,22 3,17" fill="currentColor" fill-opacity="0.1"/><polygon points="12,12 21,7 21,17 12,22" fill="currentColor" fill-opacity="0.18"/></svg>`,
@@ -59,20 +65,8 @@ import { isAndroidOrIOS } from './mobile.js';
     document.body.appendChild(boxCanvas);
   }
 
-  // ---- Container HUD de Pop-ups ----
-  let hudContainer = document.getElementById('diceResultHudContainer');
-  if (!hudContainer) {
-    hudContainer = document.createElement('div');
-    hudContainer.id = 'diceResultHudContainer';
-    document.body.appendChild(hudContainer);
-  }
-
-  function showDiceResultPopup(data) {
-    // Popup removed by request.
-  }
-
   // ============================================================
-  // MOTOR 3D (THREE.JS + CANNON-ES)
+  // MOTOR 3D (@3d-dice/dice-box — BabylonJS + AmmoJS internamente)
   // ============================================================
   let Box = null;
   let isBoxReady = false;
@@ -83,7 +77,7 @@ import { isAndroidOrIOS } from './mobile.js';
   function clearSettledDice() {
     if (Box && isBoxReady) {
       try {
-        Box.clearDice();
+        Box.clear();
       } catch (_) {}
     }
     hasSettledDice = false;
@@ -106,194 +100,9 @@ import { isAndroidOrIOS } from './mobile.js';
     }
   }, true);
 
-  function patchDiceFactory(factory) {
-    if (!factory || factory.__dicePatched) return;
-    factory.__dicePatched = true;
-
-    const diceKeys = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100', 'd2'];
-    diceKeys.forEach(k => {
-      try {
-        const def = factory.get(k);
-        if (def && !def.font) def.font = 'sans-serif';
-      } catch (_) {}
-    });
-
-    try {
-      const d100Def = factory.get('d100');
-      if (d100Def && Array.isArray(d100Def.values)) {
-        if (!d100Def.font) d100Def.font = 'sans-serif';
-        const zeroIdx = d100Def.values.findIndex(v => v === 0 || v === '0' || v === '00' || v === 100);
-        const targetZeroIdx = zeroIdx !== -1 ? zeroIdx : 0;
-        if (!d100Def.values.includes(100)) {
-          d100Def.values.push(100);
-          if (Array.isArray(d100Def.normals)) d100Def.normals.push(d100Def.normals[targetZeroIdx]);
-        }
-        if (!d100Def.values.includes(0)) {
-          d100Def.values.push(0);
-          if (Array.isArray(d100Def.normals)) d100Def.normals.push(d100Def.normals[targetZeroIdx]);
-        }
-      }
-    } catch (_) {}
-
-    const origGet = factory.get.bind(factory);
-    factory.get = function(type) {
-      const def = origGet(type);
-      if (def && !def.font) def.font = 'sans-serif';
-      return def;
-    };
-
-    // Remove traçado/borda artificial dos dados (definição 100% por luz e geometria)
-    factory.margin = 0;
-    factory.edge_color = '';
-
-    // Sobrescreve draw_face_texture para criar o material visual de RESINA FÍSICA
-    // (Translúcido, com profundidade óptica interna, micropartículas e contraste nítido)
-    const origDrawFaceTexture = factory.draw_face_texture?.bind(factory);
-    if (origDrawFaceTexture) {
-      factory.draw_face_texture = function(canvas, text, color, margin) {
-        const ctx = canvas.getContext('2d');
-        const w = canvas.width;
-        const h = canvas.height;
-        const diceColor = factory.dice_color || (Box && Box.themeColor) || '#45ff78';
-        const textColor = factory.label_color || (Box && Box.labelColor) || '#ffffff';
-
-        ctx.save();
-        
-        // 1. Cor base profunda da resina
-        ctx.fillStyle = diceColor;
-        ctx.fillRect(0, 0, w, h);
-        
-        // Escurece levemente a base para que o brilho se destaque (mesmo em cores claras como verde neon)
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-        ctx.fillRect(0, 0, w, h);
-
-        // 2. Gradiente óptico de refração e profundidade translúcida no centro da face
-        const grad = ctx.createRadialGradient(w * 0.45, h * 0.42, w * 0.08, w * 0.5, h * 0.5, w * 0.65);
-        grad.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
-        grad.addColorStop(0.35, 'rgba(255, 255, 255, 0.2)');
-        grad.addColorStop(0.7, 'rgba(0, 0, 0, 0.1)');
-        grad.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, w, h);
-
-        // 3. Micropartículas e glitter suspensos no interior da resina
-        const str = String(text || '1');
-        const seed = (str.charCodeAt(0) || 1) * 37 + (str.length * 13);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        for (let i = 0; i < 7; i++) {
-          const px = ((seed * (i + 1) * 19) % (w - 24)) + 12;
-          const py = ((seed * (i + 2) * 29) % (h - 24)) + 12;
-          const pr = ((seed * (i + 3)) % 2) + 1.2;
-          ctx.beginPath();
-          ctx.arc(px, py, pr, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        // 4. Desenha o número com nitidez máxima e relevo
-        origDrawFaceTexture(canvas, text, textColor, 0);
-        ctx.restore();
-      };
-    }
-
-    const origCreateMaterials = factory.create_materials?.bind(factory);
-    if (origCreateMaterials) {
-      factory.create_materials = function(dice, margin, before_face, after_face) {
-        return origCreateMaterials(dice, 0, before_face, after_face);
-      };
-    }
-
-    const origCreateMaterial = factory.create_material?.bind(factory);
-    if (origCreateMaterial) {
-      factory.create_material = function(dice, margin, before_face, after_face) {
-        const mat = origCreateMaterial(dice, 0, before_face, after_face);
-        if (mat) {
-          if (mat.map) {
-            if ('colorSpace' in mat.map) mat.map.colorSpace = 'srgb';
-            else if ('encoding' in mat.map) mat.map.encoding = 3001; // sRGBEncoding
-            mat.map.needsUpdate = true;
-          }
-          mat.color?.setHex(0xffffff);
-          mat.flatShading = true;
-          mat.shininess = 250;
-          mat.specular?.setHex(0xffffff);
-          mat.needsUpdate = true;
-        }
-        return mat;
-      };
-    }
-
-    // Material de Resina com flatShading puro e verniz de alto brilho
-    factory.material_options = {
-      specular: 0xffffff,
-      color: 0xffffff,
-      shininess: 250,
-      flatShading: true
-    };
-  }
-
-  function calibrateSceneLighting(box) {
-    if (!box) return;
-    if (box.renderer) {
-      if ('outputColorSpace' in box.renderer) {
-        box.renderer.outputColorSpace = 'srgb';
-      } else if ('outputEncoding' in box.renderer) {
-        box.renderer.outputEncoding = 3001; // sRGBEncoding
-      }
-      box.renderer.toneMapping = 0; // Linear para fidelidade total
-      box.renderer.toneMappingExposure = 1.35;
-      if (box.renderer.shadowMap) {
-        box.renderer.shadowMap.enabled = true;
-        box.renderer.shadowMap.type = 2; // THREE.PCFSoftShadowMap
-      }
-    }
-
-    // Luz Ambiente: Base limpa para que todas as faces mantenham a cor do picker
-    if (box.light_amb) {
-      box.light_amb.color.setHex(0xffffff);
-      if (box.light_amb.groundColor) box.light_amb.groundColor.setHex(0xffffff);
-      box.light_amb.intensity = 1.1;
-    }
-
-    // LÂMPADA CENTRAL SUSPENSA NO CENTRO DA TELA (Ponto de luz acima do tabuleiro)
-    if (box.light) {
-      box.light.color.setHex(0xffffff);
-      box.light.intensity = 4.2;
-      box.light.castShadow = true;
-      if (box.light.position) box.light.position.set(0, 190, 35);
-      if (box.light.target && box.light.target.position) box.light.target.position.set(0, 0, 0);
-      if (box.light.shadow) {
-        box.light.shadow.mapSize.width = 2048;
-        box.light.shadow.mapSize.height = 2048;
-        box.light.shadow.camera.near = 10;
-        box.light.shadow.camera.far = 500;
-        box.light.shadow.bias = -0.0012;
-      }
-    }
-
-    // Halo secundário da lâmpada central para irradiação e brilho radial
-    if (box.spotlight) {
-      box.spotlight.color.setHex(0xffffff);
-      box.spotlight.intensity = 2.2;
-      box.spotlight.castShadow = false;
-      if (box.spotlight.position) box.spotlight.position.set(0, 150, 20);
-      if (box.spotlight.target && box.spotlight.target.position) box.spotlight.target.position.set(0, 0, 0);
-    }
-
-    // Desk / Chão: Configurado para receber a sombra projetada
-    if (box.desk) {
-      box.desk.receiveShadow = true;
-    }
-  }
-
-  function getSystemAccent() {
-    const rootStyle = getComputedStyle(document.documentElement);
-    let accent = rootStyle.getPropertyValue('--accent').trim();
-    if (!accent || !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(accent)) {
-      accent = '#6e0000'; // Dark red shows resin/glitter much better than bright green
-    }
-    return accent;
-  }
-
+  // Ajusta a cor do texto/números pro contraste automático nos
+  // controles de UI (a própria lib já faz esse cálculo internamente
+  // pro tema gemstone, mas reaproveitamos aqui pros previews de cor).
   function getContrastColor(hex) {
     if (!hex || hex[0] !== '#') return '#ffffff';
     let c = hex.substring(1);
@@ -305,44 +114,50 @@ import { isAndroidOrIOS } from './mobile.js';
     return yiq >= 140 ? '#000000' : '#ffffff';
   }
 
-  const DEFAULT_PERCENT = 100;
-
-  function to3dScale(percent) {
-    const p = Math.max(1, Math.min(100, Number(percent) || DEFAULT_PERCENT));
-    return Math.max(20, Math.round(p * 1.8));
+  function getSystemAccent() {
+    const rootStyle = getComputedStyle(document.documentElement);
+    let accent = rootStyle.getPropertyValue('--accent').trim();
+    if (!accent || !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(accent)) {
+      accent = '#45ff78';
+    }
+    return accent;
   }
 
+  const DEFAULT_PERCENT = 100;
+
+  // Config real de @3d-dice/dice-box: "scale" vai de ~2 a 9 (não %).
+  // Convertemos o slider 30–200% da UI existente pra essa faixa.
+  function to3dScale(percent) {
+    const p = Math.max(30, Math.min(200, Number(percent) || DEFAULT_PERCENT));
+    return Number((2 + (p / 100) * 5).toFixed(2)); // 30% -> ~3.5 | 100% -> 7 | 200% -> ~12 (clamp da lib)
+  }
+
+  // Aplica cor/escala usando SOMENTE a API pública real de updateConfig().
+  // Luz e sombra (lightIntensity / enableShadows / shadowTransparency)
+  // já são fixadas uma vez em initBox() com valores altos — aqui só
+  // trocamos cor do tema e escala, que são as únicas coisas que fazem
+  // sentido reconfigurar em tempo real por jogador.
   function applyCustomStyles(themeColor, textColor, scaleVal) {
     const diceColor = themeColor || localStorage.getItem(STORAGE_KEY_DICE_COLOR) || getSystemAccent();
     const isAutoText = localStorage.getItem(STORAGE_KEY_TEXT_AUTO) !== 'false';
     const finalTextColor = isAutoText ? getContrastColor(diceColor) : (textColor || localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff');
-    
-    let percent = Number(scaleVal || localStorage.getItem(STORAGE_KEY_SCALE) || '0');
-    if (!percent || percent < 1 || percent > 100) percent = DEFAULT_PERCENT;
+
+    let percent = Number(scaleVal !== null && scaleVal !== undefined ? scaleVal : (localStorage.getItem(STORAGE_KEY_SCALE) || '100'));
+    if (!percent || percent < 30 || percent > 200) percent = DEFAULT_PERCENT;
 
     const baseScale3d = to3dScale(percent);
 
     if (Box && isBoxReady) {
       try {
-        Box.themeColor = diceColor;
-        Box.labelColor = finalTextColor;
-        Box.dice_color = diceColor;
-        Box.label_color = finalTextColor;
-        Box.baseScale = baseScale3d;
-        if (Box.DiceFactory) {
-          Box.DiceFactory.dice_color = diceColor;
-          Box.DiceFactory.label_color = finalTextColor;
-          Box.DiceFactory.materials = {};
-          Box.DiceFactory.cache = {};
-          Box.DiceFactory.dice = {};
-          Box.DiceFactory.geometries = {};
-          if (Box.DiceFactory.material_options) {
-            Box.DiceFactory.material_options.shininess = 250;
-            Box.DiceFactory.material_options.flatShading = true;
-            Box.DiceFactory.material_options.specular = 0xffffff;
-          }
-        }
-      } catch (_) {}
+        Box.updateConfig({
+          theme: 'default',
+          themeColor: diceColor,
+          scale: baseScale3d
+        });
+      } catch (err) {
+        console.warn('Falha ao atualizar tema do DiceBox:', err);
+      }
+      applyDiceTextColor(finalTextColor);
     }
 
     // Atualiza controles Desktop
@@ -375,6 +190,112 @@ import { isAndroidOrIOS } from './mobile.js';
     }
   }
 
+  // ---- Sistema Dinâmico de Tintura dos Números 3D ----
+  let baseNumberImg = null;
+  let isBaseNumberImgLoading = false;
+
+  function loadBaseNumberImg() {
+    if (baseNumberImg) return Promise.resolve(baseNumberImg);
+    return new Promise((resolve) => {
+      if (isBaseNumberImgLoading) {
+        const check = setInterval(() => {
+          if (baseNumberImg && baseNumberImg.complete) {
+            clearInterval(check);
+            resolve(baseNumberImg);
+          }
+        }, 50);
+        return;
+      }
+      isBaseNumberImgLoading = true;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        baseNumberImg = img;
+        isBaseNumberImgLoading = false;
+        resolve(img);
+      };
+      img.onerror = () => {
+        isBaseNumberImgLoading = false;
+        resolve(null);
+      };
+      img.src = resolveAssetPath() + 'themes/default/diffuse-light.png';
+    });
+  }
+
+  async function applyDiceTextColor(textColor) {
+    if (!textColor) return;
+    try {
+      const img = await loadBaseNumberImg();
+      if (!img) return;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || 1024;
+      canvas.height = img.naturalHeight || 1024;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.drawImage(img, 0, 0);
+      ctx.globalCompositeOperation = 'source-in';
+      ctx.fillStyle = textColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const dataUrl = canvas.toDataURL('image/png');
+
+      // 1. Atualiza diretamente nos materiais expostos pelo Babylon World
+      if (window.__diceBoxMaterials) {
+        Object.values(window.__diceBoxMaterials).forEach(mat => {
+          if (mat && mat.diffuseTexture && typeof mat.diffuseTexture.updateURL === 'function') {
+            mat.diffuseTexture.updateURL(dataUrl);
+          }
+        });
+      }
+
+      // 2. Atualiza via cena do BabylonJS se acessível
+      if (window.__diceBoxScene && window.__diceBoxScene.materials) {
+        window.__diceBoxScene.materials.forEach(mat => {
+          if (mat && mat.name && (mat.name.includes('_light') || mat.name.includes('_dark'))) {
+            if (mat.diffuseTexture && typeof mat.diffuseTexture.updateURL === 'function') {
+              mat.diffuseTexture.updateURL(dataUrl);
+            }
+          }
+        });
+      }
+
+      // 3. Fallback para instâncias globais do Babylon se presentes
+      // @ts-ignore
+      const engines = window.BABYLON?.Engine?.Instances || [];
+      for (const engine of engines) {
+        if (!engine.scenes) continue;
+        for (const scene of engine.scenes) {
+          const mats = scene.materials || [];
+          for (const mat of mats) {
+            if (mat && mat.name && (mat.name.includes('_light') || mat.name.includes('_dark'))) {
+              if (mat.diffuseTexture && typeof mat.diffuseTexture.updateURL === 'function') {
+                mat.diffuseTexture.updateURL(dataUrl);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Falha ao aplicar cor customizada do texto nos dados 3D:', err);
+    }
+  }
+
+  // Caminho absoluto a partir da raiz (ou subpasta), garantindo que sempre
+  // comece e termine com barra para que a concatenação origin + assetPath
+  // no Web Worker do @3d-dice/dice-box produza uma URL válida.
+  function resolveAssetPath() {
+    let path = window.location.pathname || '/';
+    if (!path.endsWith('/')) {
+      path = path.substring(0, path.lastIndexOf('/') + 1);
+    }
+    if (!path.startsWith('/')) {
+      path = '/' + path;
+    }
+    return `${path}assets/dice-box/`.replace(/\/+/g, '/');
+  }
+
   function initBox() {
     if (isBoxReady && Box) return Promise.resolve(Box);
     if (!boxInitPromise) {
@@ -383,37 +304,45 @@ import { isAndroidOrIOS } from './mobile.js';
           const storedColor = localStorage.getItem(STORAGE_KEY_DICE_COLOR) || getSystemAccent();
           const isAutoText = localStorage.getItem(STORAGE_KEY_TEXT_AUTO) !== 'false';
           const storedText = isAutoText ? getContrastColor(storedColor) : (localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff');
-          let storedPercent = Number(localStorage.getItem(STORAGE_KEY_SCALE) || '0');
-          if (!storedPercent || storedPercent < 1 || storedPercent > 100) {
+          let storedPercent = Number(localStorage.getItem(STORAGE_KEY_SCALE) || '100');
+          if (!storedPercent || storedPercent < 30 || storedPercent > 200) {
             storedPercent = DEFAULT_PERCENT;
             try { localStorage.setItem(STORAGE_KEY_SCALE, String(DEFAULT_PERCENT)); } catch (_) {}
           }
 
           const baseScale3d = to3dScale(storedPercent);
 
-          Box = new DiceBox("#dice-box-canvas", {
-            assetPath: "https://cdn.jsdelivr.net/npm/@drdreo/dice-box-threejs@1.1.0/dist/",
-            sounds: false,
-            shadows: false,
-            theme_surface: "green-felt",
-            sound_dieMaterial: "plastic",
-            theme_material: "plastic",
+          Box = new DiceBox({
+            container: '#dice-box-canvas',
+            assetPath: resolveAssetPath(),
+            theme: 'default',       // mesh poliédrico clássico e simétrico de RPG (d20 icosaedro regular, d6 cubo, etc.)
             themeColor: storedColor,
-            labelColor: storedText,
-            color_spotlight: 0xffffff,
-            light_intensity: 1.4,
-            baseScale: baseScale3d,
-            gravity_multiplier: 400
+            scale: baseScale3d,
+            offscreen: false,       // renderiza no canvas principal para permitir tintura em tempo real dos números
+
+            // Iluminação e sombra reais (config oficial, não hooks inventados)
+            lightIntensity: 1.0,        // máximo suportado — brilho especular bem visível
+            enableShadows: true,        // sombra projetada no tampo, ligada
+            shadowTransparency: 0.75,   // sombra bem definida, não "lavada"
+
+            // Física: leve ajuste pra queda mais "pesada" de resina física
+            gravity: 1,
+            mass: 1,
+            friction: 0.8,
+            restitution: 0.15,          // pequeno quique, como resina real batendo na mesa
+            angularDamping: 0.4,
+            linearDamping: 0.4,
+            settleTimeout: 5000,
+
+            suspendSimulation: false    // física real sempre ligada — nunca "fingir" a queda
           });
 
-          await Box.initialize();
+          await Box.init();
           isBoxReady = true;
-          calibrateSceneLighting(Box);
-          if (Box.DiceFactory) patchDiceFactory(Box.DiceFactory);
           applyCustomStyles(storedColor, storedText, storedPercent);
           return Box;
         } catch (err) {
-          console.error("Erro inicializando Foundry / Dice So Nice 3D:", err);
+          console.error("Erro inicializando dados 3D (Dice-Box):", err);
           boxInitPromise = null;
           isBoxReady = false;
           throw err;
@@ -423,7 +352,7 @@ import { isAndroidOrIOS } from './mobile.js';
     return boxInitPromise;
   }
 
-  const isMobileOS = isAndroidOrIOS();
+  const isMobileOS = isAndroidOrIOS() || (typeof window !== 'undefined' && (window.innerWidth <= 768 || document.body?.classList.contains('is-mobile') || document.documentElement?.classList.contains('is-mobile')));
   const isGM = checkIsGM();
 
   // ============================================================
@@ -436,18 +365,52 @@ import { isAndroidOrIOS } from './mobile.js';
     mobileWrap.innerHTML = `
       <div class="player-dice-mobile-header">
         <div id="mobileSideControls" class="player-dice-mobile-side collapsed">
+          ${isGM ? `
+            <button type="button" id="mobileGmSecretBtn" class="mobile-control-btn secret-btn ${isSecretRoll ? 'secret' : 'public'}" title="Alternar visibilidade para os jogadores">
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <span id="mobileSecretLabel">${isSecretRoll ? 'OCULTO' : 'PÚBLICO'}</span>
+            </button>
+          ` : ''}
+
+          <div class="mobile-mode-dropdown-wrap">
+            <button type="button" id="mobileModeBtn" class="mobile-control-btn mode-btn" title="Modo de Rolagem">
+              <span id="mobileModeLabel">NORMAL</span>
+              <svg class="mode-arrow" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <div id="mobileModeMenu" class="mobile-subdrop-menu hidden">
+              <button type="button" class="mobile-subdrop-item active" data-mode="normal">
+                <span class="mode-dot normal"></span>
+                <span>Normal</span>
+              </button>
+              <button type="button" class="mobile-subdrop-item" data-mode="adv">
+                <span class="mode-dot adv"></span>
+                <span>Vantagem (ADV)</span>
+              </button>
+              <button type="button" class="mobile-subdrop-item" data-mode="dis">
+                <span class="mode-dot dis"></span>
+                <span>Desvantagem (DIS)</span>
+              </button>
+            </div>
+          </div>
+
           <div class="mobile-stepper-pill" title="Quantidade de dados">
             <span class="pill-label">Qtd</span>
             <button type="button" id="mobileCountDec" class="pill-btn">−</button>
             <input type="number" id="mobileCountInput" min="1" max="20" value="1" title="Qtd">
             <button type="button" id="mobileCountInc" class="pill-btn">+</button>
           </div>
-          <button type="button" id="mobileSettingsBtn" class="mobile-control-btn" title="Configurações">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </button>
+
+          <div class="mobile-stepper-pill" title="Modificador numérico">
+            <span class="pill-label">Mod</span>
+            <button type="button" id="mobileModDec" class="pill-btn">−</button>
+            <input type="number" id="mobileModInput" min="-99" max="99" value="0" title="Mod">
+            <button type="button" id="mobileModInc" class="pill-btn">+</button>
+          </div>
         </div>
 
         <button type="button" id="mobileDiceBtn" class="player-dice-circle-btn" title="Rolar dados" aria-label="Rolar dados">
@@ -531,15 +494,6 @@ import { isAndroidOrIOS } from './mobile.js';
       mModeMenu?.classList.toggle('hidden');
     });
 
-    const mSettingsBtn = document.getElementById('mobileSettingsBtn');
-    mSettingsBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleMobileDrop(false);
-      // We assume openDesktopDice is available or we can just call it via pcDiceBtn
-      const pcBtn = document.getElementById('playerDiceBtn');
-      if (pcBtn) pcBtn.click();
-    });
-
     function setMobileMode(mode) {
       currentRollMode = mode;
       mModeItems.forEach(item => {
@@ -600,7 +554,7 @@ import { isAndroidOrIOS } from './mobile.js';
         e.stopPropagation();
         const faces = Number(/** @type {HTMLElement} */ (btn).dataset.faces);
         const count = Math.min(20, Math.max(1, parseInt(mCountInput.value, 10) || 1));
-        const mod = 0; // mod removed from mobile UI
+        const mod = parseInt(mModInput.value, 10) || 0;
 
         if (checkIsGM()) {
           gmRoll(faces, count, mod);
@@ -780,7 +734,11 @@ import { isAndroidOrIOS } from './mobile.js';
                   <span class="dice-color-swatch" data-color="#ffffff" style="background: #ffffff;" title="Branco"></span>
                   <span class="dice-color-swatch" data-color="#000000" style="background: #000000;" title="Preto"></span>
                   <span class="dice-color-swatch" data-color="#fbbf24" style="background: #fbbf24;" title="Dourado"></span>
-                  <span class="dice-color-swatch" data-color="#45ff78" style="background: #45ff78;" title="Neon"></span>
+                  <span class="dice-color-swatch" data-color="#45ff78" style="background: #45ff78;" title="Neon Verde"></span>
+                  <span class="dice-color-swatch" data-color="#00f0ff" style="background: #00f0ff;" title="Ciano"></span>
+                  <span class="dice-color-swatch" data-color="#f43f5e" style="background: #f43f5e;" title="Rubi"></span>
+                  <span class="dice-color-swatch" data-color="#a855f7" style="background: #a855f7;" title="Ametista"></span>
+                  <span class="dice-color-swatch" data-color="#ff7a00" style="background: #ff7a00;" title="Êmbar"></span>
                 </div>
               </div>
             </div>
@@ -788,7 +746,7 @@ import { isAndroidOrIOS } from './mobile.js';
             <div class="dice-settings-row">
               <div class="dice-scale-row">
                 <span class="dice-settings-label">Tamanho dos Dados 3D</span>
-                <input type="range" id="desktopScaleInput" class="dice-scale-slider" min="1" max="100" value="100" step="1">
+                <input type="range" id="desktopScaleInput" class="dice-scale-slider" min="30" max="200" value="100" step="5">
                 <span id="desktopScaleVal" class="dice-scale-val">100%</span>
               </div>
             </div>
@@ -980,7 +938,7 @@ import { isAndroidOrIOS } from './mobile.js';
   }
 
   // ============================================================
-  // CÁLCULO E ROLAGEM DETERMINÍSTICA ARMADA
+  // CÁLCULO FÍSICO REAL E DETERMINAÇÃO DA FACE SUPERIOR (MÉTODO 1)
   // ============================================================
   function getLocalCharacterName() {
     if (checkIsGM()) return 'Mestre';
@@ -1000,28 +958,38 @@ import { isAndroidOrIOS } from './mobile.js';
     return Math.floor(Math.random() * faces) + 1;
   }
 
-  function get3dTargetNotation(faces, count, rolls) {
-    if (faces === 100) {
-      const targets = rolls.map(r => {
-        if (r === 100) return 0;
-        return Math.floor(r / 10) * 10;
-      });
-      return `${count}d100@${targets.join(',')}`;
+  // Extrai os valores REAIS das faces que ficaram voltadas para cima
+  // após a simulação física do @3d-dice/dice-box. O formato retornado
+  // por Box.roll() é um array de "roll groups", cada um com um array
+  // `rolls` de Die Result Objects ({ value, sides, groupId, rollId... }).
+  // Ver: https://fantasticdice.games/docs/usage/objects
+  function extractSettledValues(rollResult, count, faces) {
+    let values = [];
+    try {
+      if (Array.isArray(rollResult)) {
+        rollResult.forEach(group => {
+          if (group && Array.isArray(group.rolls)) {
+            group.rolls.forEach(r => {
+              const v = typeof r.value === 'number' ? r.value : r.result;
+              if (typeof v === 'number' && !isNaN(v)) values.push(v);
+            });
+          } else if (typeof group?.value === 'number') {
+            values.push(group.value);
+          }
+        });
+      }
+    } catch (_) {}
+
+    // Fallback de segurança apenas se a física genuinamente não
+    // retornou nada legível (ex.: erro de carregamento de assets) —
+    // nunca usado quando a simulação real funcionou.
+    while (values.length < count) {
+      values.push(getRandomFace(faces));
     }
-    return `${count}d${faces}@${rolls.join(',')}`;
+    return values.slice(0, count);
   }
 
-  function executeRoll(faces, count = 1, mod = 0, mode = 'normal') {
-    let diceCount = count;
-    if (mode === 'adv' || mode === 'dis') {
-      diceCount = Math.max(2, count);
-    }
-
-    const rolls = [];
-    for (let i = 0; i < diceCount; i++) {
-      rolls.push(getRandomFace(faces));
-    }
-
+  function formatRollSummary(rolls, faces, count, mod = 0, mode = 'normal') {
     let finalDiceValue;
     if (mode === 'adv') {
       finalDiceValue = Math.max(...rolls);
@@ -1039,16 +1007,18 @@ import { isAndroidOrIOS } from './mobile.js';
     } else if (mode === 'dis') {
       expr = `[DIS: ${rolls.join(', ')}] → Menor: ${finalDiceValue}${modStr ? ' ' + modStr + ' = ' + sum : ''}`;
     } else if (mod !== 0) {
-      expr = diceCount === 1 ? `Dado: [${rolls[0]}] ${modStr} = ${sum}` : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`;
+      expr = count === 1 ? `Dado: [${rolls[0]}] ${modStr} = ${sum}` : `Dados: [${rolls.join(' + ')}] ${modStr} = ${sum}`;
     } else {
-      expr = diceCount === 1 ? `Dado: [${rolls[0]}]` : `Dados: [${rolls.join(' + ')}] = ${sum}`;
+      expr = count === 1 ? `Dado: [${rolls[0]}]` : `Dados: [${rolls.join(' + ')}] = ${sum}`;
     }
 
-    const notation = get3dTargetNotation(faces, diceCount, rolls);
+    // Notação simples (sem target/@ — essa lib não suporta forçar
+    // face de queda). Guardamos para exibição/depuração apenas.
+    const notation = `${count}d${faces}`;
 
     return {
       faces,
-      count: diceCount,
+      count,
       mod,
       mode,
       rolls,
@@ -1064,31 +1034,41 @@ import { isAndroidOrIOS } from './mobile.js';
     clearSettledDice();
     isRolling = true;
     const mode = currentRollMode || 'normal';
-    const rollData = executeRoll(faces, count, mod, mode);
+    const diceCount = (mode === 'adv' || mode === 'dis') ? Math.max(2, count) : count;
+    const naturalNotation = `${diceCount}d${faces}`;
     const senderName = getLocalCharacterName();
+    const diceColor = localStorage.getItem(STORAGE_KEY_DICE_COLOR) || getSystemAccent();
+    const labelColor = localStorage.getItem(STORAGE_KEY_TEXT_AUTO) !== 'false'
+      ? getContrastColor(diceColor)
+      : (localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff');
+
+    let physicalRolls = [];
+    try {
+      await initBox();
+      applyCustomStyles(diceColor, labelColor, null);
+      // Roda a simulação física 3D real no canvas
+      const rollResult = await Box.roll(naturalNotation);
+      // Extrai os valores exatos das faces que ficaram voltadas para cima
+      physicalRolls = extractSettledValues(rollResult, diceCount, faces);
+      hasSettledDice = true;
+    } catch (err) {
+      console.warn("Fallback rolagem 3D física:", err);
+      for (let i = 0; i < diceCount; i++) physicalRolls.push(getRandomFace(faces));
+    } finally {
+      isRolling = false;
+    }
+
+    const rollData = formatRollSummary(physicalRolls, faces, diceCount, mod, mode);
 
     const payload = {
       ...rollData,
       senderName,
-      diceColor: localStorage.getItem(STORAGE_KEY_DICE_COLOR) || getSystemAccent(),
-      labelColor: localStorage.getItem(STORAGE_KEY_TEXT_AUTO) !== 'false' ? getContrastColor(localStorage.getItem(STORAGE_KEY_DICE_COLOR) || getSystemAccent()) : (localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff')
+      diceColor,
+      labelColor
     };
 
-    // Compartilhamento removido
-    // if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
-    //   window.RPG.sendDiceRoll(payload);
-    // }
-
-    try {
-      await initBox();
-      applyCustomStyles(payload.diceColor, payload.labelColor, null);
-      await Box.roll(rollData.notation);
-      hasSettledDice = true;
-    } catch (err) {
-      console.warn("Fallback rolagem 3D:", err);
-    } finally {
-      isRolling = false;
-      // showDiceResultPopup removido
+    if (window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
+      window.RPG.sendDiceRoll(payload);
     }
   }
 
@@ -1098,57 +1078,52 @@ import { isAndroidOrIOS } from './mobile.js';
     clearSettledDice();
     isRolling = true;
     const mode = currentRollMode || 'normal';
-    const rollData = executeRoll(faces, count, mod, mode);
+    const diceCount = (mode === 'adv' || mode === 'dis') ? Math.max(2, count) : count;
+    const naturalNotation = `${diceCount}d${faces}`;
+    const diceColor = localStorage.getItem(STORAGE_KEY_DICE_COLOR) || getSystemAccent();
+    const labelColor = localStorage.getItem(STORAGE_KEY_TEXT_AUTO) !== 'false'
+      ? getContrastColor(diceColor)
+      : (localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff');
+
+    let physicalRolls = [];
+    try {
+      await initBox();
+      applyCustomStyles(diceColor, labelColor, null);
+      const rollResult = await Box.roll(naturalNotation);
+      physicalRolls = extractSettledValues(rollResult, diceCount, faces);
+      hasSettledDice = true;
+    } catch (err) {
+      console.warn("Fallback rolagem 3D mestre física:", err);
+      for (let i = 0; i < diceCount; i++) physicalRolls.push(getRandomFace(faces));
+    } finally {
+      isRolling = false;
+    }
+
+    const rollData = formatRollSummary(physicalRolls, faces, diceCount, mod, mode);
 
     const payload = {
       ...rollData,
       senderName: 'Mestre',
-      diceColor: localStorage.getItem(STORAGE_KEY_DICE_COLOR) || getSystemAccent(),
-      labelColor: localStorage.getItem(STORAGE_KEY_TEXT_AUTO) !== 'false' ? getContrastColor(localStorage.getItem(STORAGE_KEY_DICE_COLOR) || getSystemAccent()) : (localStorage.getItem(STORAGE_KEY_TEXT_COLOR) || '#ffffff')
+      diceColor,
+      labelColor
     };
 
-    // Compartilhamento removido
-    // if (!isSecretRoll && window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
-    //   window.RPG.sendDiceRoll(payload);
-    // }
-
-    try {
-      await initBox();
-      applyCustomStyles(payload.diceColor, payload.labelColor, null);
-      await Box.roll(rollData.notation);
-      hasSettledDice = true;
-    } catch (err) {
-      console.warn("Fallback rolagem 3D mestre:", err);
-    } finally {
-      isRolling = false;
-      // showDiceResultPopup removido
+    if (!isSecretRoll && window.RPG && typeof window.RPG.sendDiceRoll === 'function') {
+      window.RPG.sendDiceRoll(payload);
     }
   }
 
   // ---- Recepção de rolagem remota ----
   window.RPG = window.RPG || {};
   window.RPG.onRemoteDiceRoll = async (data) => {
-    if (!data) return;
-    clearSettledDice();
-    const notation = data.notation || get3dTargetNotation(data.faces || 20, data.count || (data.rolls ? data.rolls.length : 1), data.rolls || [1]);
-
-    try {
-      await initBox();
-      if (data.diceColor || data.labelColor) {
-        applyCustomStyles(data.diceColor, data.labelColor, null);
-      }
-      await Box.roll(notation);
-      hasSettledDice = true;
-    } catch (err) {
-      console.warn("Fallback rolagem remota 3D:", err);
-    } finally {
-      // showDiceResultPopup removido
-    }
+    // "remove a função de rodar um dado pra todos, tira esse popup da tela e coloca pra só quem rodou o dado ver o 3Dzinho"
+    // Nenhum HUD ou simulação 3D é mostrada na tela dos outros
+    return;
   };
 
   initBox();
 
-  // API pública
+  // API p├║blica
   // @ts-ignore
   window.RPG.rollDice = (faces, count = 1, mod = 0) => {
     if (checkIsGM()) {
