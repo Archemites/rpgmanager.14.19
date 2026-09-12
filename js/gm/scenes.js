@@ -83,6 +83,7 @@
   function switchScene(sceneId) {
     const target = scenes.find(s => s.id === sceneId);
     if (!target || sceneId === currentSceneId) return;
+    const isFirstLoad = (currentSceneId === null);
     commitSceneFields();
     currentSceneId = sceneId;
     state.map = target.map;
@@ -111,10 +112,12 @@
     if (state.combat.active) window.RPG.renderCombatBar();
     window.RPG.updateHud();
     window.RPG.draw();
-    // hold back the player window until the GM explicitly confirms — they may
-    // need to set up fog/tokens in the new scene before players see it
-    window.RPG.setSceneSyncPending(true);
-    document.getElementById('updatePlayerBtn').classList.add('pending');
+    if (!isFirstLoad) {
+      // hold back the player window until the GM explicitly confirms — they may
+      // need to set up fog/tokens in the new scene before players see it
+      window.RPG.setSceneSyncPending(true);
+      document.getElementById('updatePlayerBtn').classList.add('pending');
+    }
   }
 
   function createScene(name) {
