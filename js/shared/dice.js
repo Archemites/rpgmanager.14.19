@@ -162,20 +162,24 @@ import { isAndroidOrIOS } from './mobile.js';
         // 1. Cor base profunda da resina
         ctx.fillStyle = diceColor;
         ctx.fillRect(0, 0, w, h);
+        
+        // Escurece levemente a base para que o brilho se destaque (mesmo em cores claras como verde neon)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+        ctx.fillRect(0, 0, w, h);
 
         // 2. Gradiente óptico de refração e profundidade translúcida no centro da face
         const grad = ctx.createRadialGradient(w * 0.45, h * 0.42, w * 0.08, w * 0.5, h * 0.5, w * 0.65);
-        grad.addColorStop(0, 'rgba(255, 255, 255, 0.28)');
-        grad.addColorStop(0.35, 'rgba(255, 255, 255, 0.1)');
-        grad.addColorStop(0.7, 'rgba(0, 0, 0, 0.05)');
-        grad.addColorStop(1, 'rgba(0, 0, 0, 0.22)');
+        grad.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+        grad.addColorStop(0.35, 'rgba(255, 255, 255, 0.2)');
+        grad.addColorStop(0.7, 'rgba(0, 0, 0, 0.1)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, w, h);
 
         // 3. Micropartículas e glitter suspensos no interior da resina
         const str = String(text || '1');
         const seed = (str.charCodeAt(0) || 1) * 37 + (str.length * 13);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.38)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
         for (let i = 0; i < 7; i++) {
           const px = ((seed * (i + 1) * 19) % (w - 24)) + 12;
           const py = ((seed * (i + 2) * 29) % (h - 24)) + 12;
@@ -210,7 +214,7 @@ import { isAndroidOrIOS } from './mobile.js';
           }
           mat.color?.setHex(0xffffff);
           mat.flatShading = true;
-          mat.shininess = 135;
+          mat.shininess = 250;
           mat.specular?.setHex(0xffffff);
           mat.needsUpdate = true;
         }
@@ -222,7 +226,7 @@ import { isAndroidOrIOS } from './mobile.js';
     factory.material_options = {
       specular: 0xffffff,
       color: 0xffffff,
-      shininess: 135,
+      shininess: 250,
       flatShading: true
     };
   }
@@ -285,7 +289,7 @@ import { isAndroidOrIOS } from './mobile.js';
     const rootStyle = getComputedStyle(document.documentElement);
     let accent = rootStyle.getPropertyValue('--accent').trim();
     if (!accent || !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(accent)) {
-      accent = '#45ff78';
+      accent = '#6e0000'; // Dark red shows resin/glitter much better than bright green
     }
     return accent;
   }
@@ -333,7 +337,7 @@ import { isAndroidOrIOS } from './mobile.js';
           Box.DiceFactory.dice = {};
           Box.DiceFactory.geometries = {};
           if (Box.DiceFactory.material_options) {
-            Box.DiceFactory.material_options.shininess = 135;
+            Box.DiceFactory.material_options.shininess = 250;
             Box.DiceFactory.material_options.flatShading = true;
             Box.DiceFactory.material_options.specular = 0xffffff;
           }
@@ -388,7 +392,7 @@ import { isAndroidOrIOS } from './mobile.js';
           const baseScale3d = to3dScale(storedPercent);
 
           Box = new DiceBox("#dice-box-canvas", {
-            assetPath: "https://cdn.jsdelivr.net/npm/@drdreo/dice-box-threejs@1.1.0/dist",
+            assetPath: "https://cdn.jsdelivr.net/npm/@drdreo/dice-box-threejs@1.1.0/dist/",
             sounds: false,
             shadows: false,
             theme_surface: "green-felt",
