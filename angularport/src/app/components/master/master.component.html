@@ -1,0 +1,627 @@
+<div id="app">
+  <!-- Left Sidebar Wrap -->
+  <div id="sidebarWrap" [class.collapsed]="sidebarCollapsed()">
+    <div id="sidebar">
+      <div style="padding-bottom: 6px; border-bottom: 1px solid var(--panel-border);">
+        <h1>MESA://RPG v0.1</h1>
+        <div class="hint">&gt; Painel de Tokens, Party e Objetos</div>
+      </div>
+
+      <input type="file" id="mapFileInput" #mapFileInput (change)="onMapFileSelected($event)" accept="image/*" class="hidden">
+
+      <!-- Tokens section -->
+      <div class="section" id="tokenListSection">
+        <h2>Tokens (<span>{{ gmState.state.tokens.length }}</span>)</h2>
+        <button class="full mb-10" (click)="openNewTokenModal()">+ Adicionar token</button>
+        <div class="row mb-10">
+          <label for="tokenSortSelect">Ordenar por</label>
+          <select id="tokenSortSelect" class="token-sort-select" [(ngModel)]="tokenSort">
+            <option value="added">Data de adição</option>
+            <option value="name">Nome</option>
+          </select>
+        </div>
+
+        <div id="tokenList">
+          @for (token of gmState.state.tokens; track token.id) {
+            <div class="token-card" [class.selected]="token.id === gmState.state.selectedTokenId" (click)="gmState.state.selectedTokenId = token.id; requestDraw()">
+              <div class="token-avatar" [style.background-color]="token.color">
+                @if (token.photoDataUrl) {
+                  <img [src]="token.photoDataUrl" alt="Avatar" class="token-avatar-img">
+                } @else {
+                  <span>{{ (token.name || 'TK').slice(0, 2).toUpperCase() }}</span>
+                }
+              </div>
+              <div class="token-info">
+                <div class="token-name">{{ token.name || 'Sem nome' }}</div>
+                @if (token.isPlayer) {
+                  <span class="token-badge player">Party</span>
+                }
+              </div>
+              <div class="token-actions">
+                <button class="secondary icon-btn" title="Editar token" (click)="$event.stopPropagation(); openEditToken(token)">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </button>
+                <button class="secondary icon-btn" title="Excluir token" (click)="$event.stopPropagation(); confirmDeleteToken(token)">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Party section -->
+      <div class="section" id="partySection">
+        <h2>Party (<span>{{ partyTokens().length }}</span>)</h2>
+        <div id="partyList">
+          @for (p of partyTokens(); track p.id) {
+            <div class="party-card">
+                <div class="row row-gap6-center">
+                  <b>{{ p.name }}</b>
+                </div>
+                @for (bar of gmState.state.partyBars; track bar.id) {
+                  <div class="party-bar-row">
+                    <span>{{ bar.name }}:</span>
+                    <input type="number" class="num-input" [value]="p.barValues?.[bar.id]?.current ?? bar.defaultMax"
+                           (change)="p.barValues![bar.id] = { current: +$any($event.target).value, max: p.barValues?.[bar.id]?.max ?? bar.defaultMax }; gmState.triggerAutosave(); gmSync.sendState(); requestDraw()">
+                    <span>/ {{ p.barValues?.[bar.id]?.max ?? bar.defaultMax }}</span>
+                  </div>
+                }
+              </div>
+          }
+        </div>
+      </div>
+
+      <!-- Objects section -->
+      <div class="section" id="objectListSection">
+        <h2>Objetos (<span>{{ gmState.state.objects.length }}</span>)</h2>
+        <button class="full mb-10" (click)="openNewObjectModal()">+ Adicionar objeto</button>
+        <div id="objectList">
+          @for (obj of gmState.state.objects; track obj.id) {
+            <div class="object-card" [class.selected]="obj.id === gmState.state.selectedObjectId" (click)="gmState.state.selectedObjectId = obj.id; requestDraw()">
+              <img [src]="obj.dataUrl" alt="Objeto" class="object-thumb">
+              <span>{{ obj.name || 'Objeto' }}</span>
+              <button class="secondary icon-btn" (click)="$event.stopPropagation(); gmState.removeObject(obj.id); gmSync.sendState(); requestDraw()">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar resizer and toggle -->
+    <div id="sidebarResizer">
+      <button id="sidebarToggle" (click)="sidebarCollapsed.set(!sidebarCollapsed())" title="Recolher/expandir barra lateral" style="display:inline-flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Top Left Tools -->
+    <div id="topLeftTools">
+      <div class="top-tools-col">
+        <button id="openInviteBtn" class="top-circle-btn" (click)="openInvite()" title="Convidar jogador" aria-label="Convidar jogador">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+        </button>
+        <button id="updatePlayerBtn" class="top-circle-btn" [class.pending]="gmState.sceneSyncPending()" (click)="updatePlayerScreens()" title="Atualizar telas dos jogadores" aria-label="Atualizar telas">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+        </button>
+        <button id="openGlossaryBtn" class="top-circle-btn" (click)="showGlossaryModal.set(true)" title="Glossário de efeitos" aria-label="Glossário">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="top-tools-col">
+        <button id="openDiceBtn" class="top-circle-btn" (click)="diceService.toggleModal()" title="Rolar dados" aria-label="Rolar dados">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="currentColor" fill-opacity="0.15" />
+            <polygon points="12,7.5 18,17 6,17" fill="currentColor" fill-opacity="0.25" />
+            <line x1="12" y1="2" x2="12" y2="7.5" /><line x1="21" y1="7.5" x2="18" y2="17" />
+            <line x1="21" y1="16.5" x2="18" y2="17" /><line x1="12" y1="22" x2="18" y2="17" />
+            <line x1="12" y1="22" x2="6" y2="17" /><line x1="3" y1="16.5" x2="6" y2="17" />
+            <line x1="3" y1="7.5" x2="6" y2="17" /><line x1="12" y1="7.5" x2="21" y2="7.5" />
+            <line x1="12" y1="7.5" x2="3" y2="7.5" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Help button bottom left -->
+    <button id="helpBtn" class="top-circle-btn" (click)="showHelpModal.set(true)" title="Ajuda" aria-label="Ajuda">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Viewport Area -->
+  <div id="viewport" #viewportRef>
+    <!-- Top info bar -->
+    <div id="topBar">
+      <div class="top-bar-content">
+        <span>Zoom: <b>{{ (cam.zoom * 100).toFixed(0) }}%</b></span>
+        <span>Grid: <b>{{ gmState.state.grid.size }}px</b></span>
+        <span>Mapa: <b>{{ gmState.state.map.dataUrl ? 'Carregado' : 'Nenhum' }}</b></span>
+      </div>
+      <div class="top-bar-handle"></div>
+    </div>
+
+    <!-- Canvas -->
+    <canvas id="canvas" #mapCanvas
+            (mousedown)="onCanvasMouseDown($event)"
+            (mousemove)="onCanvasMouseMove($event)"
+            (mouseup)="onCanvasMouseUp($event)"
+            (contextmenu)="onCanvasContextMenu($event)"
+            (wheel)="onCanvasWheel($event)"></canvas>
+
+    <!-- Combat start button -->
+    @if (!gmState.state.combat.active) {
+      <button id="startCombatBtn" (click)="gmState.startCombat(); gmSync.sendState(); requestDraw()" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" />
+          <line x1="13" y1="19" x2="19" y2="13" /><line x1="16" y1="16" x2="20" y2="20" />
+          <line x1="19" y1="21" x2="21" y2="19" /><polyline points="9.5 17.5 21 6 21 3 18 3 6.5 14.5" />
+          <line x1="11" y1="19" x2="5" y2="13" /><line x1="8" y1="16" x2="4" y2="20" /><line x1="5" y1="21" x2="3" y2="19" />
+        </svg>
+        <span>Iniciar combate</span>
+      </button>
+    }
+
+    <!-- Combat Bar -->
+    <div id="combatBar" [class.open]="gmState.state.combat.active">
+      <button class="secondary" id="stopCombatBtn" (click)="gmState.stopCombat(); gmSync.sendState(); requestDraw()">Encerrar</button>
+      <div id="combatBar-track">
+        <div id="combatBar-tokens">
+          @for (tid of gmState.state.combat.order; track tid) {
+            @let tok = getTokenById(tid);
+            @if (tok) {
+              <div class="combat-token-chip" [class.current-turn]="$index === 0" (click)="gmState.state.selectedTokenId = tok.id; requestDraw()">
+                <div class="combat-token-avatar" [style.background-color]="tok.color">
+                  <span>{{ (tok.name || 'TK').slice(0, 2).toUpperCase() }}</span>
+                </div>
+                <span>{{ tok.name }}</span>
+              </div>
+            }
+          }
+        </div>
+      </div>
+      <div id="combatControls">
+        <button id="nextTurnBtn" (click)="gmState.nextTurn(); gmSync.sendState(); requestDraw()" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          <span>Próximo</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Scene Sidebar Wrap -->
+  <div id="sceneSidebarWrap" [class.collapsed]="sceneSidebarCollapsed()">
+    <!-- Right tools stack -->
+    <div id="rightToolsWrap">
+      <button id="topImportBtn" class="top-circle-btn" (click)="mapFileInput.click()" title="Importar mapa" aria-label="Importar mapa">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      </button>
+      <button id="topSlidersBtn" class="top-circle-btn" (click)="showSettingsModal.set(true)" title="Ajustes de mapa e grid" aria-label="Ajustes">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+      </button>
+      <button id="rightToolsToggleBtn" class="top-circle-btn" (click)="rightToolsCollapsed.set(!rightToolsCollapsed())" title="Recolher/expandir ferramentas" aria-label="Ferramentas">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      </button>
+
+      <div id="rightToolsBar" [class.collapsed]="rightToolsCollapsed()">
+        <button id="topFogBtn" [class.active]="currentTool() === 'fog'" (click)="setTool('fog')" title="Desenhar névoa" style="display:inline-flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+          <span>Névoa</span>
+        </button>
+        <button id="topClearFogBtn" class="secondary" (click)="gmState.clearFog(); gmSync.sendState(); requestDraw()" title="Limpar toda a névoa" style="display:inline-flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span>Limpar</span>
+        </button>
+        <button id="topMeasureBtn" [class.active]="currentTool() === 'measure'" (click)="setTool('measure')" title="Medir distâncias" style="display:inline-flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22L22 2M16 4l4 4M13 7l2 2M10 10l2 2M7 13l2 2M4 16l2 2"/></svg>
+          <span>Medir</span>
+        </button>
+        <button id="topFxBtn" [class.active]="currentTool() === 'fx'" (click)="setTool('fx')" title="Efeitos visuais" style="display:inline-flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          <span>Efeitos</span>
+        </button>
+        <button id="topTokenShrinkBtn" class="secondary" (click)="shrinkSelectedToken()" title="Diminuir token">
+          <span>Token −</span>
+        </button>
+        <button id="topTokenGrowBtn" class="secondary" (click)="growSelectedToken()" title="Aumentar token">
+          <span>Token +</span>
+        </button>
+        <button id="topObjectShrinkBtn" class="secondary" (click)="shrinkSelectedObject()" title="Diminuir objeto">
+          <span>Obj −</span>
+        </button>
+        <button id="topObjectGrowBtn" class="secondary" (click)="growSelectedObject()" title="Aumentar objeto">
+          <span>Obj +</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Zoom controls bottom right -->
+    <div id="zoomControls">
+      <button id="zoomOut" (click)="zoomOut()" title="Diminuir zoom">−</button>
+      <button id="zoomReset" (click)="zoomReset()" title="Resetar visão" style="display:inline-flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+      </button>
+      <button id="zoomIn" (click)="zoomIn()" title="Aumentar zoom">+</button>
+    </div>
+
+    <!-- Scene Sidebar Toggle -->
+    <div id="sceneSidebarResizer">
+      <button id="sceneSidebarToggle" (click)="sceneSidebarCollapsed.set(!sceneSidebarCollapsed())" title="Recolher/expandir cenas" style="display:inline-flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+
+    <!-- Scene Sidebar -->
+    <div id="sceneSidebar">
+      <h2>Cenas</h2>
+      <button class="full mb-10" id="addSceneBtn" (click)="createNewScene()">+ Nova cena</button>
+      <div id="sceneList">
+        @for (scene of gmState.scenes(); track scene.id) {
+          <div class="scene-card" [class.active]="scene.id === gmState.currentSceneId()" (click)="gmState.switchScene(scene.id); requestDraw()">
+            <div class="scene-card-header">
+              <span class="scene-card-name">{{ scene.name }}</span>
+              @if (gmState.scenes().length > 1) {
+                <button class="secondary icon-btn" title="Excluir cena" (click)="$event.stopPropagation(); confirmDeleteScene(scene)">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODALS ================= -->
+
+<!-- Token Modal -->
+@if (showTokenModal()) {
+  <div class="modal-overlay open" (click)="showTokenModal.set(false)">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <h3>{{ tokenForm.id ? 'Editar token' : 'Novo token' }}</h3>
+      <div class="field">
+        <label for="tokenName">Nome do personagem</label>
+        <input type="text" id="tokenName" [(ngModel)]="tokenForm.name" placeholder="Ex: Aragorn">
+      </div>
+      <div class="field">
+        <label>Foto</label>
+        <div id="photoPreviewWrap">
+          @if (tokenForm.photoDataUrl) {
+            <img [src]="tokenForm.photoDataUrl" id="photoPreview" alt="Foto">
+            <button class="secondary mt-8" (click)="tokenForm.photoDataUrl = null">Remover foto</button>
+          } @else {
+            <label class="modal-file-label" for="tokenPhotoInput">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <span>Escolher foto</span>
+            </label>
+          }
+          <input type="file" id="tokenPhotoInput" (change)="onTokenPhotoSelected($event)" accept="image/*" class="hidden">
+        </div>
+      </div>
+      <div class="field">
+        <label>Cor</label>
+        <div class="row">
+          <input type="color" [(ngModel)]="tokenForm.color">
+          <div class="token-swatch-row flex-1-mt0">
+            @for (sw of colorSwatches; track sw) {
+              <div class="token-swatch" [style.background-color]="sw" (click)="tokenForm.color = sw"></div>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="checkbox-row">
+          <input type="checkbox" [(ngModel)]="tokenForm.isPlayer">
+          <span>Token de jogador (Party)</span>
+        </label>
+      </div>
+      <div id="modalActions">
+        <button class="secondary" (click)="showTokenModal.set(false)">Cancelar</button>
+        <button (click)="saveToken()">Salvar</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Object Modal -->
+@if (showObjectModal()) {
+  <div class="modal-overlay open" (click)="showObjectModal.set(false)">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <h3>Novo objeto</h3>
+      <div class="field">
+        <label for="objectName">Nome (opcional)</label>
+        <input type="text" id="objectName" [(ngModel)]="objectForm.name" placeholder="Ex: Baú, Carro">
+      </div>
+      <div class="field">
+        <label>Imagem</label>
+        <div id="objectImagePreviewWrap">
+          @if (objectForm.dataUrl) {
+            <img [src]="objectForm.dataUrl" class="object-preview" alt="Prévia">
+          }
+          <label class="modal-file-label" for="objectFileInput">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <span>Escolher imagem</span>
+          </label>
+          <input type="file" id="objectFileInput" (change)="onObjectPhotoSelected($event)" accept="image/*" class="hidden">
+        </div>
+      </div>
+      <div id="modalActions">
+        <button class="secondary" (click)="showObjectModal.set(false)">Cancelar</button>
+        <button (click)="saveObject()" [disabled]="!objectForm.dataUrl">Adicionar</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Invite Modal -->
+@if (showInviteModal()) {
+  <div class="modal-overlay open" (click)="showInviteModal.set(false)">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <h3>Convidar jogador</h3>
+      <div id="inviteOfferQr" class="qr-center"></div>
+      <div id="inviteRoomCode">{{ gmSync.roomCode() || 'GERANDO...' }}</div>
+      <div class="hint hint-m0">&gt; O jogador escaneia o QR ou digita código + PIN.</div>
+      <div id="invitePinRow" class="row row-gap6-center mt-10">
+        <span class="hint hint-m0">PIN: <b>{{ gmSync.pin() }}</b></span>
+        <button type="button" class="secondary" (click)="gmSync.rotatePin()" style="display:inline-flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          <span>Trocar PIN</span>
+        </button>
+      </div>
+      <div style="margin-top: 14px; text-align: left; width: 100%;">
+        <label style="font-size: 11px; display: block; margin-bottom: 4px;">Jogadores conectados ({{ gmSync.connectedPlayers().length }})</label>
+        <div id="peerList">
+          @for (p of gmSync.connectedPlayers(); track p.id) {
+            <div class="peer-item">{{ p.name }}</div>
+          } @empty {
+            <div class="hint">Nenhum jogador conectado ainda.</div>
+          }
+        </div>
+      </div>
+      <div id="modalActions">
+        <button class="secondary" (click)="showInviteModal.set(false)">Fechar</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Settings Modal -->
+@if (showSettingsModal()) {
+  <div class="modal-overlay open" (click)="showSettingsModal.set(false)">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <h3>Ajustes</h3>
+      <div class="top-panel-group">
+        <div class="top-panel-title">Tema de Mesa</div>
+        <div class="theme-picker">
+          @for (th of selectedThemes; track th) {
+            <button class="theme-swatch" [class.active]="themeService.currentTheme() === th" (click)="themeService.applyTheme(th); gmSync.sendTheme(th); requestDraw()">
+              <span>{{ th }}</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="top-panel-group">
+        <div class="top-panel-title">Mapa</div>
+        <div class="top-slider-row">
+          <label>Tamanho: {{ gmState.state.map.scalePct }}%</label>
+          <input type="range" min="10" max="400" [(ngModel)]="gmState.state.map.scalePct" (input)="requestDraw(); gmSync.sendState()">
+        </div>
+        <div class="top-slider-row">
+          <label>Cor de fundo</label>
+          <input type="color" [(ngModel)]="gmState.state.map.bgColor" (change)="requestDraw(); gmSync.sendState()">
+        </div>
+        @if (gmState.state.map.dataUrl) {
+          <button class="secondary full mt-6" (click)="removeMap()">Remover mapa</button>
+        }
+      </div>
+
+      <div class="top-panel-group">
+        <div class="top-panel-title">Grid</div>
+        <div class="top-slider-row">
+          <label>Tamanho: {{ gmState.state.grid.size }}px</label>
+          <input type="range" min="16" max="128" [(ngModel)]="gmState.state.grid.size" (input)="requestDraw(); gmSync.sendState()">
+        </div>
+        <div class="top-slider-row">
+          <label>Opacidade: {{ gmState.state.grid.opacity }}%</label>
+          <input type="range" min="5" max="100" [(ngModel)]="gmState.state.grid.opacity" (input)="requestDraw(); gmSync.sendState()">
+        </div>
+        <div class="top-slider-row">
+          <label><input type="checkbox" [(ngModel)]="gmState.state.grid.show" (change)="requestDraw(); gmSync.sendState()"> Mostrar</label>
+          <label>Cor: <input type="color" [(ngModel)]="gmState.state.grid.color" (change)="requestDraw(); gmSync.sendState()"></label>
+        </div>
+      </div>
+
+      <div class="top-panel-group">
+        <div class="top-panel-title">Tokens</div>
+        <div class="top-slider-row">
+          <label><input type="checkbox" [(ngModel)]="gmState.state.snapToGrid" (change)="gmState.triggerAutosave()"> Encaixar na grade</label>
+        </div>
+      </div>
+
+      <div class="top-panel-group">
+        <div class="top-panel-title">Sessão</div>
+        <button class="secondary full" (click)="exportSession()">Exportar sessão (backup)</button>
+        <button class="secondary full mt-6" (click)="importSessionInput.click()">Importar sessão</button>
+        <input type="file" #importSessionInput (change)="onImportSessionSelected($event)" accept="application/json,.json" class="hidden">
+        <button class="secondary full mt-6" (click)="showConfirmClearModal.set(true)">Limpar sessão</button>
+      </div>
+
+      <div id="modalActions">
+        <button class="secondary" (click)="showEventLogModal.set(true)">Log de Eventos</button>
+        <button class="secondary" (click)="showSettingsModal.set(false)">Fechar</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Event Log Modal -->
+@if (showEventLogModal()) {
+  <div class="modal-overlay open" (click)="showEventLogModal.set(false)">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <h3>Log de Eventos</h3>
+      <div id="eventLogList" style="max-height: 250px; overflow-y: auto; text-align: left;">
+        @for (log of gmState.eventLogs(); track $index) {
+          <div class="log-entry">{{ log }}</div>
+        }
+      </div>
+      <div id="modalActions">
+        <button class="secondary" (click)="showEventLogModal.set(false)">Fechar</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Glossary Modal -->
+@if (showGlossaryModal()) {
+  <div class="modal-overlay open" (click)="showGlossaryModal.set(false)">
+    <div class="modal-dialog modal-wide" (click)="$event.stopPropagation()">
+      <h3>Glossário de efeitos</h3>
+      <div id="glossaryColumns">
+        <div id="glossaryList">
+          @for (eff of gmState.state.glossary; track eff.id) {
+            <div class="glossary-item">
+              <span class="glossary-color-dot" [style.background-color]="eff.color"></span>
+              <b>{{ eff.name }}</b>
+              <p>{{ eff.desc }}</p>
+            </div>
+          }
+        </div>
+        <div id="glossaryForm">
+          <h4>Novo efeito</h4>
+          <div class="field">
+            <label for="glossaryName">Nome</label>
+            <input type="text" id="glossaryName" [(ngModel)]="effectForm.name" placeholder="Ex: Envenenado">
+          </div>
+          <div class="field">
+            <label for="glossaryDesc">Descrição</label>
+            <textarea id="glossaryDesc" [(ngModel)]="effectForm.desc" rows="2" placeholder="Ex: Perde vida por turno."></textarea>
+          </div>
+          <div class="two-col">
+            <div class="field">
+              <label>Cor</label>
+              <input type="color" [(ngModel)]="effectForm.color">
+            </div>
+            <div class="field">
+              <label for="glossaryDuration">Duração (turnos)</label>
+              <input type="number" id="glossaryDuration" [(ngModel)]="effectForm.duration" min="0">
+            </div>
+          </div>
+          <button (click)="addGlossaryEffect()">Adicionar efeito</button>
+        </div>
+      </div>
+      <div id="modalActions">
+        <button class="secondary" (click)="showGlossaryModal.set(false)">Fechar</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Dice Roller Modal -->
+@if (diceService.isModalOpen()) {
+  <div class="modal-overlay open" (click)="diceService.toggleModal(false)">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <h3>Rolar Dados</h3>
+      <div class="dice-grid">
+        @for (f of [4, 6, 8, 10, 12, 20, 100]; track f) {
+          <button class="dice-btn" (click)="diceService.roll(1, f, 0, 'normal', 'Mestre', true, diceService.isSecretRoll())">
+            d{{ f }}
+          </button>
+        }
+      </div>
+      @if (diceService.lastRoll(); as last) {
+        <div class="dice-result-card mt-10">
+          <div>Rolou: <b>{{ last.count }}d{{ last.faces }}</b></div>
+          <div class="dice-total">Total: {{ last.total }}</div>
+          <div class="hint">Dados: [{{ last.rolls.join(', ') }}]</div>
+        </div>
+      }
+      <div class="field mt-10">
+        <label class="checkbox-row">
+          <input type="checkbox" [checked]="diceService.isSecretRoll()" (change)="diceService.setSecretRoll($any($event.target).checked)">
+          <span>Rolar em segredo (oculto dos jogadores)</span>
+        </label>
+      </div>
+      <div id="modalActions">
+        <button class="secondary" (click)="diceService.toggleModal(false)">Fechar</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Confirm Clear Session Modal -->
+@if (showConfirmClearModal()) {
+  <div class="modal-overlay open" (click)="showConfirmClearModal.set(false)">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <h3>Limpar sessão</h3>
+      <p>Apagar TUDO? Todas as cenas, tokens, party, mapas, objetos e anotações.</p>
+      <div id="modalActions">
+        <button class="secondary" (click)="showConfirmClearModal.set(false)">Cancelar</button>
+        <button (click)="gmState.clearSession(); showConfirmClearModal.set(false); requestDraw()">Limpar tudo</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Confirm Delete Token Modal -->
+@if (showConfirmDeleteTokenModal()) {
+  <div class="modal-overlay open" (click)="showConfirmDeleteTokenModal.set(false)">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <h3>Excluir token</h3>
+      <p>Tem certeza que deseja excluir <b>{{ targetTokenForDelete?.name || 'este token' }}</b>?</p>
+      <div id="modalActions">
+        <button class="secondary" (click)="showConfirmDeleteTokenModal.set(false)">Cancelar</button>
+        <button (click)="executeDeleteToken()">Excluir</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Confirm Delete Scene Modal -->
+@if (showConfirmDeleteSceneModal()) {
+  <div class="modal-overlay open" (click)="showConfirmDeleteSceneModal.set(false)">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <h3>Excluir cena</h3>
+      <p>Excluir <b>{{ targetSceneForDelete?.name || 'esta cena' }}</b>?</p>
+      <div id="modalActions">
+        <button class="secondary" (click)="showConfirmDeleteSceneModal.set(false)">Cancelar</button>
+        <button (click)="executeDeleteScene()">Excluir</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Help Modal -->
+@if (showHelpModal()) {
+  <div class="modal-overlay open" (click)="showHelpModal.set(false)">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <h3>Ajuda da Mesa de RPG</h3>
+      <div class="help-section">
+        <p><b>Scroll:</b> Zoom in/out ancorado no cursor.</p>
+        <p><b>Botão do meio / Alt+Drag:</b> Mover visão (pan).</p>
+        <p><b>Botão esquerdo:</b> Selecionar e arrastar tokens.</p>
+        <p><b>Névoa:</b> Arraste para criar retângulos de névoa. Botão direito sobre um retângulo para apagá-lo.</p>
+        <p><b>Ctrl+Z / Ctrl+Y:</b> Desfazer / Refazer.</p>
+        <p><b>Delete / Backspace:</b> Excluir token ou objeto selecionado.</p>
+      </div>
+      <div id="modalActions">
+        <button class="secondary" (click)="showHelpModal.set(false)">Fechar</button>
+      </div>
+    </div>
+  </div>
+}

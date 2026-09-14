@@ -1,0 +1,195 @@
+:host {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.token-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-weight: bold;
+  font-size: 13px;
+  color: #fff;
+  border: 1px solid var(--panel-border);
+}
+
+.token-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.token-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--panel-border);
+  margin-bottom: 6px;
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.token-card.selected {
+  border-color: var(--accent);
+  box-shadow: var(--glow);
+}
+
+.token-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.token-name {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.token-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.icon-btn {
+  padding: 4px 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.object-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--panel-border);
+  margin-bottom: 6px;
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.object-card.selected {
+  border-color: var(--accent);
+}
+
+.object-thumb {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border: 1px solid var(--panel-border);
+}
+
+.party-card {
+  border: 1px solid var(--panel-border);
+  padding: 8px;
+  margin-bottom: 8px;
+  background: var(--panel);
+}
+
+.party-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.num-input {
+  width: 50px;
+  padding: 2px 4px;
+  text-align: center;
+}
+
+.dice-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.dice-btn {
+  padding: 10px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.dice-result-card {
+  padding: 10px;
+  border: 1px solid var(--panel-border);
+  background: var(--input-bg);
+}
+
+.dice-total {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--accent);
+  margin: 4px 0;
+}
+
+.combat-token-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.combat-token-chip.current-turn {
+  border-color: #ff9f45;
+  box-shadow: 0 0 6px rgba(255, 159, 69, 0.5);
+}
+
+.combat-token-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #fff;
+}
+
+.scene-card {
+  padding: 8px;
+  border: 1px solid var(--panel-border);
+  margin-bottom: 6px;
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.scene-card.active {
+  border-color: var(--accent);
+  box-shadow: var(--glow);
+}
+
+.scene-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theme-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.theme-swatch {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.theme-swatch.active {
+  border-color: var(--accent);
+  box-shadow: var(--glow);
+}
