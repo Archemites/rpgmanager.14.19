@@ -1,0 +1,90 @@
+@if (!playerSync.isConnected()) {
+  <!-- Entry overlay -->
+  <div id="entryOverlay" class="modal-overlay open">
+    <div class="modal-dialog">
+      <h3>Entrar na mesa</h3>
+      <div class="hint hint-m0">&gt; Peça ao mestre o código da mesa.</div>
+      <div class="field">
+        <label for="entryNameInput">Nome do seu personagem</label>
+        <input type="text" id="entryNameInput" [(ngModel)]="playerName" placeholder="Ex: Aragorn" maxlength="40">
+      </div>
+      <div class="field">
+        <label for="entryCodeInput">Código da mesa</label>
+        <input type="text" id="entryCodeInput" class="room-code-input" [(ngModel)]="roomCode" placeholder="ABC12"
+               maxlength="8" autocapitalize="characters" autocomplete="off" spellcheck="false">
+        @if (isScanningQr()) {
+          <div id="entryModeScan">
+            <video #videoScanRef playsinline muted autoplay></video>
+          </div>
+        }
+        @if (scanHint()) {
+          <div class="hint hint-m0" id="entryScanHint">{{ scanHint() }}</div>
+        }
+      </div>
+      <div class="field">
+        <label for="entryPinInput">PIN da mesa</label>
+        <input type="text" id="entryPinInput" class="room-pin-input" [(ngModel)]="pin" placeholder="0000"
+               maxlength="4" inputmode="numeric" autocomplete="off" spellcheck="false">
+      </div>
+      <div id="entryActions">
+        @if (!isScanningQr()) {
+          <button type="button" class="secondary" (click)="startQrScan()" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+            <span>Escanear QR</span>
+          </button>
+        } @else {
+          <button type="button" class="secondary" (click)="stopQrScan()">Cancelar Scan</button>
+        }
+        <button type="button" id="entryJoinBtn" (click)="joinTable()" [disabled]="!roomCode || !pin">Entrar</button>
+      </div>
+      @if (playerSync.statusMessage()) {
+        <div id="entryStatus" class="hint hint-m0">{{ playerSync.statusMessage() }}</div>
+      }
+      @if (playerSync.errorMessage()) {
+        <div class="hint" style="color: var(--danger)">{{ playerSync.errorMessage() }}</div>
+      }
+    </div>
+  </div>
+}
+
+<!-- Game viewport -->
+<div id="viewport" #viewportRef [class.hidden]="!playerSync.isConnected()">
+  <canvas id="canvas" #playerCanvas
+          (mousedown)="onMouseDown($event)"
+          (mousemove)="onMouseMove($event)"
+          (mouseup)="onMouseUp()"
+          (wheel)="onWheel($event)"></canvas>
+
+  <div id="status">{{ playerSync.statusMessage() }}</div>
+
+  <!-- Combat Bar (read only for player) -->
+  @if (playerState.combat().active) {
+    <div id="combatBar" class="open">
+      <div id="combatBar-track">
+        <div id="combatBar-tokens">
+          @for (tid of playerState.combat().order; track tid) {
+            @let tok = getTokenById(tid);
+            @if (tok) {
+              <div class="combat-token-chip" [class.current-turn]="$index === 0">
+                <div class="combat-token-avatar" [style.background-color]="tok.color">
+                  <span>{{ (tok.name || 'TK').slice(0, 2).toUpperCase() }}</span>
+                </div>
+                <span>{{ tok.name }}</span>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Fullscreen button -->
+  <button id="fsBtn" (click)="toggleFullscreen()" title="Tela cheia" style="position:fixed;bottom:16px;right:16px;z-index:90;display:inline-flex;align-items:center;justify-content:center;">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+    </svg>
+  </button>
+</div>

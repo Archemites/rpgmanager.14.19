@@ -157,6 +157,12 @@
   function renderCombatBar() {
     combatBarTokens.innerHTML = '';
 
+    const count = state.combat.order.length;
+    const neededWidth = count > 0 ? (count * (TOKEN_SIZE + TOKEN_SPACING) + TOKEN_PADDING_LEFT + 6) : 60;
+    if (combatBarTrack) {
+      combatBarTrack.style.width = neededWidth + 'px';
+    }
+
     state.combat.order.forEach((id, idx) => {
       const t = state.tokens.find(t => t.id === id);
       if (!t) return;
@@ -164,7 +170,7 @@
       const item = document.createElement('div');
       item.className = 'combat-token' + (idx === 0 ? ' current' : '');
       item.dataset.id = id;
-      const left = idx * (TOKEN_SIZE + TOKEN_SPACING) + 12;
+      const left = idx * (TOKEN_SIZE + TOKEN_SPACING) + TOKEN_PADDING_LEFT;
       item.style.left = left + 'px';
       item.style.marginLeft = '0';
 

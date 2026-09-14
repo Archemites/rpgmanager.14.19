@@ -1,0 +1,760 @@
+/* ============================================================
+   Player & GM dice roller — Foundry VTT / Dice So Nice! Style
+   - Menu Vertical de Dados (d4..d100 + Configuração ⚙️)
+   - Controles Horizontais saindo para a direita (Qtd, Mod, Modo, Oculto)
+   - Painel Popout de Customização de Dados 3D (Cores, Textura, Escala)
+   - Pop-up HUD flutuante pós-rolagem com valor final e detalhamento
+   - Totalmente compatível com Mestre, Jogador, Desktop e Mobile
+   - Sincronização WebRTC em tempo real
+   ============================================================ */
+
+/* ── Botão flutuante do Jogador (quando não for Mestre) ────────── */
+#playerDiceBtn {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--float-bg, rgba(0, 0, 0, 0.55));
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: var(--border-width, 1px) var(--border-style, solid) var(--panel-border, #1e5c32);
+  color: var(--accent, #45ff78);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5), var(--border-glow, none);
+  z-index: 10004;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+
+#playerDiceBtn svg {
+  color: var(--accent, #45ff78);
+  filter: drop-shadow(0 0 4px rgba(var(--accent-rgb, 69, 255, 120), 0.5));
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#playerDiceBtn:hover {
+  transform: scale(1.08);
+  border-color: var(--accent, #45ff78);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), var(--glow-strong, 0 0 14px rgba(69, 255, 120, 0.4));
+}
+
+#playerDiceBtn.active {
+  border-color: var(--accent, #45ff78);
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.2);
+  box-shadow: 0 0 16px rgba(var(--accent-rgb, 69, 255, 120), 0.6);
+}
+
+#playerDiceBtn.hidden {
+  display: none !important;
+}
+
+/* ── Container Unificado do Menu de Dados ────────────────────────── */
+#unifiedDiceWrap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin-left: 0;
+  z-index: 9700;
+  pointer-events: none;
+  font-family: var(--font-body, inherit);
+  transition: opacity 0.25s ease, backdrop-filter 0.25s ease;
+}
+
+/* Se for inserido direto no body (ex: Player View) */
+body > #unifiedDiceWrap {
+  position: fixed;
+  left: 12px;
+  top: 12px;
+  margin-left: 0;
+}
+
+#unifiedDiceWrap.open {
+  pointer-events: auto;
+}
+
+/* Efeito translúcido quando dado 3D rolar por trás/perto */
+#unifiedDiceWrap.dice-under-panel {
+  opacity: 0.2 !important;
+}
+
+#unifiedDiceWrap.dice-under-panel:hover {
+  opacity: 0.96 !important;
+}
+
+/* ── Controles Horizontais (Saindo para a direita do botão de dados) ─ */
+.dice-side-controls {
+  position: absolute;
+  left: 88px;
+  top: 0px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: var(--panel, #041008);
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: 30px;
+  padding: 3px 10px;
+  height: 36px;
+  box-sizing: border-box;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6), var(--border-glow, none);
+  white-space: nowrap;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+  z-index: 9702;
+}
+
+body > #unifiedDiceWrap .dice-side-controls {
+  top: 0px;
+  left: 44px;
+}
+
+.dice-side-controls.collapsed {
+  opacity: 0;
+  transform: translateX(-16px) scale(0.92);
+  pointer-events: none;
+}
+
+/* Stepper Pills (Qtd e Mod) */
+.dice-stepper-pill {
+  display: flex;
+  align-items: center;
+  background: var(--input-panel, rgba(0, 0, 0, 0.45));
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: 20px;
+  padding: 2px 6px;
+  height: 28px;
+  box-sizing: border-box;
+}
+
+.dice-stepper-pill .pill-label {
+  font-family: var(--font-head, inherit);
+  font-size: 10px;
+  color: var(--text-dim, #2a9c4e);
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-right: 4px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.dice-stepper-pill .pill-btn {
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.12);
+  border: 1px solid transparent;
+  color: var(--text, #ffffff);
+  font-size: 14px;
+  font-weight: 700;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.dice-stepper-pill .pill-btn:hover {
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.28);
+  border-color: var(--accent, #45ff78);
+  color: var(--accent, #45ff78);
+}
+
+.dice-stepper-pill input {
+  background: transparent;
+  border: none;
+  color: var(--text, #ffffff);
+  font-family: var(--font-body, monospace);
+  font-size: 13px;
+  font-weight: 700;
+  width: 28px;
+  text-align: center;
+  outline: none;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.dice-stepper-pill input::-webkit-inner-spin-button,
+.dice-stepper-pill input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+/* Control Pills (Modo e Secret) */
+.dice-control-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--input-panel, rgba(0, 0, 0, 0.45));
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: 20px;
+  padding: 3px 10px;
+  height: 28px;
+  font-family: var(--font-head, inherit);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text, #ffffff);
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dice-control-pill:hover {
+  border-color: var(--accent, #45ff78);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb, 69, 255, 120), 0.35);
+}
+
+.dice-control-pill.secret-btn.secret {
+  background: rgba(var(--danger-rgb, 244, 63, 94), 0.18);
+  border-color: var(--danger, #f43f5e);
+  color: var(--danger, #f43f5e);
+}
+
+.dice-control-pill.secret-btn.public {
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.12);
+  border-color: var(--accent, #45ff78);
+  color: var(--accent, #45ff78);
+}
+
+/* Modo Dropdown */
+.dice-mode-dropdown-wrap {
+  position: relative;
+}
+
+.dice-subdrop-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: var(--panel, #041008);
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: 12px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), var(--border-glow, none);
+  z-index: 9705;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.dice-subdrop-menu.hidden {
+  display: none !important;
+}
+
+.dice-subdrop-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--text, #ffffff);
+  font-family: var(--font-body, inherit);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dice-subdrop-item:hover {
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.15);
+  color: var(--accent, #45ff78);
+}
+
+.dice-subdrop-item.active {
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.22);
+  color: var(--accent, #45ff78);
+  font-weight: 700;
+}
+
+.mode-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.mode-dot.normal { background: var(--accent, #45ff78); }
+.mode-dot.adv { background: #38bdf8; }
+.mode-dot.dis { background: #f43f5e; }
+
+/* ── Coluna Vertical de Dados (Diretamente abaixo do botão de dados) ── */
+.dice-vertical-column {
+  position: absolute;
+  left: 44px;
+  top: 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+  z-index: 9701;
+}
+
+body > #unifiedDiceWrap .dice-vertical-column {
+  left: 0px;
+  top: 44px;
+}
+
+.dice-vertical-column.collapsed {
+  opacity: 0;
+  transform: translateY(-16px) scale(0.92);
+  pointer-events: none;
+}
+
+.dice-col-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--panel, #041008);
+  border: 1px solid var(--panel-border, #1e5c32);
+  color: var(--text, #45ff78);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), var(--border-glow);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.18s ease,
+              box-shadow 0.18s ease,
+              background 0.18s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.dice-col-btn:hover {
+  transform: translateY(-2px) scale(1.08);
+  border-color: var(--accent, #45ff78);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 14px rgba(var(--accent-rgb, 69, 255, 120), 0.5);
+}
+
+.dice-col-svg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.dice-col-svg svg {
+  color: var(--accent, #45ff78);
+  filter: drop-shadow(0 0 3px rgba(var(--accent-rgb, 69, 255, 120), 0.4));
+}
+
+.dice-col-label {
+  font-family: var(--font-head, inherit);
+  font-size: 7.5px;
+  font-weight: 700;
+  color: var(--text-dim, #2a9c4e);
+  margin-top: -2px;
+}
+
+.dice-col-btn.settings-btn {
+  border-color: rgba(var(--accent-rgb, 69, 255, 120), 0.35);
+}
+
+.dice-col-btn.settings-btn svg {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dice-col-btn.settings-btn:hover svg,
+.dice-col-btn.settings-btn.active svg {
+  transform: rotate(60deg);
+}
+
+.dice-col-btn.settings-btn.active {
+  border-color: var(--accent, #45ff78);
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.2);
+  box-shadow: 0 0 16px rgba(var(--accent-rgb, 69, 255, 120), 0.6);
+}
+
+/* ── Popout de Configurações 3D ──────────────────────────────────── */
+.dice-settings-popout {
+  position: absolute;
+  left: 88px;
+  top: 44px;
+  width: min(340px, calc(100vw - 110px));
+  background: var(--panel, #041008);
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: max(var(--radius, 0px), 16px);
+  padding: 14px 18px;
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75), var(--border-glow, none);
+  z-index: 9710;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: diceSettingsPopEnter 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+body > #unifiedDiceWrap .dice-settings-popout {
+  left: 44px;
+  top: 44px;
+}
+
+.dice-settings-popout.hidden {
+  display: none !important;
+}
+
+@keyframes diceSettingsPopEnter {
+  0% { opacity: 0; transform: scale(0.92) translateX(-10px); }
+  100% { opacity: 1; transform: scale(1) translateX(0); }
+}
+
+.dice-settings-popout-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--panel-border, #1e5c32);
+  padding-bottom: 8px;
+}
+
+.dice-settings-popout-title {
+  font-family: var(--font-head, inherit);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent, #45ff78);
+}
+
+.dice-settings-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim, #2a9c4e);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.dice-settings-close-btn:hover {
+  color: var(--danger, #f43f5e);
+  background: rgba(var(--danger-rgb, 244, 63, 94), 0.15);
+}
+
+.dice-settings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dice-settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dice-settings-label {
+  font-family: var(--font-head, inherit);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-dim, #2a9c4e);
+  letter-spacing: 0.06em;
+}
+
+.dice-theme-select {
+  width: 100%;
+  background: var(--input-panel, rgba(0, 0, 0, 0.45));
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--text, #ffffff);
+  font-family: var(--font-body, inherit);
+  font-size: 12px;
+  outline: none;
+}
+
+.dice-color-picker-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.circular-picker-container {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--panel-border, #1e5c32);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.circular-picker-preview {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.circular-picker-input {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 48px;
+  height: 48px;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dice-hex-input {
+  width: 70px;
+  background: var(--input-panel, rgba(0, 0, 0, 0.45));
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--text, #ffffff);
+  font-family: var(--font-body, monospace);
+  font-size: 11px;
+  text-align: center;
+  outline: none;
+}
+
+.dice-auto-btn {
+  background: var(--input-panel, rgba(0, 0, 0, 0.45));
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: var(--text, #ffffff);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dice-auto-btn.active {
+  background: rgba(var(--accent-rgb, 69, 255, 120), 0.2);
+  border-color: var(--accent, #45ff78);
+  color: var(--accent, #45ff78);
+}
+
+.dice-color-grid {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.dice-color-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.dice-color-swatch:hover {
+  transform: scale(1.2);
+}
+
+.dice-color-swatch.active {
+  border-color: #ffffff;
+  box-shadow: 0 0 6px #ffffff;
+}
+
+.dice-scale-wrap {
+  width: 100%;
+}
+
+.dice-scale-slider {
+  width: 100%;
+  accent-color: var(--accent, #45ff78);
+}
+
+.dice-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.dice-reset-btn {
+  background: transparent;
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: 6px;
+  padding: 5px 12px;
+  color: var(--text-dim, #2a9c4e);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dice-reset-btn:hover {
+  border-color: var(--accent, #45ff78);
+  color: var(--accent, #45ff78);
+}
+
+/* ============================================================
+   POP-UP HUD DE RESULTADO DA ROLAGEM
+   ============================================================ */
+#dice-results-hud-container,
+#diceResultHudContainer,
+.dice-hud-container {
+  position: fixed;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10002;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 90vw;
+}
+
+.dice-result-popup {
+  pointer-events: auto;
+  cursor: pointer;
+  min-width: 280px;
+  max-width: 420px;
+  background: var(--panel, #041008);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border: var(--border-width, 1px) var(--border-style, solid) var(--panel-border, #1e5c32);
+  border-radius: max(var(--radius, 0px), 18px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75), var(--border-glow, none);
+  padding: 14px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  -webkit-user-select: none;
+  user-select: none;
+  animation: dicePopupEnter 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: transform 0.2s ease, opacity 0.25s ease;
+}
+
+.dice-result-popup.dismissing {
+  animation: dicePopupExit 0.25s ease forwards;
+}
+
+@keyframes dicePopupEnter {
+  0% { opacity: 0; transform: translateY(-24px) scale(0.85); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes dicePopupExit {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-16px) scale(0.9); }
+}
+
+.dice-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--panel-border, #1e5c32);
+}
+
+.dice-popup-sender {
+  font-family: var(--font-head, inherit);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: var(--head-letter-spacing, 0.1em);
+  text-transform: var(--head-transform, uppercase);
+  color: var(--accent, #45ff78);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dice-popup-formula-badge {
+  font-family: var(--font-body, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--input-panel, rgba(0, 0, 0, 0.5));
+  border: 1px solid var(--panel-border, #1e5c32);
+  border-radius: max(var(--radius, 0px), 6px);
+  padding: 2px 6px;
+  color: var(--text, #ffffff);
+}
+
+.dice-popup-main-val {
+  font-family: var(--font-head, inherit);
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--accent, #45ff78);
+  text-shadow: var(--glow-strong, 0 0 16px rgba(69, 255, 120, 0.6));
+  margin: 4px 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: diceNumberPop 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes diceNumberPop {
+  0% { transform: scale(0.7); }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.dice-popup-crit-tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.dice-popup-crit-tag.crit-success {
+  background: rgba(69, 255, 120, 0.2);
+  color: #45ff78;
+  border: 1px solid #45ff78;
+  box-shadow: 0 0 10px rgba(69, 255, 120, 0.4);
+}
+
+.dice-popup-crit-tag.crit-fail {
+  background: rgba(244, 63, 94, 0.2);
+  color: #f43f5e;
+  border: 1px solid #f43f5e;
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.4);
+}
+
+.dice-popup-details {
+  font-family: var(--font-body, monospace);
+  font-size: 12px;
+  color: var(--text-dim, #2a9c4e);
+  margin-top: 2px;
+  word-break: break-word;
+}
+
+/* ── Canvas 3D de Tela Cheia (@3d-dice/dice-box) ──────────── */
+#dice-box-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10000;
+  pointer-events: none;
+  background: transparent !important;
+}
+
+#dice-box-canvas canvas {
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  background: transparent !important;
+}

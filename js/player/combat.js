@@ -15,6 +15,8 @@
 
   /** @type {HTMLElement} */
   const combatBar = (/** @type {any} */ (document.getElementById('combatBar')));
+  /** @type {HTMLElement|null} */
+  const combatBarTrack = document.getElementById('combatBar-track');
   /** @type {HTMLElement} */
   const combatBarTokens = (/** @type {any} */ (document.getElementById('combatBar-tokens')));
 
@@ -26,6 +28,12 @@
   function renderCombatBar() {
     combatBar.classList.toggle('open', !!state.combat.active);
     if (!state.combat.active) return;
+
+    const count = state.combat.order.length;
+    const neededWidth = count > 0 ? (count * SLOT_WIDTH + TOKEN_PADDING_LEFT + 6) : 60;
+    if (combatBarTrack) {
+      combatBarTrack.style.width = neededWidth + 'px';
+    }
 
     // --- FLIP Step 1: First — snapshot current left positions ---
     const firstPositions = {};

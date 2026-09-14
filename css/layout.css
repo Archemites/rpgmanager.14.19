@@ -39,11 +39,9 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--panel-border) transparent;
   pointer-events: auto;
-  backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 
 #sidebar::-webkit-scrollbar { width: 6px; }
@@ -233,11 +231,9 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--panel-border) transparent;
   pointer-events: auto;
-  backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 
 #sceneSidebar::-webkit-scrollbar { width: 6px; }
@@ -270,7 +266,7 @@
 }
 
 .scene-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--panel-border));
+  border-color: var(--accent);
   transform: translateY(-1px);
 }
 
@@ -365,8 +361,8 @@
 }
 
 .scene-folder-header:hover {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--panel-border));
-  background: color-mix(in srgb, var(--accent) 4%, var(--input-panel));
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.05);
 }
 
 .scene-folder-collapse-icon {
@@ -472,8 +468,8 @@
   pointer-events: auto;
   text-transform: var(--text-transform);
   letter-spacing: 0.08em;
-  backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   cursor: pointer;
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
               border-color 0.2s,
@@ -510,14 +506,16 @@
 
 #topBar b { color: var(--text); text-shadow: var(--glow-strong); }
 
-/* ── Zoom Controls ─────────────────────────────────────────── */
+/* ── Zoom Controls (Anchored to Right Sidebar) ──────────────── */
 #zoomControls {
   position: absolute;
   bottom: 12px;
-  right: 12px;
+  right: 100%;
+  margin-right: 12px;
   display: flex;
   gap: 6px;
   z-index: 10;
+  pointer-events: auto;
 }
 
 #zoomControls button {
@@ -529,8 +527,8 @@
   color: var(--text);
   font-size: 18px;
   border-radius: var(--radius);
-  backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -540,13 +538,28 @@
   box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.35);
 }
 
-/* ── Top-left floating circular buttons ────────────────────── */
+/* ── Top-left floating circular buttons (Anchored to Left Sidebar) ── */
 #topLeftTools {
   position: absolute;
   top: 12px;
+<<<<<<< HEAD
   left: calc(var(--sidebar-width, 300px) + 20px);
   z-index: 20;
   display: flex;
+=======
+  left: 100%;
+  margin-left: 12px;
+  z-index: 20;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: flex-start;
+  pointer-events: auto;
+}
+
+.top-tools-col {
+  display: flex;
+>>>>>>> branch-cores
   flex-direction: column;
   gap: 8px;
   align-items: center;
@@ -569,8 +582,8 @@
   border: 1px solid var(--panel-border);
   color: var(--text);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), var(--border-glow);
-  backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
   flex-shrink: 0;
@@ -597,16 +610,18 @@
   background: rgba(var(--accent-rgb), 0.25);
 }
 
-/* ── Right Tools Stack (Import -> Settings -> Tools -> Tools Bar) ── */
+/* ── Right Tools Stack (Anchored to Right Sidebar) ────────────── */
 #rightToolsWrap {
   position: absolute;
   top: 12px;
-  right: 12px;
+  right: 100%;
+  margin-right: 12px;
   z-index: 20;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
+  pointer-events: auto;
 }
 
 #rightToolsWrap .top-circle-btn {
@@ -639,8 +654,8 @@
   border-radius: var(--radius);
   padding: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), var(--border-glow);
-  backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   max-height: 540px;
   opacity: 1;
   transform: translateY(0) scale(1);
@@ -669,7 +684,7 @@
   white-space: nowrap;
   letter-spacing: 0.06em;
   background: rgba(var(--accent-rgb), 0.05);
-  border: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+  border: 1px solid var(--panel-border);
   border-radius: var(--radius);
   display: inline-flex;
   align-items: center;
@@ -746,73 +761,84 @@
 /* ── Combat Bar ────────────────────────────────────────────── */
 #combatBar {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   display: none;
   align-items: center;
-  padding: 0 12px;
+  gap: 10px;
+  padding: 0 20px 0 16px;
   background: var(--float-bg);
-  border-top: 1px solid rgba(var(--accent-rgb), 0.2);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
-  z-index: 11;
-  height: 80px;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--panel-border);
+  border-radius: 40px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), var(--border-glow);
+  z-index: 25;
+  height: 72px;
+  width: max-content;
+  max-width: min(calc(100vw - 40px), 1200px);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 #combatBar.open { display: flex; }
 
 #combatBar-track {
-  flex: 1;
   position: relative;
   height: 1px;
   background: linear-gradient(to right,
     rgba(var(--accent-rgb), 0.08),
-    rgba(var(--accent-rgb), 0.18),
+    rgba(var(--accent-rgb), 0.25),
     rgba(var(--accent-rgb), 0.08));
-  margin: 0 8px;
+  margin: 0 4px;
+  min-width: 60px;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 #combatBar-tokens {
   position: absolute;
   left: 0;
-  right: 0;
   top: 50%;
   transform: translateY(-50%);
   height: 60px;
+  width: 100%;
 }
 
 /* ── Combat Controls ───────────────────────────────────────── */
 #combatControls {
   position: absolute;
-  bottom: 80px;
-  left: 12px;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
   display: none;
   gap: 8px;
-  z-index: 11;
+  z-index: 25;
 }
 
 #combatControls.open { display: flex; }
 
 #startCombatBtn {
   position: absolute;
-  bottom: 12px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
-  padding: 10px 26px;
-  font-size: 14px;
+  padding: 10px 24px;
+  font-size: 13px;
+  border-radius: 24px;
   background: rgba(var(--danger-rgb), 0.12);
   border-color: var(--danger);
   color: var(--danger);
   box-shadow: 0 0 12px rgba(var(--danger-rgb), 0.3), inset 0 0 12px rgba(var(--danger-rgb), 0.06);
-  transition: background 0.2s, box-shadow 0.2s;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
 }
 
 #startCombatBtn:hover {
   background: rgba(var(--danger-rgb), 0.28);
   box-shadow: 0 0 22px rgba(var(--danger-rgb), 0.6), inset 0 0 16px rgba(var(--danger-rgb), 0.14);
+  transform: translateX(-50%) translateY(-1px);
 }
 
 #startCombatBtn.active {
@@ -824,31 +850,48 @@
 #stopCombatBtn {
   flex-shrink: 0;
   font-size: 11px;
-  padding: 6px 10px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--panel-border);
+  background: rgba(var(--accent-rgb), 0.08);
+  transition: all 0.2s ease;
+}
+
+#stopCombatBtn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: rgba(var(--danger-rgb), 0.16);
 }
 
 #nextTurnBtn {
   font-size: 12px;
-  padding: 8px 16px;
-  background: rgba(var(--danger-rgb), 0.12);
-  border-color: var(--danger);
+  font-weight: 500;
+  padding: 7px 18px;
+  border-radius: 20px;
+  background: var(--float-bg);
+  border: 1px solid var(--danger);
   color: var(--danger);
-  box-shadow: 0 0 10px rgba(var(--danger-rgb), 0.3), inset 0 0 10px rgba(var(--danger-rgb), 0.06);
-  transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 14px rgba(var(--danger-rgb), 0.35);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
 }
 
 #nextTurnBtn:hover {
-  background: rgba(var(--danger-rgb), 0.28);
-  box-shadow: 0 0 20px rgba(var(--danger-rgb), 0.6), inset 0 0 14px rgba(var(--danger-rgb), 0.14);
-  transform: translateY(-1px);
+  background: rgba(var(--danger-rgb), 0.25);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 20px rgba(var(--danger-rgb), 0.6);
+  transform: translateY(-2px) scale(1.03);
 }
 
-/* ── Help Button (Bottom Left) ─────────────────────────────── */
+/* ── Help Button (Anchored to Left Sidebar) ─────────────────── */
 #helpBtn {
   position: absolute;
   bottom: 12px;
-  left: 12px;
+  left: 100%;
+  margin-left: 12px;
   z-index: 20;
+  pointer-events: auto;
 }
 
 /* ── Effect Tooltip ────────────────────────────────────────── */
@@ -865,8 +908,8 @@
   box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.4);
   max-width: 280px;
   word-wrap: break-word;
-  backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }
 
 #effectTooltip.show { display: block; }
@@ -961,8 +1004,8 @@
   pointer-events: none;
   transition: opacity 0.5s;
   z-index: 10;
-  backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }
 
 #status.hidden { opacity: 0; }
